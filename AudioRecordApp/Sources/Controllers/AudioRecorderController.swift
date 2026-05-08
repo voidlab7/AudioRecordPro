@@ -1,6 +1,6 @@
 import Foundation
 
-// （移除内嵌 MicrophoneRecorder，统一使用独立文件 src/Recorder/MicrophoneRecorder.swift）
+// （移除内嵌 MicrophoneRecorder，统一使用独立文件 MicrophoneRecorder.swift）
 
 // MARK: - Factory Controller
 
@@ -87,9 +87,9 @@ class AudioRecorderController: NSObject {
             return
         }
         
-        // 如果启用混音模式（新UI：包含麦克风声音选项）
+        // 如果启用麦克风叠加，将麦克风混入当前录制目标
         if mixAudio && (wantSystem || wantProcess) {
-            logger.info("启动混音录制模式 (系统音频 + 麦克风)")
+            logger.info("启动麦克风叠加录制模式")
             startMixedRecording(wantSystem: wantSystem, wantProcess: wantProcess, targetPID: targetPID)
             return
         }
@@ -249,7 +249,7 @@ class AudioRecorderController: NSObject {
             logger.info("启动混音录制器")
             mixedRecorder.startRecording()
             
-            onStatus?("正在混音录制 (系统音频 + 麦克风)")
+            onStatus?("正在录制当前目标 + 麦克风")
         } else {
             logger.warning("混音录制需要 macOS 14.4+")
             onStatus?("混音录制需要 macOS 14.4+")

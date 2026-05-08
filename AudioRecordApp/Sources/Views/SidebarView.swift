@@ -6,6 +6,7 @@ protocol SidebarViewDelegate: AnyObject {
     func sidebarViewDidChangeSourceSelection(_ view: SidebarView)
     func sidebarViewDidSelectProcesses(_ view: SidebarView, pids: [pid_t])
     func sidebarViewDidRequestProcessRefresh(_ view: SidebarView)
+    func sidebarViewDidSelectFile(_ view: SidebarView, file: RecordedFileInfo)
     func sidebarViewDidDoubleClickFile(_ view: SidebarView, file: RecordedFileInfo)
     func sidebarViewDidRequestExportToMP3(_ view: SidebarView, file: RecordedFileInfo)
     func sidebarViewDidChangeMixAudio(_ view: SidebarView, enabled: Bool)
@@ -13,7 +14,7 @@ protocol SidebarViewDelegate: AnyObject {
 
 // MARK: - SidebarView
 /// 侧边栏视图 - 负责音频源选择和进程列表管理，集成Tab切换功能
-class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContainerViewDelegate, RecordedFilesViewDelegate {
+class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     
     // MARK: - UI Components
     private let tabContainer = TabContainerView()
@@ -21,16 +22,18 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     private let recordedFilesTabView = NSView()
     
     // 音频录制Tab的组件
-    private let systemHeader = NSTextField()
-    private let micHeader = NSTextField()
+    private let targetHeader = NSTextField()
+    private let targetHintLabel = NSTextField()
     private let appsHeader = NSTextField()
-    private let systemCheckbox = NSButton(checkboxWithTitle: "系统音频输出", target: nil, action: nil)
-    private let microphoneCheckbox = NSButton(checkboxWithTitle: "麦克风", target: nil, action: nil)
-    private let mixAudioCheckbox = NSButton(checkboxWithTitle: "  ↳ 包含麦克风声音", target: nil, action: nil)
-    private let refreshButton = NSButton(title: "🔄 刷新", target: nil, action: nil)
+    private let systemTargetRow = IndustrialAudioTargetRowView(
+        title: "全部系统声音",
+        subtitle: "CAPTURE FULL MAC OUTPUT",
+        systemSymbolName: "speaker.wave.3.fill"
+    )
+    private let refreshButton = IndustrialButtonView(title: "刷新", icon: "arrow.clockwise")
     private let appsScroll = NSScrollView()
-    private let appsTable = NSTableView()
-    private let appsColumn = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("app"))
+    private let appsStack = NSStackView()
+    private let microphonePanel = IndustrialMicrophonePanelView()
     
     // 已录制文件Tab的组件
     private let recordedFilesView = RecordedFilesView()
@@ -40,7 +43,8 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     private var availableProcesses: [AudioProcessInfo] = []
     private var selectedPIDs: [pid_t] = []
     private let logger = Logger.shared
-    private var iconCache: [String: NSImage] = [:]
+    /// 线程安全的图标缓存（后台预加载 + 主线程读取）
+    private let iconCache = NSCache<NSString, NSImage>()
     
     // MARK: - Initialization
     override init(frame frameRect: NSRect) {
@@ -54,14 +58,57 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     }
     
     private func setupView() {
-        // 背景色
+        // Industrial Design 背景：深灰
         wantsLayer = true
-        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        layer?.backgroundColor = IndustrialColors.surfaceContainer.cgColor
         
         setupTabContainer()
         setupAudioRecorderTab()
         setupRecordedFilesTab()
         setupConstraints()
+    }
+    
+    // 在视图布局完成后绘制网格纹理和边框
+    override func layout() {
+        super.layout()
+        
+        // 移除旧的网格和边框层
+        layer?.sublayers?.filter { $0.name == "grid" || $0.name == "border" }.forEach { $0.removeFromSuperlayer() }
+        
+        // 绘制网格纹理
+        let gridLayer = CAShapeLayer()
+        gridLayer.name = "grid"
+        let path = CGMutablePath()
+        let spacing = IndustrialSpacing.gridTextureInterval
+        
+        // 垂直线
+        var x: CGFloat = 0
+        while x <= bounds.width {
+            path.move(to: CGPoint(x: x, y: 0))
+            path.addLine(to: CGPoint(x: x, y: bounds.height))
+            x += spacing
+        }
+        
+        // 水平线
+        var y: CGFloat = 0
+        while y <= bounds.height {
+            path.move(to: CGPoint(x: 0, y: y))
+            path.addLine(to: CGPoint(x: bounds.width, y: y))
+            y += spacing
+        }
+        
+        gridLayer.path = path
+        gridLayer.strokeColor = IndustrialColors.gridLight.cgColor
+        gridLayer.lineWidth = 1
+        gridLayer.fillColor = nil
+        layer?.insertSublayer(gridLayer, at: 0)
+        
+        // 右侧边框
+        let borderLayer = CALayer()
+        borderLayer.name = "border"
+        borderLayer.backgroundColor = IndustrialColors.outlineVariant.cgColor
+        borderLayer.frame = CGRect(x: bounds.width - 1, y: 0, width: 1, height: bounds.height)
+        layer?.addSublayer(borderLayer)
     }
     
     private func setupTabContainer() {
@@ -75,19 +122,18 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
         audioRecorderTabView.translatesAutoresizingMaskIntoConstraints = false
         
         setupHeaders()
-        setupCheckboxes()
+        setupTargetControls()
         setupRefreshButton()
         setupAppsTable()
         
         // 添加所有组件到audioRecorderTabView
-        audioRecorderTabView.addSubview(systemHeader)
-        audioRecorderTabView.addSubview(micHeader)
+        audioRecorderTabView.addSubview(targetHeader)
+        audioRecorderTabView.addSubview(targetHintLabel)
+        audioRecorderTabView.addSubview(systemTargetRow)
         audioRecorderTabView.addSubview(appsHeader)
-        audioRecorderTabView.addSubview(systemCheckbox)
-        audioRecorderTabView.addSubview(microphoneCheckbox)
-        audioRecorderTabView.addSubview(mixAudioCheckbox)
         audioRecorderTabView.addSubview(refreshButton)
         audioRecorderTabView.addSubview(appsScroll)
+        audioRecorderTabView.addSubview(microphonePanel)
         
         // 创建Tab
         let audioRecorderTab = TabItem(
@@ -126,63 +172,67 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     
     private func setupHeaders() {
         func styleHeader(_ textField: NSTextField, _ title: String) {
-            textField.stringValue = title
+            textField.stringValue = title.uppercased() // Industrial Design: 大写标题
             textField.isBordered = false
             textField.isEditable = false
             textField.backgroundColor = .clear
-            textField.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-            textField.textColor = NSColor.secondaryLabelColor
+            textField.font = IndustrialTypography.h2 // 14px Bold
+            textField.textColor = IndustrialColors.onSurface // 亮灰
             textField.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(textField)
         }
         
-        styleHeader(systemHeader, "系统音频输出")
-        styleHeader(micHeader, "麦克风")
-        styleHeader(appsHeader, "已打开的应用")
+        styleHeader(targetHeader, "录制目标")
+        styleHeader(appsHeader, "选择应用声音")
+        
+        targetHintLabel.stringValue = "先选要录的声音；麦克风作为附加输入"
+        targetHintLabel.isBordered = false
+        targetHintLabel.isEditable = false
+        targetHintLabel.backgroundColor = .clear
+        targetHintLabel.font = IndustrialTypography.small
+        targetHintLabel.textColor = IndustrialColors.textTertiary
+        targetHintLabel.translatesAutoresizingMaskIntoConstraints = false
     }
     
-    private func setupCheckboxes() {
-        systemCheckbox.target = self
-        systemCheckbox.action = #selector(sourceCheckboxChanged)
-        systemCheckbox.translatesAutoresizingMaskIntoConstraints = false
+    private func setupTargetControls() {
+        systemTargetRow.translatesAutoresizingMaskIntoConstraints = false
+        systemTargetRow.isSelectedTarget = true
+        systemTargetRow.onClick = { [weak self] in
+            self?.selectSystemAudioTarget()
+        }
         
-        microphoneCheckbox.target = self
-        microphoneCheckbox.action = #selector(sourceCheckboxChanged)
-        microphoneCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        
-        // 混音开关（系统音频的子选项）
-        mixAudioCheckbox.target = self
-        mixAudioCheckbox.action = #selector(mixAudioCheckboxChanged)
-        mixAudioCheckbox.translatesAutoresizingMaskIntoConstraints = false
-        mixAudioCheckbox.isEnabled = false  // 默认禁用，只有勾选系统音频时才启用
-        mixAudioCheckbox.toolTip = "将麦克风声音混入系统音频录制"
+        microphonePanel.translatesAutoresizingMaskIntoConstraints = false
+        microphonePanel.onChange = { [weak self] enabled in
+            self?.microphoneInputChanged(enabled: enabled)
+        }
     }
     
     private func setupRefreshButton() {
-        refreshButton.target = self
-        refreshButton.action = #selector(refreshButtonClicked)
-        refreshButton.bezelStyle = .rounded
-        refreshButton.font = NSFont.systemFont(ofSize: 12)
+        refreshButton.onClick = { [weak self] in
+            self?.refreshButtonClicked()
+        }
         refreshButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(refreshButton)
+        // P1-2 fix: 挂载到 audioRecorderTabView 而非 self，确保约束参照一致
     }
     
     private func setupAppsTable() {
-        appsColumn.title = "Apps"
-        appsTable.addTableColumn(appsColumn)
-        appsTable.headerView = nil
-        appsTable.rowSizeStyle = .default
-        appsTable.usesAlternatingRowBackgroundColors = true
-        appsTable.dataSource = self
-        appsTable.delegate = self
-        appsTable.rowHeight = 36
-        appsTable.allowsMultipleSelection = false  // 单选模式
-        appsTable.translatesAutoresizingMaskIntoConstraints = false
+        // Industrial: 完全自绘进程列表，不再使用 NSTableView
+        appsStack.orientation = .vertical
+        appsStack.spacing = IndustrialSpacing.sm
+        appsStack.alignment = .leading
+        appsStack.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        appsStack.translatesAutoresizingMaskIntoConstraints = false
         
-        appsScroll.documentView = appsTable
+        appsScroll.documentView = appsStack
+        appsScroll.drawsBackground = false
         appsScroll.hasVerticalScroller = true
+        appsScroll.hasHorizontalScroller = false
+        appsScroll.autohidesScrollers = true
         appsScroll.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(appsScroll)
+        // P1-2 附带修复: 不在此处 addSubview，由 setupAudioRecorderTab 统一挂载到 audioRecorderTabView
+        
+        NSLayoutConstraint.activate([
+            appsStack.widthAnchor.constraint(equalTo: appsScroll.contentView.widthAnchor)
+        ])
     }
     
     private func setupConstraints() {
@@ -196,59 +246,54 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
         
         // 音频录制Tab内部的约束
         NSLayoutConstraint.activate([
-            systemHeader.topAnchor.constraint(equalTo: audioRecorderTabView.topAnchor, constant: 16),
-            systemHeader.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            targetHeader.topAnchor.constraint(equalTo: audioRecorderTabView.topAnchor, constant: 16),
+            targetHeader.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            targetHeader.trailingAnchor.constraint(lessThanOrEqualTo: audioRecorderTabView.trailingAnchor, constant: -16),
             
-            systemCheckbox.topAnchor.constraint(equalTo: systemHeader.bottomAnchor, constant: 8),
-            systemCheckbox.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            targetHintLabel.topAnchor.constraint(equalTo: targetHeader.bottomAnchor, constant: 4),
+            targetHintLabel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            targetHintLabel.trailingAnchor.constraint(lessThanOrEqualTo: audioRecorderTabView.trailingAnchor, constant: -16),
             
-            mixAudioCheckbox.topAnchor.constraint(equalTo: systemCheckbox.bottomAnchor, constant: 4),
-            mixAudioCheckbox.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            systemTargetRow.topAnchor.constraint(equalTo: targetHintLabel.bottomAnchor, constant: 10),
+            systemTargetRow.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
+            systemTargetRow.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
+            systemTargetRow.heightAnchor.constraint(equalToConstant: 56),
             
-            micHeader.topAnchor.constraint(equalTo: mixAudioCheckbox.bottomAnchor, constant: 18),
-            micHeader.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
-            
-            microphoneCheckbox.topAnchor.constraint(equalTo: micHeader.bottomAnchor, constant: 8),
-            microphoneCheckbox.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
-            
-            appsHeader.topAnchor.constraint(equalTo: microphoneCheckbox.bottomAnchor, constant: 18),
+            appsHeader.topAnchor.constraint(equalTo: systemTargetRow.bottomAnchor, constant: 18),
             appsHeader.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            appsHeader.trailingAnchor.constraint(lessThanOrEqualTo: refreshButton.leadingAnchor, constant: -8),
             
-            refreshButton.topAnchor.constraint(equalTo: appsHeader.bottomAnchor, constant: 8),
-            refreshButton.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
+            refreshButton.centerYAnchor.constraint(equalTo: appsHeader.centerYAnchor),
+            refreshButton.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -16),
             refreshButton.widthAnchor.constraint(equalToConstant: 80),
             refreshButton.heightAnchor.constraint(equalToConstant: 24),
             
-            appsScroll.topAnchor.constraint(equalTo: refreshButton.bottomAnchor, constant: 8),
+            microphonePanel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
+            microphonePanel.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
+            microphonePanel.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12),
+            microphonePanel.heightAnchor.constraint(equalToConstant: 92),
+            
+            appsScroll.topAnchor.constraint(equalTo: appsHeader.bottomAnchor, constant: 10),
             appsScroll.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
             appsScroll.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
-            appsScroll.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12)
+            appsScroll.bottomAnchor.constraint(equalTo: microphonePanel.topAnchor, constant: -12)
         ])
     }
     
     // MARK: - Actions
-    @objc private func sourceCheckboxChanged() {
-        // 更新混音选项的启用状态
-        updateMixAudioCheckboxState()
+    private func selectSystemAudioTarget() {
+        logger.info("录制目标切换为：全部系统声音")
+        selectedPIDs = []
+        systemTargetRow.isSelectedTarget = true
+        rebuildProcessRows()
+        delegate?.sidebarViewDidSelectProcesses(self, pids: [])
         delegate?.sidebarViewDidChangeSourceSelection(self)
     }
     
-    @objc private func mixAudioCheckboxChanged() {
-        let enabled = mixAudioCheckbox.state == .on
-        logger.info("混音开关状态: \(enabled ? "开启" : "关闭")")
+    private func microphoneInputChanged(enabled: Bool) {
+        logger.info("麦克风附加输入: \(enabled ? "开启" : "关闭")")
         delegate?.sidebarViewDidChangeMixAudio(self, enabled: enabled)
-    }
-    
-    /// 更新混音选项的启用状态（只有勾选系统音频时才能启用）
-    private func updateMixAudioCheckboxState() {
-        let systemSelected = systemCheckbox.state == .on
-        mixAudioCheckbox.isEnabled = systemSelected
-        
-        // 如果系统音频未勾选，自动取消混音选项
-        if !systemSelected {
-            mixAudioCheckbox.state = .off
-            delegate?.sidebarViewDidChangeMixAudio(self, enabled: false)
-        }
+        delegate?.sidebarViewDidChangeSourceSelection(self)
     }
     
     @objc private func refreshButtonClicked() {
@@ -262,7 +307,7 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     
     // MARK: - RecordedFilesViewDelegate
     func recordedFilesViewDidSelectFile(_ view: RecordedFilesView, file: RecordedFileInfo) {
-        // 文件被选中，可以在这里添加预览功能
+        delegate?.sidebarViewDidSelectFile(self, file: file)
     }
     
     func recordedFilesViewDidDoubleClickFile(_ view: RecordedFilesView, file: RecordedFileInfo) {
@@ -279,39 +324,27 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     // MARK: - Public Methods
     func updateProcessList(_ processes: [AudioProcessInfo]) {
         availableProcesses = processes
-        // 预加载图标到缓存
         preloadIcons(for: processes)
-        appsTable.reloadData()
+        rebuildProcessRows()
     }
     
     func restoreProcessSelection(_ processes: [AudioProcessInfo]) {
         // 不恢复任何选择，完全重置状态
         logger.info("📝 完全重置UI状态，不恢复任何进程选择")
-        
-        // 清除所有选择
-        appsTable.deselectAll(nil)
-        
-        // 清除选择状态
         selectedPIDs = []
+        rebuildProcessRows()
     }
     
     func isSystemAudioSourceSelected() -> Bool {
-        return systemCheckbox.state == .on
+        return selectedPIDs.isEmpty
     }
     
     func isMicrophoneSourceSelected() -> Bool {
-        return microphoneCheckbox.state == .on
+        return microphonePanel.isMicrophoneIncluded
     }
     
     func getSelectedProcesses() -> [AudioProcessInfo] {
-        let selectedRows = appsTable.selectedRowIndexes
-        var selectedProcesses: [AudioProcessInfo] = []
-        for index in selectedRows {
-            if index < availableProcesses.count {
-                selectedProcesses.append(availableProcesses[index])
-            }
-        }
-        return selectedProcesses
+        return availableProcesses.filter { selectedPIDs.contains($0.pid) }
     }
     
     /// 获取指定进程的应用图标
@@ -319,72 +352,43 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
         return getCachedIcon(for: process.path)
     }
     
-    // MARK: - NSTableViewDataSource
-    func numberOfRows(in tableView: NSTableView) -> Int {
-        return availableProcesses.count
-    }
-    
-    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let id = NSUserInterfaceItemIdentifier("AppCell")
-        let cell: NSTableCellView
-        if let reused = tableView.makeView(withIdentifier: id, owner: self) as? NSTableCellView {
-            cell = reused
-        } else {
-            cell = NSTableCellView()
-            cell.identifier = id
-            
-            let imageView = NSImageView()
-            imageView.translatesAutoresizingMaskIntoConstraints = false
-            imageView.image = NSImage(named: NSImage.multipleDocumentsName)
-            imageView.wantsLayer = true
-            imageView.layer?.cornerRadius = 4
-            cell.addSubview(imageView)
-            
-            let text = NSTextField(labelWithString: "")
-            text.translatesAutoresizingMaskIntoConstraints = false
-            cell.addSubview(text)
-            
-            cell.imageView = imageView
-            cell.textField = text
-            
-            NSLayoutConstraint.activate([
-                imageView.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),
-                imageView.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                imageView.widthAnchor.constraint(equalToConstant: 24),
-                imageView.heightAnchor.constraint(equalToConstant: 24),
-                text.leadingAnchor.constraint(equalTo: imageView.trailingAnchor, constant: 8),
-                text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
-                text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -8)
-            ])
+    // MARK: - Process Rows
+    private func rebuildProcessRows() {
+        systemTargetRow.isSelectedTarget = selectedPIDs.isEmpty
+        
+        for view in appsStack.arrangedSubviews {
+            appsStack.removeArrangedSubview(view)
+            view.removeFromSuperview()
         }
         
-        if row < availableProcesses.count {
-            let process = availableProcesses[row]
-            // 常规显示格式
-            let displayName = process.name
-            let pidText = "PID: \(process.pid)"
-            cell.textField?.stringValue = "\(displayName) (\(pidText))"
-            cell.textField?.textColor = NSColor.labelColor
-            
-            // 尝试设置应用图标（使用缓存）
-            if !process.path.isEmpty {
-                let icon = getCachedIcon(for: process.path)
-                cell.imageView?.image = icon
-                logger.debug("🎨 设置图标: \(process.name) -> \(process.path)")
-            } else {
-                logger.debug("⚠️ 进程路径为空，无法加载图标: \(process.name)")
-                cell.imageView?.image = NSImage(named: NSImage.applicationIconName)
+        if availableProcesses.isEmpty {
+            let emptyLabel = NSTextField(labelWithString: "NO AUDIO PROCESSES DETECTED")
+            emptyLabel.font = IndustrialTypography.label
+            emptyLabel.textColor = IndustrialColors.textTertiary
+            emptyLabel.alignment = .center
+            emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+            appsStack.addArrangedSubview(emptyLabel)
+            emptyLabel.widthAnchor.constraint(equalTo: appsStack.widthAnchor, constant: -8).isActive = true
+            emptyLabel.heightAnchor.constraint(equalToConstant: 40).isActive = true
+            return
+        }
+        
+        for process in availableProcesses {
+            let row = IndustrialProcessRowView(process: process, icon: getCachedIcon(for: process.path))
+            row.isSelectedRow = selectedPIDs.contains(process.pid)
+            row.onClick = { [weak self] in
+                guard let self = self else { return }
+                self.selectedPIDs = [process.pid]
+                self.systemTargetRow.isSelectedTarget = false
+                self.rebuildProcessRows()
+                self.delegate?.sidebarViewDidSelectProcesses(self, pids: [process.pid])
+                self.delegate?.sidebarViewDidChangeSourceSelection(self)
             }
+            row.translatesAutoresizingMaskIntoConstraints = false
+            appsStack.addArrangedSubview(row)
+            row.widthAnchor.constraint(equalTo: appsStack.widthAnchor, constant: -8).isActive = true
+            row.heightAnchor.constraint(equalToConstant: 52).isActive = true
         }
-        
-        return cell
-    }
-    
-    // MARK: - NSTableViewDelegate
-    func tableViewSelectionDidChange(_ notification: Notification) {
-        let selectedProcesses = getSelectedProcesses()
-        let pids = selectedProcesses.map { $0.pid }
-        delegate?.sidebarViewDidSelectProcesses(self, pids: pids)
     }
     
     // MARK: - Private Methods
@@ -393,14 +397,17 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
             guard let self = self else { return }
             
             for process in processes {
-                if !process.path.isEmpty && self.iconCache[process.path] == nil {
+                let key = process.path as NSString
+                if !process.path.isEmpty && self.iconCache.object(forKey: key) == nil {
                     // 使用改进的 loadAppIcon 方法，支持 Helper 进程图标映射
                     let icon = self.loadAppIcon(for: process.path)
                     // 调整图标大小以优化性能
                     icon.size = NSSize(width: 24, height: 24)
                     
+                    // NSCache 是线程安全的，可直接在后台线程写入
+                    self.iconCache.setObject(icon, forKey: key)
+                    
                     DispatchQueue.main.async {
-                        self.iconCache[process.path] = icon
                         self.logger.debug("🔄 预加载图标: \(process.name) -> \(process.path)")
                     }
                 } else if process.path.isEmpty {
@@ -411,14 +418,15 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     }
     
     private func getCachedIcon(for path: String) -> NSImage {
-        if let cachedIcon = iconCache[path] {
+        let key = path as NSString
+        if let cachedIcon = iconCache.object(forKey: key) {
             return cachedIcon
         }
         
         // 如果缓存中没有，立即加载并缓存
         let icon = loadAppIcon(for: path)
         icon.size = NSSize(width: 24, height: 24)
-        iconCache[path] = icon
+        iconCache.setObject(icon, forKey: key)
         
         return icon
     }
@@ -570,5 +578,375 @@ class SidebarView: NSView, NSTableViewDataSource, NSTableViewDelegate, TabContai
     /// 添加新的录制文件到列表
     func addRecordedFile(_ file: RecordedFileInfo) {
         recordedFilesView.addRecordedFile(file)
+    }
+}
+
+// MARK: - IndustrialAudioTargetRowView
+/// 固定录制目标行：全部系统声音。它与具体应用进程互斥。
+final class IndustrialAudioTargetRowView: NSView {
+    var onClick: (() -> Void)?
+    var isSelectedTarget: Bool = false { didSet { updateAppearance() } }
+    
+    private let indicatorLayer = CALayer()
+    private let iconView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let metaLabel = NSTextField(labelWithString: "")
+    private var isHovering = false
+    
+    init(title: String, subtitle: String, systemSymbolName: String) {
+        super.init(frame: .zero)
+        setupView()
+        titleLabel.stringValue = title.uppercased()
+        metaLabel.stringValue = subtitle.uppercased()
+        iconView.image = NSImage(systemSymbolName: systemSymbolName, accessibilityDescription: title)
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+    
+    private func setupView() {
+        wantsLayer = true
+        layer?.cornerRadius = IndustrialCornerRadius.xs
+        layer?.borderWidth = 1
+        translatesAutoresizingMaskIntoConstraints = false
+        
+        indicatorLayer.backgroundColor = IndustrialColors.primaryContainer.cgColor
+        indicatorLayer.isHidden = true
+        layer?.addSublayer(indicatorLayer)
+        
+        iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(iconView)
+        
+        titleLabel.font = IndustrialTypography.body
+        titleLabel.textColor = IndustrialColors.onSurface
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+        
+        metaLabel.font = IndustrialTypography.monoDB
+        metaLabel.textColor = IndustrialColors.textTertiary
+        metaLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(metaLabel)
+        
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 24),
+            iconView.heightAnchor.constraint(equalToConstant: 24),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 9),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            
+            metaLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            metaLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            metaLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor)
+        ])
+        
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
+        updateAppearance()
+    }
+    
+    override func layout() {
+        super.layout()
+        indicatorLayer.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
+    }
+    
+    private func updateAppearance() {
+        layer?.backgroundColor = (isSelectedTarget ? IndustrialColors.surfaceContainerHighest : (isHovering ? IndustrialColors.surfaceContainerHigh : IndustrialColors.surfaceContainerLow)).cgColor
+        layer?.borderColor = (isSelectedTarget || isHovering ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
+        indicatorLayer.isHidden = !isSelectedTarget
+        titleLabel.textColor = isSelectedTarget ? IndustrialColors.primary : IndustrialColors.onSurface
+        iconView.contentTintColor = isSelectedTarget ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        NSCursor.pointingHand.set()
+        updateAppearance()
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        NSCursor.arrow.set()
+        layer?.transform = CATransform3DIdentity
+        updateAppearance()
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(IndustrialAnimation.standard)
+        layer?.transform = CATransform3DMakeTranslation(0, -1, 0)
+        CATransaction.commit()
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        layer?.transform = CATransform3DIdentity
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+}
+
+// MARK: - IndustrialMicrophonePanelView
+/// 底部附加输入面板：麦克风不是主目标，而是叠加到当前录制目标。
+final class IndustrialMicrophonePanelView: NSView {
+    var onChange: ((Bool) -> Void)?
+    var isMicrophoneIncluded: Bool { microphoneToggle.state == .on }
+    
+    private let titleLabel = NSTextField(labelWithString: "ADD MICROPHONE")
+    private let microphoneToggle = IndustrialToggleView(title: "同时录入麦克风")
+    private let hintLabel = NSTextField(labelWithString: "MIX INTO SELECTED TARGET")
+    private let meterLabel = NSTextField(labelWithString: "▂▃▅▆▇")
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupView()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+    
+    private func setupView() {
+        wantsLayer = true
+        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
+        layer?.cornerRadius = IndustrialCornerRadius.xs
+        layer?.borderWidth = 1
+        layer?.borderColor = IndustrialColors.outlineVariant.cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+        
+        titleLabel.font = IndustrialTypography.label
+        titleLabel.textColor = IndustrialColors.onSurface
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+        
+        microphoneToggle.translatesAutoresizingMaskIntoConstraints = false
+        microphoneToggle.onChange = { [weak self] enabled in
+            self?.updateAppearance()
+            self?.onChange?(enabled)
+        }
+        addSubview(microphoneToggle)
+        
+        hintLabel.font = IndustrialTypography.monoDB
+        hintLabel.textColor = IndustrialColors.textTertiary
+        hintLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(hintLabel)
+        
+        meterLabel.font = IndustrialTypography.monoDB
+        meterLabel.textColor = IndustrialColors.primaryContainer
+        meterLabel.alignment = .right
+        meterLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(meterLabel)
+        
+        NSLayoutConstraint.activate([
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 10),
+            titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+            
+            microphoneToggle.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
+            microphoneToggle.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            microphoneToggle.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+            
+            hintLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            hintLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            hintLabel.trailingAnchor.constraint(lessThanOrEqualTo: meterLabel.leadingAnchor, constant: -8),
+            
+            meterLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            meterLabel.centerYAnchor.constraint(equalTo: hintLabel.centerYAnchor)
+        ])
+        
+        updateAppearance()
+    }
+    
+    private func updateAppearance() {
+        let enabled = microphoneToggle.state == .on
+        layer?.borderColor = (enabled ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
+        meterLabel.alphaValue = enabled ? 1.0 : 0.35
+        hintLabel.stringValue = enabled ? "MIC WILL BE MIXED IN" : "MIX INTO SELECTED TARGET"
+    }
+}
+
+// MARK: - IndustrialProcessRowView
+/// 自绘进程行 — 去除 NSTableView 系统白底/蓝色选中态
+final class IndustrialProcessRowView: NSView {
+    var onClick: (() -> Void)?
+    var isSelectedRow: Bool = false { didSet { updateAppearance() } }
+    
+    private let indicatorLayer = CALayer()
+    private let iconView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let metaLabel = NSTextField(labelWithString: "")
+    private var isHovering = false
+    
+    init(process: AudioProcessInfo, icon: NSImage) {
+        super.init(frame: .zero)
+        setupView()
+        configure(process: process, icon: icon)
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+    
+    private func setupView() {
+        wantsLayer = true
+        layer?.cornerRadius = IndustrialCornerRadius.xs
+        layer?.borderWidth = 1
+        translatesAutoresizingMaskIntoConstraints = false
+        
+        indicatorLayer.backgroundColor = IndustrialColors.primaryContainer.cgColor
+        indicatorLayer.isHidden = true
+        layer?.addSublayer(indicatorLayer)
+        
+        iconView.imageScaling = .scaleProportionallyUpOrDown
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(iconView)
+        
+        titleLabel.font = IndustrialTypography.body
+        titleLabel.textColor = IndustrialColors.onSurface
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+        
+        metaLabel.font = IndustrialTypography.monoDB
+        metaLabel.textColor = IndustrialColors.textTertiary
+        metaLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(metaLabel)
+        
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 24),
+            iconView.heightAnchor.constraint(equalToConstant: 24),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+            
+            metaLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            metaLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            metaLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor)
+        ])
+        
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
+        updateAppearance()
+    }
+    
+    private func configure(process: AudioProcessInfo, icon: NSImage) {
+        iconView.image = icon
+        titleLabel.stringValue = process.name.uppercased()
+        metaLabel.stringValue = "PID \(process.pid)   PROCESS TAP"
+    }
+    
+    override func layout() {
+        super.layout()
+        indicatorLayer.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
+    }
+    
+    private func updateAppearance() {
+        layer?.backgroundColor = (isSelectedRow ? IndustrialColors.surfaceContainerHighest : (isHovering ? IndustrialColors.surfaceContainerHigh : IndustrialColors.surfaceContainerLow)).cgColor
+        layer?.borderColor = (isSelectedRow || isHovering ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
+        indicatorLayer.isHidden = !isSelectedRow
+        titleLabel.textColor = isSelectedRow ? IndustrialColors.primary : IndustrialColors.onSurface
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        NSCursor.pointingHand.set()
+        updateAppearance()
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        NSCursor.arrow.set()
+        layer?.transform = CATransform3DIdentity
+        updateAppearance()
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        CATransaction.begin()
+        CATransaction.setAnimationDuration(IndustrialAnimation.standard)
+        layer?.transform = CATransform3DMakeTranslation(0, -1, 0)
+        CATransaction.commit()
+    }
+    
+    override func mouseUp(with event: NSEvent) {
+        layer?.transform = CATransform3DIdentity
+        if bounds.contains(convert(event.locationInWindow, from: nil)) { onClick?() }
+    }
+}
+
+// MARK: - IndustrialTableRowView
+/// Industrial 风格表格行 — 文件列表暂用，进程列表已改为完全自绘
+class IndustrialTableRowView: NSTableRowView {
+
+    private let indicatorLayer = CALayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        // 青色指示条（默认隐藏）
+        indicatorLayer.backgroundColor = IndustrialColors.primaryContainer.cgColor
+        indicatorLayer.isHidden = true
+        layer?.addSublayer(indicatorLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+    }
+
+    override func layout() {
+        super.layout()
+        // 左侧 3px 宽指示条
+        indicatorLayer.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
+    }
+
+    override var isSelected: Bool {
+        didSet {
+            indicatorLayer.isHidden = !isSelected
+            needsDisplay = true
+        }
+    }
+
+    override func drawSelection(in dirtyRect: NSRect) {
+        // Industrial: 选中背景 surfaceContainerHighest
+        IndustrialColors.surfaceContainerHighest.setFill()
+        NSBezierPath(rect: bounds).fill()
+    }
+
+    override func drawBackground(in dirtyRect: NSRect) {
+        // Industrial: 默认透明背景
+        if !isSelected {
+            IndustrialColors.surfaceContainer.setFill()
+            NSBezierPath(rect: bounds).fill()
+        }
+    }
+
+    // Hover 效果
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow],
+            owner: self, userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        if !isSelected {
+            layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if !isSelected {
+            layer?.backgroundColor = nil
+        }
     }
 }
