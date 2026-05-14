@@ -1,0 +1,24 @@
+{
+  "task_id": "task-0504-0117",
+  "project_id": "audio-record",
+  "status": "completed",
+  "phase": "completed",
+  "started_at": "2026-05-04T01:17:20.960200+08:00",
+  "completed_at": "2026-05-05T00:25:00+08:00",
+  "updated_at": "2026-05-05T00:25:00+08:00",
+  "phases_completed": [
+    "initialized",
+    "testing",
+    "completed"
+  ],
+  "active_agent": "鉴",
+  "task_type": "test",
+  "priority": 75,
+  "time_limit_minutes": 45,
+  "actual_duration_minutes": 28,
+  "test_cases_total": 5,
+  "test_cases_passed": 5,
+  "test_cases_failed": 0,
+  "overall_score": "25/25",
+  "compliance_status": "fully_compliant"
+}

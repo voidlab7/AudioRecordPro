@@ -1,0 +1,10 @@
+{
+  "task_id": "task-0504-ui-window-size",
+  "status": "completed",
+  "phase": "completed",
+  "started_at": "2026-05-05T11:32:36+08:00",
+  "updated_at": "2026-05-05T11:37:00+08:00",
+  "phases_completed": ["initialized", "design", "completed"],
+  "executor": "manual",
+  "route": "绘·设计 → 矩·架构"
+}

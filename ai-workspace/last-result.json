@@ -1,0 +1,6 @@
+{
+  "task_id": "task-0510-req-1.0-01",
+  "status": "completed",
+  "summary": "REQ-1.0-01 系统音频录制引擎已完成。采样率跟随设备(DR-01)、16-bit PCM输出(DR-02)、启动延迟优化、热插拔支持。afinfo验证: 2ch 48000Hz Int16 interleaved。用户人工测试全部通过。",
+  "completed_at": "2026-05-11T19:15:00+08:00"
+}

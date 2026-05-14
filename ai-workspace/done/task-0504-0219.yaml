@@ -1,0 +1,25 @@
+id: task-0504-0219
+title: 修复硬编码channels和清理废弃脚本
+project: audio-record
+type: small_fix
+priority: 72
+max_minutes: 45
+night_safe: true
+allowed_actions:
+- read
+- edit
+- test
+- local_commit
+forbidden_actions:
+- push
+- deploy
+- delete_data
+instructions:
+- 修复 AudioCallbackHandler.swift 硬编码 channels=2
+- 修复 AudioRecordSDK_C.swift 的 targetProcessID TODO
+- 修复 scripts/test_sdk.sh 废弃路径引用
+- 验证 build-app.sh 构建通过
+acceptance:
+- 任务目标达成
+- 生成 workflow-summary.md
+- 无 push/deploy/delete_data 操作

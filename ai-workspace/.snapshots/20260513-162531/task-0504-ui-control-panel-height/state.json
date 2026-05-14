@@ -1,0 +1,60 @@
+{
+  "taskId": "task-0504-ui-control-panel-height",
+  "title": "压缩ControlPanel高度释放TracksView空间",
+  "status": "completed",
+  "phase": "design-review",
+  "roles": ["绘·设计师", "矩·架构师"],
+  "startedAt": "2026-05-04T00:00:00+08:00",
+  "completedAt": "2026-05-04T00:45:00+08:00",
+  "decision": {
+    "selectedPlan": "A",
+    "description": "150px → 120px，保持按钮64px不变，仅压缩间距",
+    "heightReduction": 30,
+    "tracksViewGain": 30
+  },
+  "modifications": [
+    {
+      "file": "MainWindowView.swift",
+      "line": 118,
+      "change": "heightAnchor 150 → 120"
+    },
+    {
+      "file": "ControlPanelView.swift",
+      "line": "212-213",
+      "change": "container 84×84 → 74×74"
+    },
+    {
+      "file": "ControlPanelView.swift",
+      "line": 222,
+      "change": "header topAnchor sm(8) → 4"
+    },
+    {
+      "file": "ControlPanelView.swift",
+      "line": 230,
+      "change": "centerY offset 10 → 4"
+    },
+    {
+      "file": "ControlPanelView.swift",
+      "line": 251,
+      "change": "readout bottomAnchor -sm(-8) → -4"
+    }
+  ],
+  "risks": [
+    {
+      "description": "外环与按钮边缘重合",
+      "severity": "low",
+      "mitigation": "视觉可接受，增强硬件感"
+    },
+    {
+      "description": "窗口极小时约束冲突",
+      "severity": "low",
+      "mitigation": "确保窗口 minHeight >= 400px"
+    }
+  ],
+  "artifacts": [
+    "artifacts/02-requirement/requirement.md",
+    "artifacts/03-design/design-spec.md",
+    "artifacts/03-design/architecture-review.md",
+    "artifacts/06-summary/workflow-summary.md"
+  ]
+}

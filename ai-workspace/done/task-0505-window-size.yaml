@@ -1,0 +1,20 @@
+id: task-0505-window-size
+title: 调大初始窗口尺寸
+project: audio-record
+type: bugfix
+priority: 90
+max_minutes: 10
+
+route: 铸·开发
+executor: codebuddy-session
+status: done
+started_at: "2026-05-05T13:48:00+08:00"
+completed_at: "2026-05-05T13:49:00+08:00"
+
+context: |
+  用户反馈窗口初始化太小（当前 800x500），对专业录音工具不够用。
+  需要调大默认尺寸，同时更新 minSize。
+
+instructions:
+  - 调整 createMainWindow 中的 windowSize 和 minSize
+  - 编译验证

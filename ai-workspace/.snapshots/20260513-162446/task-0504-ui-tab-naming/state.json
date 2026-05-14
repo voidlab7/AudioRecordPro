@@ -1,0 +1,63 @@
+{
+  "taskId": "task-0504-ui-tab-naming",
+  "title": "优化Sidebar Tab命名与录制完成后自动切换",
+  "status": "completed",
+  "phase": "design-review",
+  "roles": ["绘·设计师", "矩·架构师"],
+  "startedAt": "2026-05-04T00:00:00+08:00",
+  "completedAt": "2026-05-04T00:25:00+08:00",
+  "artifacts": {
+    "requirement": "artifacts/02-requirement/requirement.md",
+    "designSpec": "artifacts/03-design/design-spec.md",
+    "architectureReview": "artifacts/03-design/architecture-review.md",
+    "workflowSummary": "artifacts/06-summary/workflow-summary.md"
+  },
+  "decisions": {
+    "tabNaming": {
+      "tab1": "INPUT",
+      "tab2": "FILES",
+      "icon1": "waveform (保留)",
+      "icon2": "folder (保留)",
+      "rationale": "简洁大写英文，符合 Industrial Design 风格，与应用名去重"
+    },
+    "autoSwitch": {
+      "trigger": "handleRecordingComplete → switchToFilesTabAndHighlight()",
+      "animationDuration": "250ms",
+      "type": "crossfade (NSAnimationContext)",
+      "condition": "仅在当前非 FILES Tab 时切换",
+      "totalLatency": "≤350ms 到达 FILES Tab"
+    },
+    "highlight": {
+      "color": "#22d3ee (IndustrialColors.primaryContainer)",
+      "maxOpacity": 0.30,
+      "totalDuration": "2500ms",
+      "phases": ["fadeIn: 0→0.25 in 250ms", "pulse: 0.15↔0.30 in 1250ms", "fadeOut: 0.15→0 in 1000ms"],
+      "implementation": "CAAnimationGroup on dedicated highlightLayer",
+      "interruptible": true
+    },
+    "splitPane": {
+      "adopted": false,
+      "reason": "240px 宽度下垂直空间不足（需 ≥530px），Tab 模式 + 自动切换已解决痛点"
+    }
+  },
+  "codeChanges": {
+    "files": [
+      "AudioRecordApp/Sources/Views/SidebarView.swift",
+      "AudioRecordApp/Sources/Views/TabContainerView.swift",
+      "AudioRecordApp/Sources/Views/MainWindowView.swift",
+      "AudioRecordApp/Sources/Controllers/MainViewController.swift",
+      "AudioRecordApp/Sources/Views/RecordedFilesView.swift",
+      "AudioRecordApp/Sources/Utilities/IndustrialDesignTokens.swift"
+    ],
+    "estimatedNewLines": 130,
+    "estimatedModifiedLines": 4,
+    "estimatedDevTime": "50 minutes"
+  },
+  "risks": [
+    {"id": "R1", "desc": "Tab切换重复触发", "level": "low", "mitigation": "guard防重入"},
+    {"id": "R2", "desc": "高亮与选中态冲突", "level": "low", "mitigation": "独立layer隔离"},
+    {"id": "R3", "desc": "快速连续录制叠加", "level": "medium", "mitigation": "清理旧动画"},
+    {"id": "R4", "desc": "asyncAfter精度", "level": "very-low", "mitigation": "350ms余量"}
+  ],
+  "nextStep": "development"
+}

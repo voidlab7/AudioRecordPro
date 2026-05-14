@@ -1,0 +1,24 @@
+id: task-0504-0117
+title: 测试 CodeBuddy 文件桥接
+project: audio-record
+type: test
+priority: 75
+max_minutes: 45
+night_safe: true
+allowed_actions:
+- read
+- edit
+- test
+- local_commit
+forbidden_actions:
+- push
+- deploy
+- delete_data
+instructions:
+- 按任务标题「测试 CodeBuddy 文件桥接」的要求执行
+- 所有产物写入 ai-workspace/{task-id}/artifacts/
+- 完成后更新 state.json 和 progress-board.md
+acceptance:
+- 任务目标达成
+- 生成 workflow-summary.md
+- 无 push/deploy/delete_data 操作
