@@ -1,16 +1,16 @@
 {
   "project_id": "audio-record",
-  "updated_at": "2026-05-17T01:38:44.932Z",
+  "updated_at": "2026-05-19T15:45:03.507Z",
   "health": "green",
   "active_task": null,
   "queue_count": 0,
   "blocked_count": 0,
-  "last_completed_task": "V1.0 验收缺口修复",
-  "last_success_at": "2026-05-17T01:38:44.932Z",
+  "last_completed_task": "建设 AudioRecord App 知识库",
+  "last_success_at": "2026-05-19T15:45:03.507Z",
   "next_recommended_task": "REQ-1.0-02 进程级音频录制",
   "requires_human_decision": [],
   "active_phase": "",
   "active_agent": "",
   "phase_progress": "",
-  "running_count": 1
+  "running_count": 3
 }
