@@ -1,16 +1,16 @@
 {
   "project_id": "audio-record",
-  "updated_at": "2026-05-25T15:56:13.563Z",
+  "updated_at": "2026-05-27T16:08:10.017Z",
   "health": "green",
   "active_task": null,
   "queue_count": 0,
   "blocked_count": 0,
-  "last_completed_task": "编辑器缩放/滑动控件实现",
-  "last_success_at": "2026-05-25T15:56:13.563Z",
+  "last_completed_task": "启动默认录制准备态 UI 重构",
+  "last_success_at": "2026-05-27T16:08:10.017Z",
   "next_recommended_task": null,
   "requires_human_decision": [],
   "active_phase": "",
   "active_agent": "",
   "phase_progress": "",
-  "running_count": 3
+  "running_count": 1
 }

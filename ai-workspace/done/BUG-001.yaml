@@ -1,0 +1,5 @@
+id: BUG-001
+title: "LevelMeterView初始化时波形红白相间bug修复"
+type: task
+completed_at: "2026-05-26T16:03:28.514Z"
+duration_minutes: 2

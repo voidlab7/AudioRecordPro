@@ -1,0 +1,5 @@
+id: BUG-002
+title: "LevelMeterView初始化中线颜色优化-白色静态线+录制后红色滚动"
+type: task
+completed_at: "2026-05-26T16:40:19.220Z"
+duration_minutes: 2

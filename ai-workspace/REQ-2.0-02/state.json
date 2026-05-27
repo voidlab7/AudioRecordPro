@@ -1,50 +1,50 @@
 {
   "_schema_version": "1.1",
-  "task_id": "audio-file-editor-linkage",
-  "task_title": "音频文件编辑视图联动需求",
+  "task_id": "REQ-2.0-02",
+  "task_title": "启动默认录制准备态 UI 重构",
   "status": "completed",
   "current_phase": "06-summary",
   "current_step": "completed",
   "current_step_description": "全流程完成",
-  "started_at": "2026-05-25T15:13:49.479Z",
-  "completed_at": "2026-05-25T16:44:47.684Z",
+  "started_at": "2026-05-27T15:54:39.229Z",
+  "completed_at": "2026-05-27T16:08:10.016Z",
   "phases": {
     "01-ideation": {
-      "status": "completed",
+      "status": "skipped",
       "agents": [
-        "枢"
+        "启"
       ],
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
-      "started_at": "2026-05-25T15:14:27.884Z",
-      "completed_at": "2026-05-25T15:15:32.069Z",
+      "started_at": "",
+      "completed_at": "",
       "steps_completed": [],
       "steps_total": []
     },
     "02-requirement": {
-      "status": "completed",
+      "status": "skipped",
       "agents": [
-        "锋"
+        "启"
       ],
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
-      "started_at": "2026-05-25T15:21:30.276Z",
-      "completed_at": "2026-05-25T15:22:14.165Z",
+      "started_at": "",
+      "completed_at": "",
       "steps_completed": [],
       "steps_total": []
     },
     "03-design": {
       "status": "completed",
       "agents": [
-        "矩"
+        "绘"
       ],
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
-      "started_at": "2026-05-25T15:22:23.669Z",
-      "completed_at": "2026-05-25T15:24:01.306Z",
+      "started_at": "2026-05-27T15:55:28.910Z",
+      "completed_at": "2026-05-27T15:57:48.645Z",
       "steps_completed": [],
       "steps_total": []
     },
@@ -56,8 +56,8 @@
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
-      "started_at": "2026-05-25T15:24:08.110Z",
-      "completed_at": "2026-05-25T15:31:16.045Z",
+      "started_at": "2026-05-27T15:57:57.331Z",
+      "completed_at": "2026-05-27T16:05:58.278Z",
       "steps_completed": [],
       "steps_total": []
     },
@@ -69,32 +69,30 @@
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
-      "started_at": "2026-05-25T15:31:22.403Z",
-      "completed_at": "2026-05-25T16:44:38.601Z",
+      "started_at": "2026-05-27T16:06:02.271Z",
+      "completed_at": "2026-05-27T16:08:02.127Z",
       "steps_completed": [],
       "steps_total": []
     },
     "06-summary": {
-      "status": "completed",
-      "agents": [
-        "启"
-      ],
+      "status": "pending",
+      "agents": [],
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
       "started_at": "",
-      "completed_at": "2026-05-25T16:44:38.637Z",
+      "completed_at": "",
       "steps_completed": [],
       "steps_total": []
     }
   },
   "timing": {
-    "total_duration_minutes": 91,
+    "total_duration_minutes": 14,
     "phase_durations": {},
     "slowest_phase": "",
     "bottleneck_step": ""
   },
   "exceptions": [],
-  "progress_board_path": "ai-workspace/audio-file-editor-linkage/progress-board.md",
-  "updated_at": "2026-05-25T16:44:38.639Z"
+  "progress_board_path": "ai-workspace/REQ-2.0-02/progress-board.md",
+  "updated_at": "2026-05-27T16:08:02.128Z"
 }
