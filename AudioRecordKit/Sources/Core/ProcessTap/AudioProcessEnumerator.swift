@@ -66,9 +66,30 @@ class AudioProcessEnumerator {
                 logger.debug("🧹 过滤 Helper 进程: name=\(name), bundle=\(bundleID), path=\(path)")
                 continue
             }
+            
+            // 对 Chromium 音频服务进程，提取主应用名显示
+            // "Comet Helper" → "Comet", "Google Chrome Helper" → "Google Chrome"
+            var displayName = name
+            let nameLower = name.lowercased()
+            if isAppBundleHelper(path: path) {
+                // 提取主应用名：
+                // "Comet Helper" → "Comet"
+                // "ChatGPT Atlas (Service)" → "ChatGPT Atlas"
+                // "ChatGPT Atlas (Renderer)" → "ChatGPT Atlas"
+                // "Google Chrome Helper" → "Google Chrome"
+                if nameLower.hasSuffix(" helper") {
+                    displayName = String(name.dropLast(" Helper".count))
+                } else if let parenRange = name.range(of: " (", options: .backwards) {
+                    displayName = String(name[name.startIndex..<parenRange.lowerBound])
+                }
+                if displayName != name {
+                    logger.debug("📛 重命名: \(name) → \(displayName)")
+                }
+            }
+            
             let info = AudioProcessInfo(
                 pid: pid,
-                name: name,
+                name: displayName,
                 bundleID: bundleID,
                 path: path,
                 processObjectID: oid
@@ -78,6 +99,20 @@ class AudioProcessEnumerator {
         }
 
         logger.info("🎉 AudioProcessEnumerator: 枚举完成，返回 \(results.count) 个可用音频进程")
+        
+        // 按显示名去重（同一应用的多个 Helper 只保留第一个）
+        var seen = Set<String>()
+        var dedupResults: [AudioProcessInfo] = []
+        for process in results {
+            let key = process.name.lowercased()
+            if seen.contains(key) {
+                logger.debug("🔄 去重跳过: \(process.name) (PID=\(process.pid))")
+                continue
+            }
+            seen.insert(key)
+            dedupResults.append(process)
+        }
+        results = dedupResults
         
         // 输出所有进程的详细信息
         for (index, process) in results.enumerated() {
@@ -91,6 +126,102 @@ class AudioProcessEnumerator {
     func findProcessObjectID(by pid: pid_t) -> AudioObjectID? {
         let processes = getAvailableAudioProcesses()
         return processes.first { $0.pid == pid }?.processObjectID
+    }
+    
+    /// 根据 PID 查找该应用及其所有音频子进程的 ObjectID
+    /// Chrome 等多进程应用：主进程注册在 CoreAudio 但不产生音频，Helper 进程才有数据
+    /// 策略：主进程 + 所有同名前缀的子进程全部加入 Tap
+    func findAllRelatedProcessObjectIDs(by pid: pid_t) -> [AudioObjectID] {
+        // 读取完整进程列表（未过滤的）
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyProcessObjectList,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize)
+        guard status == noErr, dataSize > 0 else { return [] }
+        
+        let count = Int(dataSize) / MemoryLayout<AudioObjectID>.size
+        var objectIDs = [AudioObjectID](repeating: AudioObjectID(kAudioObjectUnknown), count: count)
+        status = AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &dataSize, &objectIDs)
+        guard status == noErr else { return [] }
+        
+        // 读取目标 PID 的进程名（使用不过滤的原始版本，避免进程退出或被过滤导致匹配失败）
+        let targetName = readRawProcessName(for: pid)
+        let targetNameLower = targetName.lowercased()
+        
+        if targetNameLower.isEmpty {
+            logger.warning("⚠️ findAllRelatedProcessObjectIDs: 目标PID=\(pid) 无法获取进程名（可能已退出）")
+            return []
+        }
+        
+        // Extract the base app name for matching (e.g. "Google Chrome Helper" → "Google Chrome")
+        // This ensures we match all related processes regardless of suffix
+        let baseAppName = extractBaseAppName(from: targetNameLower)
+        logger.info("🔍 findAllRelatedProcessObjectIDs: targetName=\(targetName), baseAppName=\(baseAppName)")
+        
+        var result: [AudioObjectID] = []
+        
+        for oid in objectIDs where oid != kAudioObjectUnknown {
+            guard let oPid = readPID(for: oid) else { continue }
+            // Use raw proc_name without filtering — we need ALL related processes
+            let name = readRawProcessName(for: oPid)
+            let nameLower = name.lowercased()
+            guard !nameLower.isEmpty else { continue }
+            
+            // Match rules:
+            // 1. Exact PID match
+            // 2. Process name contains the base app name (e.g. "google chrome helper (renderer)" contains "google chrome")
+            // 3. Base app name contains the process name (e.g. target is helper, find main process)
+            if oPid == pid || nameLower.contains(baseAppName) || baseAppName.contains(nameLower) {
+                result.append(oid)
+                logger.info("🔗 关联进程: \(name) (PID=\(oPid)) -> ObjectID=\(oid)")
+            }
+        }
+        
+        logger.info("🎯 PID=\(pid) (\(targetName)) 共关联 \(result.count) 个音频进程")
+        return result
+    }
+    
+    /// Read raw process name without any filtering (for use in findAllRelatedProcessObjectIDs)
+    /// This avoids the issue where shouldFilterProcess returns empty for valid Chrome Helper processes
+    private func readRawProcessName(for pid: pid_t) -> String {
+        let nameBuffer = UnsafeMutablePointer<Int8>.allocate(capacity: Int(MAXPATHLEN))
+        let pathBuffer = UnsafeMutablePointer<Int8>.allocate(capacity: Int(MAXPATHLEN))
+        defer { nameBuffer.deallocate(); pathBuffer.deallocate() }
+        
+        let nameLen = proc_name(pid, nameBuffer, UInt32(MAXPATHLEN))
+        let pathLen = proc_pidpath(pid, pathBuffer, UInt32(MAXPATHLEN))
+        
+        if nameLen > 0 {
+            return String(cString: nameBuffer)
+        } else if pathLen > 0 {
+            let path = String(cString: pathBuffer)
+            return URL(fileURLWithPath: path).lastPathComponent
+        }
+        return ""
+    }
+    
+    /// Extract the base application name from a process name
+    /// "Google Chrome Helper (Renderer)" → "google chrome"
+    /// "Google Chrome Helper" → "google chrome"
+    /// "Google Chrome" → "google chrome"
+    private func extractBaseAppName(from nameLower: String) -> String {
+        // Remove common suffixes to get the base app name
+        var base = nameLower
+        
+        // Remove parenthetical suffixes: " (renderer)", " (gpu)", " (service)" etc.
+        if let parenRange = base.range(of: " (", options: .backwards) {
+            base = String(base[base.startIndex..<parenRange.lowerBound])
+        }
+        
+        // Remove " helper" suffix
+        if base.hasSuffix(" helper") {
+            base = String(base.dropLast(" helper".count))
+        }
+        
+        return base
     }
     
     /// 解析系统混音 PID（coreaudiod 进程）
@@ -245,11 +376,26 @@ class AudioProcessEnumerator {
         }
         
         // 仅保留 Dock 应用（ActivationPolicy == .regular）
+        // 例外：/Applications/xxx.app/ 下的 Helper 子进程也保留（Chromium 系音频进程）
         if !isDockApp(pid: pid, path: path) {
+            if isAppBundleHelper(path: path) {
+                logger.debug("✅ shouldFilter: 保留 App Bundle Helper: \(name)")
+                return false
+            }
             return true
         }
         
         return false
+    }
+    
+    /// 判断是否是某个 /Applications/xxx.app/ 下的子进程（Helper/Service/Renderer 等）
+    /// 覆盖 Chromium 系（Chrome Helper.app）和非标准命名（ChatGPT Atlas (Service).app）
+    private func isAppBundleHelper(path: String) -> Bool {
+        let p = path.lowercased()
+        // 必须在 /applications/ 下
+        guard p.contains("/applications/") else { return false }
+        // 路径包含 /helpers/ 或 /frameworks/ 且在某个 .app 内 = 子进程
+        return p.contains("/helpers/") || p.contains("/frameworks/")
     }
 
     /// 判断是否为浏览器/应用的 Helper、Renderer、GPU 等辅助进程
@@ -258,68 +404,45 @@ class AudioProcessEnumerator {
         let b = bundleID.lowercased()
         let p = path.lowercased()
 
-        // 保留 Chrome 主进程和音频服务进程，但过滤其他 Helper 进程
-        if n == "google chrome" || b == "com.google.chrome" {
-            logger.debug("✅ 保留 Chrome 主进程: name=\(name), bundle=\(bundleID)")
-            return false  // 不过滤 Chrome 主进程
-        }
-        
-        // 保留 Chrome 音频服务进程（这是实际处理音频的进程）
-        if n.contains("google chrome helper") && p.contains("audio.mojom.AudioService") {
-            logger.debug("✅ 保留 Chrome 音频服务进程: name=\(name), bundle=\(bundleID), path=\(path)")
-            return false  // 不过滤 Chrome 音频服务进程
-        }
-        
-        // 保留其他浏览器主进程
-        if n == "safari" || b == "com.apple.safari" {
-            logger.debug("✅ 保留 Safari 主进程: name=\(name), bundle=\(bundleID)")
+        // 通用规则：/Applications/xxx.app/ 下的 Helper 如果在 CoreAudio 进程列表中
+        // 说明它正在使用音频，应该保留（而非过滤）
+        // 覆盖所有 Chromium 系：Chrome/Comet/Arc/Brave/Edge/Electron 等
+        if isAppBundleHelper(path: path) {
+            logger.debug("✅ 保留 App Bundle 音频 Helper: name=\(name), path=\(path)")
             return false
         }
         
-        if n == "firefox" || b.contains("org.mozilla.firefox") {
-            logger.debug("✅ 保留 Firefox 主进程: name=\(name), bundle=\(bundleID)")
+        // 保留已知浏览器/应用主进程
+        let knownMainApps = [
+            "google chrome", "safari", "firefox", "comet", "arc",
+            "brave browser", "microsoft edge", "opera", "vivaldi",
+            "chatgpt atlas"
+        ]
+        if knownMainApps.contains(n) {
+            logger.debug("✅ 保留已知主进程: name=\(name)")
+            return false
+        }
+        if b == "com.google.chrome" || b == "com.apple.safari" || b.contains("org.mozilla.firefox") {
             return false
         }
 
-        // 常见关键字过滤（但排除主进程、Chrome 音频服务进程）
+        // 常见关键字过滤
         let keywords = [" helper", "renderer", "gpu", "webhelper", "plugin", "(renderer)"]
-        if keywords.contains(where: { n.contains($0) }) { 
-            // 特殊处理：如果是 Chrome 音频服务进程，不过滤
-            if n.contains("google chrome helper") && p.contains("audio.mojom.AudioService") {
-                logger.debug("✅ 关键字过滤中保留 Chrome 音频服务进程: name=\(name), path=\(path)")
-                return false
-            }
-            // 微信扩展的 Helper 也应该被过滤
+        if keywords.contains(where: { n.contains($0) }) {
             logger.debug("🚫 过滤 Helper/Plugin 进程: name=\(name)")
             return true 
         }
         if keywords.contains(where: { b.contains($0) }) { 
-            logger.debug("🚫 过滤 Helper/Plugin 进程: bundle=\(bundleID)")
             return true 
         }
 
-        // 路径特征：在 Helpers 目录下或以 Helper.app 结尾（但排除 Chrome 音频服务进程）
+        // 路径特征：在 Helpers 目录下或以 Helper.app 结尾
         if p.contains("/helpers/") || p.hasSuffix("helper.app") { 
-            // 特殊处理：如果是 Chrome 音频服务进程，不过滤
-            if n.contains("google chrome helper") && p.contains("audio.mojom.AudioService") {
-                logger.debug("✅ 路径过滤中保留 Chrome 音频服务进程: name=\(name), path=\(path)")
-                return false
-            }
             logger.debug("🚫 过滤 Helper 路径: path=\(path)")
             return true 
         }
 
-        // 具体特例：Google Chrome Helper 系列（但排除音频服务进程）
-        if n.contains("google chrome helper") || b.contains("com.google.chrome.helper") { 
-            // 如果已经是音频服务进程，不应该到这里，但为了安全起见再检查一次
-            if p.contains("audio.mojom.AudioService") {
-                logger.debug("✅ 再次确认保留 Chrome 音频服务进程: name=\(name), path=\(path)")
-                return false
-            }
-            return true 
-        }
-
-        // WebKit/GPU 相关（已基本被系统路径过滤，但再兜底一次）
+        // WebKit/GPU 相关
         if n.contains("webkit") && (n.contains("gpu") || n.contains("network") || n.contains("webcontent")) {
             return true
         }

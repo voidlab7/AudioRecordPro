@@ -75,13 +75,15 @@
       "steps_total": []
     },
     "06-summary": {
-      "status": "pending",
-      "agents": [],
+      "status": "completed",
+      "agents": [
+        "启"
+      ],
       "artifact_path": "",
       "review_score": null,
       "review_verdict": "",
-      "started_at": "",
-      "completed_at": "",
+      "started_at": "2026-05-27T16:08:02.128Z",
+      "completed_at": "2026-05-28T00:29:30.000Z",
       "steps_completed": [],
       "steps_total": []
     }

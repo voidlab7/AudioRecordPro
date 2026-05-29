@@ -159,20 +159,22 @@ class ProcessTapManager {
             logger.warning("   错误代码: OSStatus=\(status)")
             logger.warning("   Tap ID: \(processTapObjectID)")
             
-            // 使用动态检测的音频格式（匹配当前音频设备）
+            // DR-01: 回退格式使用动态检测的采样率 + Float32（匹配回调实际数据格式）
+            // 注意：这里是 Tap 的原生格式（Float32），不是文件输出格式（16-bit PCM）
+            // 文件格式转换在 CoreAudioProcessTapRecorder.createAudioFileWithTapFormat 中处理
             let detectedSampleRate = AudioUtils.getCurrentAudioDeviceSampleRate()
             asbd = AudioStreamBasicDescription(
-                mSampleRate: detectedSampleRate,        // ← 动态检测的采样率
+                mSampleRate: detectedSampleRate,        // ← 跟随设备实际采样率
                 mFormatID: kAudioFormatLinearPCM,
                 mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
                 mBytesPerPacket: 8,
                 mFramesPerPacket: 1,
                 mBytesPerFrame: 8,
                 mChannelsPerFrame: 2,
-                mBitsPerChannel: 32,         // ← 32位浮点格式
+                mBitsPerChannel: 32,                    // ← Float32（回调原生格式）
                 mReserved: 0
             )
-            logger.info("📊 使用动态检测音频格式: \(detectedSampleRate)Hz, 32bit Float, 立体声")
+            logger.info("📊 使用动态检测回退格式: \(detectedSampleRate)Hz, 32bit Float, 立体声")
         }
         
         self.streamFormatASBD = asbd

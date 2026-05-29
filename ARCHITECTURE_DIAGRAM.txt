@@ -1,0 +1,376 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                    AUDIO RECORD MAC - EDITOR ARCHITECTURE                      ║
+║                         macOS Audio Editing Application                         ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                          VIEW HIERARCHY (Editor Screen)                          │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    editorView (NSView) - Main Container
+    │
+    ├──────────────────────────────────────────────────────────────────┐
+    │  EditorNavigationBar (44px height)                               │
+    │  [◀Back] | [↩Undo ↪Redo] | [✂🔇📊🔊] ... [Save]                  │
+    │  - Back button (pop editor)                                     │
+    │  - Undo/Redo controls                                           │
+    │  - Edit tool buttons (Trim, Silence, Normalize, Fade)           │
+    │  - Save button (right aligned)                                  │
+    └──────────────────────────────────────────────────────────────────┘
+    │
+    ├──────────────────────────────────────────────────────────────────┐
+    │  EditorWaveformView (Main Content Area)                          │
+    │  ┌────────────────────────────────────────────────────────────┐  │
+    │  │                   TIME RULER (Adaptive)                    │  │
+    │  │  0:00.0    0:05.0    0:10.0    0:15.0                      │  │
+    │  │   ↓         ↓         ↓         ↓                           │  │
+    │  │   ┼─────────┼─────────┼─────────┼─────                     │  │
+    │  ├────────────────────────────────────────────────────────────┤  │
+    │  │                   WAVEFORM AREA                            │  │
+    │  │  ▁▂▃▅▆██▆▅▃▂▁ ▁▂▃▃▃▂▁ ▁▂▃▅▆██▆▅▃▂▁                        │  │
+    │  │  │◎◎◎◎◎◎◎◎◎│ ▁▂▃▅▆██▆▅ ◎◎◎◎◎                              │  │
+    │  │  │                    ▔▔▔▔▔  │ Playhead (red)              │  │
+    │  │  ◀───────── Selection ─────▶ │ Triangle handle             │  │
+    │  │    Handles (cyan)            │ Vertical line               │  │
+    │  │  ┌─────────────────────────┐ │                            │  │
+    │  │  │  Center line (50%)      │ │                            │  │
+    │  │  └─────────────────────────┘ │                            │  │
+    │  └────────────────────────────────────────────────────────────┘  │
+    │  Interact via:                                                   │
+    │  - Cmd+Scroll: Zoom in/out (anchor at cursor)                   │
+    │  - Scroll: Pan left/right                                       │
+    │  - Click: Seek to position                                      │
+    │  - Drag: Create/resize selection (handles)                      │
+    └──────────────────────────────────────────────────────────────────┘
+    │
+    ├──────────────────────────────────────────────────────────────────┐
+    │  EditorToolbar (36px height)                                     │
+    │         [▶ Play] [■ Stop]  (center aligned)                      │
+    │  - Playback preview controls                                    │
+    │  - Play/pause, stop buttons                                     │
+    └──────────────────────────────────────────────────────────────────┘
+    │
+    ├──────────────────────────────────────────────────────────────────┐
+    │  EditorStatusBar (24px height)                                   │
+    │  00:12.345 | 00:30.00 | 48kHz · Stereo · Edit 1/10              │
+    │  │          │          └─ Info                                  │
+    │  │          └────────────── Duration                            │
+    │  └────────────────────────── Current Time (playback/cursor)     │
+    └──────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        ZOOM & SCROLL STATE MODEL                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    EditorWaveformView Properties:
+    ┌─────────────────────────────────────────────────────────┐
+    │ Viewport State:                                         │
+    │   • visibleStartTime: TimeInterval (in seconds)        │
+    │   • visibleDuration: TimeInterval (in seconds)         │
+    │   • zoomLevel: CGFloat (1.0 = fit all, >1 = zoomed)   │
+    │   • totalDuration: TimeInterval (full audio length)   │
+    │   • waveformRect.width: CGFloat (pixel width)          │
+    │                                                         │
+    │ Viewport Calculation:                                  │
+    │   pixelsPerSecond = waveformRect.width / visibleDuration
+    │                                                         │
+    │ Bounds:                                                 │
+    │   • maxZoomLevel = totalDuration * sampleRate / 600   │
+    │   • minZoomLevel = 1.0                                 │
+    │   • visibleStartTime ∈ [0, totalDuration - visibleDuration]
+    └─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        ZOOM IMPLEMENTATION FLOW                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    User Action: Cmd + Scroll Wheel
+           │
+           ▼
+    EditorWaveformView.scrollWheel(event)
+           │
+           ├─ Cmd Key Detected?
+           │  Yes ▶ Vertical Delta > 0? (Up)
+           │        │
+           │        ├─ YES ▶ zoomIn(anchorX: cursor.x)
+           │        │          │
+           │        │          ├─ Calculate: anchorTime = pixelToTime(anchorX)
+           │        │          ├─ Update: zoomLevel *= 1.5 (clamped to maxZoomLevel)
+           │        │          ├─ Recalc: visibleDuration = totalDuration / zoomLevel
+           │        │          ├─ Recalc: visibleStartTime = anchorTime - (visibleDuration × anchorRatio)
+           │        │          ├─ Clamp: visibleStartTime to [0, totalDuration - visibleDuration]
+           │        │          ├─ Request: requestVisibleTiles() [if tile mode]
+           │        │          └─ Redraw: needsDisplay = true
+           │        │
+           │        └─ NO ▶ zoomOut(anchorX: cursor.x)
+           │                 └─ (Same as zoomIn but: zoomLevel /= 1.5, min 1.0)
+           │
+           └─ No Cmd Key ▶ panHorizontal(scrollDeltaX)
+                            └─ Update visibleStartTime by scroll delta
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        SCROLL IMPLEMENTATION FLOW                                │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    User Action: Scroll Wheel (Horizontal)
+           │
+           ▼
+    EditorWaveformView.scrollWheel(event)
+           │
+           ▼
+    Normal Scroll (No Cmd)
+           │
+           ▼
+    scrollAmount = visibleDuration × (scrollingDeltaX / bounds.width) × 0.5
+           │
+           ▼
+    visibleStartTime = clamp(visibleStartTime - scrollAmount,
+                             0, totalDuration - visibleDuration)
+           │
+           ▼
+    requestVisibleTiles() [if tile mode]
+           │
+           ▼
+    needsDisplay = true (triggers draw cycle)
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        TILE SYSTEM INTEGRATION                                   │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    Zoom/Scroll Changes Viewport State
+           │
+           ▼
+    requestVisibleTiles() called
+           │
+           ▼
+    TimelineViewport created with new state
+           │
+           ▼
+    WaveformTileProvider.requestTiles(viewport)
+           │
+           ├─ Select LOD based on pixelsPerSecond
+           ├─ Calculate required tile indices
+           ├─ Check memory cache
+           ├─ Check disk cache
+           ├─ Schedule missing tiles for background generation
+           └─ Return immediately available tiles
+           │
+           ▼
+    currentTiles = [available tiles]
+           │
+           ▼
+    drawWaveformTiles() renders peaks from currentTiles
+           │
+           ▼
+    Missing tiles loaded asynchronously
+           │
+           ▼
+    Delegate callback: tileProvider(_:didLoadTiles:)
+           │
+           ▼
+    requestVisibleTiles() called again
+           │
+           ▼
+    New tiles now available for rendering
+           │
+           ▼
+    Display refreshed with full resolution
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                      COORDINATE TRANSFORMATION                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    Time to Pixel (for drawing):
+    ─────────────────────────────────
+    pixelX = (time - visibleStartTime) / visibleDuration × waveformRect.width
+    
+    Used for:
+    • Playhead vertical line position
+    • Selection handle positions
+    • Time ruler tick positions
+    • Seeking/clicking positions
+
+
+    Pixel to Time (for interaction):
+    ───────────────────────────────────
+    time = visibleStartTime + (pixelX / waveformRect.width) × visibleDuration
+    
+    Used for:
+    • Mouse click → seek position
+    • Selection creation/resize
+    • Ruler position calculation
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        RENDERING LAYERS (z-order)                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    Layer 1 (Bottom): Background
+    ════════════════════════════════════════════════════════════════
+    IndustrialColors.surfaceContainerLow (#161D1E)
+
+    Layer 2: Waveform Bars / Tiles
+    ════════════════════════════════════════════════════════════════
+    IndustrialColors.waveformCoral (#FF6B5F) - Main bars
+    IndustrialColors.waveformMuted (#FF6B5F, 0.32 alpha) - Silence
+    Opacity varies based on selection state
+
+    Layer 3: Center Line (50% reference)
+    ════════════════════════════════════════════════════════════════
+    IndustrialColors.gridMedium (#FFFFFF, 0.06 alpha) - Dashed line
+
+    Layer 4: Selection Overlay (Outside areas)
+    ════════════════════════════════════════════════════════════════
+    IndustrialColors.editorDimOverlay (#0E1416, 0.4 alpha)
+    Dims unselected regions
+
+    Layer 5: Time Ruler
+    ════════════════════════════════════════════════════════════════
+    Main ticks, sub-ticks, time labels
+    Adaptive step interval based on zoom
+
+    Layer 6: Playhead
+    ════════════════════════════════════════════════════════════════
+    Vertical line: IndustrialColors.waveformAccent (#FF453A)
+    Triangle handle at bottom
+
+    Layer 7 (Top): Selection Handles
+    ════════════════════════════════════════════════════════════════
+    IndustrialColors.editorHandle (#8AEBFF) - Cyan rectangles
+    Width: 4px, Hit zone: ±8px
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    MOUSE INTERACTION STATE MACHINE                               │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    Initial State: NONE
+         │
+         ├─ mouseDown(event)
+         │  │
+         │  ├─ Check if click on selection handle (±8px)
+         │  │  ├─ YES ▶ State = LEFT_HANDLE or RIGHT_HANDLE
+         │  │  │         Store: dragStartX, time to drag
+         │  │  │
+         │  │  └─ NO ▶ State = SEEKING
+         │  │           Seek to click position
+         │  │           Store: dragStartX, dragCreateStartTime
+         │  │
+         │  └─ Return (await mouseDragged or mouseUp)
+         │
+         ├─ mouseDragged(event)
+         │  │
+         │  ├─ State = LEFT_HANDLE ▶ Resize selection left edge
+         │  ├─ State = RIGHT_HANDLE ▶ Resize selection right edge
+         │  ├─ State = SEEKING ▶ Check drag distance
+         │  │                    ├─ < 5px ▶ Continue seeking
+         │  │                    └─ ≥ 5px ▶ State = CREATING
+         │  └─ State = CREATING ▶ Extend selection with drag
+         │
+         ├─ mouseUp(event)
+         │  │
+         │  ├─ State = CREATING
+         │  │  ├─ Selection duration < 0.05s?
+         │  │  │  ├─ YES ▶ Clear selection
+         │  │  │  └─ NO ▶ Keep selection
+         │  │  │
+         │  │  └─ Update cursor rects
+         │  │
+         │  └─ State = NONE (reset)
+         │
+         └─ [Loop back to Initial State]
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                    EDITOR SESSION STATE MANAGEMENT (V2.1)                       │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    User selects File A
+    ▼
+    EditorViewController created for File A
+    ▼
+    EditorSession created (caches audio buffer & viewport state)
+    ▼
+    waveformView.loadAudio() or waveformView.loadAudioAsset()
+    ▼
+    Waveform displays
+
+    ... User navigates, zooms, scrolls, edits ...
+    ▼
+    currentViewportState() = ViewportState(
+        zoomLevel: 2.5,
+        scrollOffset: 15.3,
+        playheadPosition: 12.4
+    )
+    ▼
+    User selects File B (without closing A)
+    ▼
+    EditorSession[A].viewportState = currentViewportState()
+    ▼
+    EditorViewController[B] created for File B
+    ▼
+    EditorSession[B] loads or reuses cached data
+    ▼
+    restoreViewportState(EditorSession[B].viewportState)
+    ▼
+    waveformView.setZoomLevel(1.0)
+    waveformView.setScrollOffset(0.0)
+    waveformView.setPlayheadPosition(0.0)
+
+    ... User switches back to File A ...
+    ▼
+    EditorViewController[A] reactivated
+    ▼
+    restoreViewportState(EditorSession[A].viewportState)
+    ▼
+    waveformView.setZoomLevel(2.5)        ◄─ Restored!
+    waveformView.setScrollOffset(15.3)    ◄─ Restored!
+    waveformView.setPlayheadPosition(12.4) ◄─ Restored!
+
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        TIME RULER ADAPTIVE ZOOM                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+    pixelsPerSecond = waveformRect.width / visibleDuration
+                │
+                ▼
+         ┌──────────────────────┐
+         │ SELECT TICK INTERVAL │
+         └──────────────────────┘
+                │
+         ┌──────┴──────┐
+         │             │
+    > 200?        ≤ 200?
+         │             │
+         ▼             ▼
+      10ms steps    Check > 50?
+    (0.1s) with      │       │
+    5 sub-steps   YES│       │NO
+                     ▼       ▼
+                  0.5s steps Check > 15?
+                  5 sub      │        │
+                          YES│        │NO
+                             ▼        ▼
+                           2s steps  5/10/30s steps
+                           4 sub    (depends on duration)
+                             │
+                             ▼
+                    [Draw ticks with labels]
+
+    Example 1: 2-second visible duration, 800px width
+    ──────────────────────────────────────────────────
+    pixelsPerSecond = 800 / 2 = 400 px/s (> 200)
+    ✓ Use 10ms steps, format: M:SS.sss (e.g., 0:12.345)
+
+    Example 2: 30-second visible duration, 800px width
+    ───────────────────────────────────────────────────
+    pixelsPerSecond = 800 / 30 ≈ 27 px/s (between 15-50)
+    ✓ Use 2s steps, format: M:SS (e.g., 0:15)
+
+    Example 3: 300-second visible duration, 800px width
+    ────────────────────────────────────────────────────
+    pixelsPerSecond = 800 / 300 ≈ 2.7 px/s (< 15)
+    ✓ Use 30s steps, format: M:SS (e.g., 2:45)
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+                                   END OF DIAGRAM
+
+═══════════════════════════════════════════════════════════════════════════════════

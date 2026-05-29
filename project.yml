@@ -1,0 +1,90 @@
+name: AudioRecordMac
+options:
+  bundleIdPrefix: com.voidzhang
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+
+packages:
+  SnapshotTesting:
+    path: swift-snapshot-testing
+
+settings:
+  base:
+    SWIFT_VERSION: 5.9
+    MACOSX_DEPLOYMENT_TARGET: 13.0
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+
+schemes:
+  AudioRecordMac:
+    build:
+      targets:
+        AudioRecordMac: all
+        AudioRecordMacUITests: [test]
+        AudioRecordMacSnapshotTests: [test]
+    test:
+      gatherCoverageData: false
+      targets:
+        - name: AudioRecordMacUITests
+        - name: AudioRecordMacSnapshotTests
+
+fileGroups:
+  - docs
+  - scripts
+  - AudioRecordKit
+
+targets:
+  AudioRecordMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: AudioRecordApp/Sources
+      - path: AudioRecordKit/Sources
+      - path: assets
+        type: folder
+        optional: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.voidzhang.audio-record-mac
+        PRODUCT_NAME: AudioRecordMac
+        EXECUTABLE_NAME: audio_record_mac
+        INFOPLIST_FILE: Info.plist
+        CODE_SIGN_ENTITLEMENTS: AudioRecordMac.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: true
+    dependencies: []
+
+  AudioRecordMacUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: AudioRecordMacUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.voidzhang.audio-record-mac.uitests
+        TEST_TARGET_NAME: AudioRecordMac
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: AudioRecordMac
+
+  AudioRecordMacSnapshotTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: AudioRecordMacSnapshotTests
+      - path: AudioRecordApp/Sources/Views/ControlPanelView.swift
+      - path: AudioRecordApp/Sources/Views/IndustrialControls.swift
+      - path: AudioRecordApp/Sources/Views/TimerLabel.swift
+      - path: AudioRecordApp/Sources/Utilities/IndustrialDesignTokens.swift
+      - path: AudioRecordKit/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.voidzhang.audio-record-mac.snapshottests
+        GENERATE_INFOPLIST_FILE: true
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG SNAPSHOT_TESTING
+    dependencies:
+      - package: SnapshotTesting

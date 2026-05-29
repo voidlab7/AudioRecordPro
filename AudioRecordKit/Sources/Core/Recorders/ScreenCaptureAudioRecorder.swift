@@ -200,7 +200,7 @@ class ScreenCaptureAudioRecorder: BaseAudioRecorder {
                         
                         // Add audio output
                         self.logger.info("正在添加音频输出...")
-                        let audioOutput = SystemAudioStreamOutput(audioFile: self.audioFile, onLevel: self.onLevel)
+                        let audioOutput = SystemAudioStreamOutput(audioFile: self.audioFile, onLevel: self.onLevel, onPeakLevel: self.onPeakLevel)
                         do {
                             try stream.addStreamOutput(audioOutput, type: .audio, sampleHandlerQueue: audioFrameOutputQueue)
                             self.audioOutputRef = audioOutput
@@ -330,13 +330,15 @@ class MinimalVideoStreamOutput: NSObject, SCStreamOutput {
 class SystemAudioStreamOutput: NSObject, SCStreamOutput {
     private weak var audioFile: AVAudioFile?
     private let onLevel: ((Float) -> Void)?
+    private let onPeakLevel: ((Float) -> Void)?
     private let logger = Logger.shared
     private var audioDataReceived = false
     private var audioDataTimer: Timer?
     
-    init(audioFile: AVAudioFile?, onLevel: ((Float) -> Void)?) {
+    init(audioFile: AVAudioFile?, onLevel: ((Float) -> Void)?, onPeakLevel: ((Float) -> Void)? = nil) {
         self.audioFile = audioFile
         self.onLevel = onLevel
+        self.onPeakLevel = onPeakLevel
         super.init()
         
         // Start timer on main thread to detect audio data reception
@@ -377,9 +379,12 @@ class SystemAudioStreamOutput: NSObject, SCStreamOutput {
                 // Calculate level
                 let level = calculateRMSLevel(from: audioBuffer)
                 
-                // Update level display in real-time (不再输出日志)
+                // Calculate peak level for waveform
+                let peakLevel = calculatePeakLevel(from: audioBuffer)
+                
                 DispatchQueue.main.async {
                     self.onLevel?(level)
+                    self.onPeakLevel?(peakLevel)
                 }
                 
             } catch {
@@ -443,6 +448,22 @@ class SystemAudioStreamOutput: NSObject, SCStreamOutput {
         
         let rms = sqrt(sum / Float(frameCount))
         return min(1.0, rms * 20.0)
+    }
+    
+    private func calculatePeakLevel(from buffer: AVAudioPCMBuffer) -> Float {
+        guard let channelData = buffer.floatChannelData else { return 0.0 }
+        let frameCount = Int(buffer.frameLength)
+        let channelCount = Int(buffer.format.channelCount)
+        guard frameCount > 0 else { return 0.0 }
+        
+        var peak: Float = 0.0
+        for ch in 0..<channelCount {
+            for i in 0..<frameCount {
+                let sample = abs(channelData[ch][i])
+                if sample > peak { peak = sample }
+            }
+        }
+        return peak
     }
     
     private func calculateLevelFromSampleBuffer(_ sampleBuffer: CMSampleBuffer) -> Float {

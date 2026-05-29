@@ -204,10 +204,15 @@ class MixedAudioRecorder: BaseAudioRecorder {
         
         // 设置电平回调（重要！否则没有电平显示）
         systemAudioCallback?.setLevelCallback { [weak self] level in
-            // 注意：这里的电平是系统音频的电平，混音后的电平在 updateLevel 中计算
-            // 但为了有显示，先使用系统音频的电平
             DispatchQueue.main.async {
                 self?.onLevel?(level)
+            }
+        }
+        
+        // 设置峰值回调（PCM 峰值，用于波形绘制）
+        systemAudioCallback?.setPeakLevelCallback { [weak self] peakLevel in
+            DispatchQueue.main.async {
+                self?.onPeakLevel?(peakLevel)
             }
         }
         
@@ -489,10 +494,14 @@ class MixedAudioRecorder: BaseAudioRecorder {
         // 计算 RMS
         let sumOfSquares = samples.reduce(0) { $0 + $1 * $1 }
         let rms = sqrt(sumOfSquares / Float(samples.count))
-        let normalizedLevel = min(1.0, rms * 3.0)  // 提高灵敏度
+        let normalizedLevel = min(1.0, rms * 3.0)
+        
+        // 计算峰值（与 extractWaveformSamples 同源）
+        let peakLevel = samples.reduce(0) { max($0, abs($1)) }
         
         DispatchQueue.main.async {
             self.onLevel?(normalizedLevel)
+            self.onPeakLevel?(peakLevel)
         }
     }
     

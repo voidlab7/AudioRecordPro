@@ -205,15 +205,13 @@ public func AudioRecord_StartWithProcess(_ handle: UnsafeMutableRawPointer?, _ p
         return -3 // AlreadyRecording
     }
     
-    // 进程录制需要系统音频权限
-    // 注意：当前 AudioRecordAPI 不支持指定进程，这里暂时使用系统音频
-    // TODO: 扩展 AudioConstraints 支持 targetProcessID
+    // 进程录制需要系统音频权限，使用 targetProcessID 指定目标进程
     let constraints = AudioConstraints(
         echoCancellation: false,
         noiseSuppression: false,
-        includeSystemAudio: true
+        includeSystemAudio: true,
+        targetProcessID: pid
     )
-    _ = pid  // 暂未使用，预留扩展
     
     Task { @MainActor in
         do {
@@ -511,7 +509,7 @@ public func AudioRecord_GetProcessBundleID(_ handle: OpaquePointer?, _ index: In
     processListLock.unlock()
     
     guard let processes = processes, index >= 0 && index < processes.count else { return nil }
-    return ((processes[Int(index)].bundleID ?? "") as NSString).utf8String
+    return (processes[Int(index)].bundleID as NSString).utf8String
 }
 
 /// 释放进程列表

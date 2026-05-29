@@ -1,0 +1,195 @@
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.11s)
+Test Suite 'All tests' started at 2026-05-22 15:47:22.932.
+Test Suite 'AudioRecordKitPackageTests.xctest' started at 2026-05-22 15:47:22.933.
+Test Suite 'AudioRecordingModelTests' started at 2026-05-22 15:47:22.933.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingCodable]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingCodable]' passed (0.002 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingHasFormattedCreatedAt]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingHasFormattedCreatedAt]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingIDIsUnique]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingIDIsUnique]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingInitialization]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testAudioRecordingInitialization]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testFormattedDuration]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testFormattedDuration]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testFormattedFileSize]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testFormattedFileSize]' passed (0.002 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordedFileInfoFormatting]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordedFileInfoFormatting]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingModeDisplayName]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingModeDisplayName]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingSettingsDefaultValues]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingSettingsDefaultValues]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingSettingsFormatSettings]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingSettingsFormatSettings]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingSettingsValidation]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingSettingsValidation]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingStateAllCases]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingStateAllCases]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingStateCaseCount]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testRecordingStateCaseCount]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testTrackInfoInitialization]' started.
+Test Case '-[AudioRecordKitTests.AudioRecordingModelTests testTrackInfoInitialization]' passed (0.000 seconds).
+Test Suite 'AudioRecordingModelTests' passed at 2026-05-22 15:47:22.939.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.005 (0.006) seconds
+Test Suite 'AudioUtilsTests' started at 2026-05-22 15:47:22.939.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioDataConversionErrorDescriptions]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioDataConversionErrorDescriptions]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFileInfoFormattedDuration]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFileInfoFormattedDuration]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFileInfoMonoChannel]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFileInfoMonoChannel]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFormatAllCases]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFormatAllCases]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFormatM4aProperties]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFormatM4aProperties]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFormatWavProperties]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testAudioFormatWavProperties]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testConversionFailedError]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testConversionFailedError]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testEmptyInputDataError]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testEmptyInputDataError]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testProcessTapConstantsExist]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testProcessTapConstantsExist]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeAllCases]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeAllCases]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeMicrophoneRawValue]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeMicrophoneRawValue]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeSpecificProcessRawValue]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeSpecificProcessRawValue]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeSystemMixdownRawValue]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testRecordingModeSystemMixdownRawValue]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testUnsupportedBufferCountErrorContent]' started.
+Test Case '-[AudioRecordKitTests.AudioUtilsTests testUnsupportedBufferCountErrorContent]' passed (0.000 seconds).
+Test Suite 'AudioUtilsTests' passed at 2026-05-22 15:47:22.940.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'DateFormatterExtensionTests' started at 2026-05-22 15:47:22.940.
+Test Case '-[AudioRecordKitTests.DateFormatterExtensionTests testLogTimestampFormatterIsConsistent]' started.
+Test Case '-[AudioRecordKitTests.DateFormatterExtensionTests testLogTimestampFormatterIsConsistent]' passed (0.000 seconds).
+Test Suite 'DateFormatterExtensionTests' passed at 2026-05-22 15:47:22.941.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'FileManagerUtilsTests' started at 2026-05-22 15:47:22.941.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testFormatFileSizeBytes]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testFormatFileSizeBytes]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testFormatFileSizeKilobytes]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testFormatFileSizeKilobytes]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testFormatFileSizeMegabytes]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testFormatFileSizeMegabytes]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testGenerateFileNameCleansIllegalCharacters]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testGenerateFileNameCleansIllegalCharacters]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testGenerateFileNameLegacyFormat]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testGenerateFileNameLegacyFormat]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testGenerateFileNameWithMode]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testGenerateFileNameWithMode]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testSupportedAudioExtensions]' started.
+Test Case '-[AudioRecordKitTests.FileManagerUtilsTests testSupportedAudioExtensions]' passed (0.000 seconds).
+Test Suite 'FileManagerUtilsTests' passed at 2026-05-22 15:47:22.943.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'LevelMonitorTests' started at 2026-05-22 15:47:22.943.
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testInitialNotMonitoring]' started.
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testInitialNotMonitoring]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testLevelUpdateCallback]' started.
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testLevelUpdateCallback]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testResetStopsMonitoring]' started.
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testResetStopsMonitoring]' passed (0.205 seconds).
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testStopMonitoringSendsZero]' started.
+Test Case '-[AudioRecordKitTests.LevelMonitorTests testStopMonitoringSendsZero]' passed (0.000 seconds).
+Test Suite 'LevelMonitorTests' passed at 2026-05-22 15:47:23.149.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.206 (0.206) seconds
+Test Suite 'LogLevelTests' started at 2026-05-22 15:47:23.149.
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelAllCases]' started.
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelAllCases]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelEmojiMapping]' started.
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelEmojiMapping]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelOSLogTypeMapping]' started.
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelOSLogTypeMapping]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelRawValueMapping]' started.
+Test Case '-[AudioRecordKitTests.LogLevelTests testLogLevelRawValueMapping]' passed (0.000 seconds).
+Test Suite 'LogLevelTests' passed at 2026-05-22 15:47:23.150.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+Test Suite 'PermissionManagerTests' started at 2026-05-22 15:47:23.150.
+Test Case '-[AudioRecordKitTests.PermissionManagerTests testMicrophonePermissionGuide]' started.
+Test Case '-[AudioRecordKitTests.PermissionManagerTests testMicrophonePermissionGuide]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.PermissionManagerTests testScreenRecordingPermissionGuide]' started.
+Test Case '-[AudioRecordKitTests.PermissionManagerTests testScreenRecordingPermissionGuide]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.PermissionManagerTests testSystemAudioCapturePermissionGuide]' started.
+Test Case '-[AudioRecordKitTests.PermissionManagerTests testSystemAudioCapturePermissionGuide]' passed (0.000 seconds).
+Test Suite 'PermissionManagerTests' passed at 2026-05-22 15:47:23.150.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'SDKErrorAndConstraintsTests' started at 2026-05-22 15:47:23.150.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testAllErrorsHaveNonEmptyDescriptions]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testAllErrorsHaveNonEmptyDescriptions]' passed (0.001 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testCustomConstraints]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testCustomConstraints]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testDefaultConstraintsValues]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testDefaultConstraintsValues]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorAlreadyRecordingDescription]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorAlreadyRecordingDescription]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorDeviceNotFoundDescription]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorDeviceNotFoundDescription]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorMicrophonePermissionDeniedDescription]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorMicrophonePermissionDeniedDescription]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorNotSupportedDescription]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorNotSupportedDescription]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorSystemAudioPermissionDeniedDescription]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorSystemAudioPermissionDeniedDescription]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorUnknownDescription]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testErrorUnknownDescription]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testGetAudioTracksReturnsAllAudioTracks]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testGetAudioTracksReturnsAllAudioTracks]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamActiveProperty]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamActiveProperty]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamConstraints]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamConstraints]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamInactiveAfterTrackEnds]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamInactiveAfterTrackEnds]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamRecordingMode]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamRecordingMode]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackMicrophoneInit]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackMicrophoneInit]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackMixedInit]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackMixedInit]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackStop]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackStop]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackUnsupportedOperations]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamTrackUnsupportedOperations]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamUnsupportedOperations]' started.
+Test Case '-[AudioRecordKitTests.SDKErrorAndConstraintsTests testMediaStreamUnsupportedOperations]' passed (0.000 seconds).
+Test Suite 'SDKErrorAndConstraintsTests' passed at 2026-05-22 15:47:23.155.
+	 Executed 19 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'ThemeAndMonitorTests' started at 2026-05-22 15:47:23.155.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorAccentIsBlue]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorAccentIsBlue]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorBgPrimaryIsDark]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorBgPrimaryIsDark]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorErrorIsRed]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorErrorIsRed]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorSuccessIsGreen]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testColorSuccessIsGreen]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testFontBodyProperties]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testFontBodyProperties]' passed (0.003 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testFontTimerProperties]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testFontTimerProperties]' passed (0.001 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testFontTitleProperties]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testFontTitleProperties]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testNSColorHexInitializerWithInvalidInput]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testNSColorHexInitializerWithInvalidInput]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testNSColorHexInitializerWithValidHex]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testNSColorHexInitializerWithValidHex]' passed (0.000 seconds).
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testRadiusValues]' started.
+Test Case '-[AudioRecordKitTests.ThemeAndMonitorTests testRadiusValues]' passed (0.000 seconds).
+Test Suite 'ThemeAndMonitorTests' passed at 2026-05-22 15:47:23.161.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'AudioRecordKitPackageTests.xctest' passed at 2026-05-22 15:47:23.161.
+	 Executed 76 tests, with 0 failures (0 unexpected) in 0.223 (0.228) seconds
+Test Suite 'All tests' passed at 2026-05-22 15:47:23.161.
+	 Executed 76 tests, with 0 failures (0 unexpected) in 0.223 (0.229) seconds
+✅ 日志目录创建成功: /Users/voidzhang/Documents/AudioRecordings/Logs
+[2026-05-22 15:47:22.943] ℹ️ [INFO] [LevelMonitor.swift:40] startMonitoring(source:): 系统音频电平监控已启动（由SystemAudioStreamOutput提供真实数据）
+[2026-05-22 15:47:23.149] ℹ️ [INFO] [LevelMonitor.swift:40] startMonitoring(source:): 系统音频电平监控已启动（由SystemAudioStreamOutput提供真实数据）
+◇ Test run started.
+↳ Testing Library Version: 1501
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.

@@ -1,0 +1,125 @@
+{
+  "providers": {
+    "gongfeng": {
+      "baseUrl": "https://copilot.code.woa.com/server/openclaw/copilot-gateway/v1",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "claude-sonnet-4-5",
+          "name": "Claude Sonnet 4.5",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 120000,
+          "maxTokens": 8000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "headers": {
+            "X-Model-Name": "Claude Sonnet 4.5"
+          }
+        },
+        {
+          "id": "claude-sonnet-4-6",
+          "name": "Claude Sonnet 4.6",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 120000,
+          "maxTokens": 8000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "headers": {
+            "X-Model-Name": "Claude Sonnet 4.6"
+          }
+        },
+        {
+          "id": "deepseek-v3-2",
+          "name": "DeepSeek 3.2",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 120000,
+          "maxTokens": 8000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "headers": {
+            "X-Model-Name": "DeepSeek 3.2"
+          }
+        },
+        {
+          "id": "gpt-5-4",
+          "name": "GPT 5.4",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 120000,
+          "maxTokens": 8000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "headers": {
+            "X-Model-Name": "GPT 5.4"
+          }
+        },
+        {
+          "id": "hy-2-0-think",
+          "name": "HY 2.0 Think",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 120000,
+          "maxTokens": 8000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "headers": {
+            "X-Model-Name": "HY 2.0 Think"
+          }
+        },
+        {
+          "id": "auto-vision",
+          "name": "auto-vision",
+          "reasoning": false,
+          "input": [
+            "text",
+            "image"
+          ],
+          "contextWindow": 24000,
+          "maxTokens": 16000,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "headers": {
+            "X-Model-Name": "auto-vision"
+          }
+        }
+      ]
+    }
+  }
+}

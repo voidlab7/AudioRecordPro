@@ -1,0 +1,58 @@
+🔨 开始构建 AudioRecordMac...
+项目根目录: /Users/voidzhang/Documents/workspace/audio_record_mac
+📦 编译源文件...
+/Users/voidzhang/Documents/workspace/audio_record_mac/AudioRecordApp/Sources/Controllers/MainViewController.swift:764:13: warning: initialization of immutable value 'rightNorm' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+ 762 |         // dB → 归一化 (0~1)，-60dB=0，0dB=1
+ 763 |         let leftNorm = max(0, min(1, (leftDB + 60) / 60))
+ 764 |         let rightNorm = max(0, min(1, (rightDB + 60) / 60))
+     |             `- warning: initialization of immutable value 'rightNorm' was never used; consider replacing with assignment to '_' or removing it [#no-usage]
+ 765 |         mainWindowView.updateLevel(Float(leftNorm))
+ 766 |         
+
+/Users/voidzhang/Documents/workspace/audio_record_mac/AudioRecordApp/Sources/Controllers/MainViewController.swift:1112:16: warning: value 'first' was defined but never used; consider replacing with boolean test [#no-usage]
+1110 |         audioRecorderController?.setCoreAudioTargetPID(pids.first)
+1111 |         
+1112 |         if let first = pids.first {
+     |                `- warning: value 'first' was defined but never used; consider replacing with boolean test [#no-usage]
+1113 |             mainWindowView.updateStatus("录制目标：应用声音")
+1114 |         } else {
+
+/Users/voidzhang/Documents/workspace/audio_record_mac/AudioRecordApp/Sources/Controllers/MainViewController.swift:1523:30: warning: call to main actor-isolated initializer 'init(mode:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+1521 |             var processes: [AudioProcessInfo] = []
+1522 |             if #available(macOS 14.4, *) {
+1523 |                 let lister = CoreAudioProcessTapRecorder(mode: .systemMixdown)
+     |                              `- warning: call to main actor-isolated initializer 'init(mode:)' in a synchronous nonisolated context [#ActorIsolatedCall]
+1524 |                 processes = lister.getAvailableAudioProcesses()
+1525 |             }
+
+/Users/voidzhang/Documents/workspace/audio_record_mac/AudioRecordKit/Sources/Core/ProcessTap/CoreAudioProcessTapRecorder.swift:31:14: note: calls to initializer 'init(mode:)' from outside of its actor context are implicitly asynchronous
+ 29 |     
+ 30 |     // MARK: - Initialization
+ 31 |     override init(mode: RecordingMode) {
+    |              |- note: calls to initializer 'init(mode:)' from outside of its actor context are implicitly asynchronous
+    |              `- note: main actor isolation inferred from inheritance from class 'BaseAudioRecorder'
+ 32 |         super.init(mode: mode)
+ 33 |     }
+
+/Users/voidzhang/Documents/workspace/audio_record_mac/AudioRecordApp/Sources/Controllers/MainViewController.swift:1524:36: warning: call to main actor-isolated instance method 'getAvailableAudioProcesses()' in a synchronous nonisolated context [#ActorIsolatedCall]
+1522 |             if #available(macOS 14.4, *) {
+1523 |                 let lister = CoreAudioProcessTapRecorder(mode: .systemMixdown)
+1524 |                 processes = lister.getAvailableAudioProcesses()
+     |                                    `- warning: call to main actor-isolated instance method 'getAvailableAudioProcesses()' in a synchronous nonisolated context [#ActorIsolatedCall]
+1525 |             }
+1526 |             DispatchQueue.main.async {
+
+/Users/voidzhang/Documents/workspace/audio_record_mac/AudioRecordKit/Sources/Core/ProcessTap/CoreAudioProcessTapRecorder.swift:364:10: note: calls to instance method 'getAvailableAudioProcesses()' from outside of its actor context are implicitly asynchronous
+362 |     
+363 |     /// 获取所有可用的音频进程列表
+364 |     func getAvailableAudioProcesses() -> [AudioProcessInfo] {
+    |          |- note: calls to instance method 'getAvailableAudioProcesses()' from outside of its actor context are implicitly asynchronous
+    |          `- note: main actor isolation inferred from inheritance from class 'BaseAudioRecorder'
+365 |         return processEnumerator.getAvailableAudioProcesses()
+366 |     }
+
+[#ActorIsolatedCall]: <https://docs.swift.org/compiler/documentation/diagnostics/actor-isolated-call>
+📋 复制资源...
+🔐 代码签名...
+/Users/voidzhang/Documents/workspace/audio_record_mac/build/AudioRecordMac.app: replacing existing signature
+✅ 构建完成: /Users/voidzhang/Documents/workspace/audio_record_mac/build/AudioRecordMac.app

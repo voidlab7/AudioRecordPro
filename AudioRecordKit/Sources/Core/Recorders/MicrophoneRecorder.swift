@@ -180,7 +180,21 @@ class MicrophoneRecorder: BaseAudioRecorder {
             // Calculate and update level
             let level = self.calculateRMSLevel(from: buffer)
             
-            // 不再输出每次的电平日志（减少冗余）
+            // Calculate peak level for waveform
+            let peakLevel: Float = {
+                guard let channelData = buffer.floatChannelData else { return 0.0 }
+                let fc = Int(buffer.frameLength)
+                let cc = Int(buffer.format.channelCount)
+                guard fc > 0 else { return 0.0 }
+                var peak: Float = 0.0
+                for ch in 0..<cc {
+                    for i in 0..<fc {
+                        let s = abs(channelData[ch][i])
+                        if s > peak { peak = s }
+                    }
+                }
+                return peak
+            }()
             
             // 统计日志：每10秒打印一次累计帧数
             let now = CFAbsoluteTimeGetCurrent()
@@ -188,7 +202,10 @@ class MicrophoneRecorder: BaseAudioRecorder {
                 self.lastStatsLogTime = now
                 logger.info("📊 麦克风录制统计: 累计写入 \(self.totalFramesWritten) 帧")
             }
-            Task { @MainActor in self.onLevel?(level) }
+            Task { @MainActor in
+                self.onLevel?(level)
+                self.onPeakLevel?(peakLevel)
+            }
         }
         
         logger.info("麦克风录制监听已安装（inputNode）")

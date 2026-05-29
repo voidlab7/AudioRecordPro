@@ -2,29 +2,28 @@
 set -euo pipefail
 
 # AudioRecord SDK 测试脚本
+# 使用 SwiftPM (swift test) 运行 AudioRecordKit 单元测试
 
-APP_NAME="sdk_test"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SRC_DIR="$ROOT_DIR/src"
-BUILD_DIR="$ROOT_DIR/build"
-TEST_BUILD_DIR="$BUILD_DIR/test"
+SDK_DIR="$ROOT_DIR/AudioRecordKit"
 
 # 解析命令行参数
-TEST_MODE="basic"  # basic, mic, mixed
+VERBOSE=false
+FILTER=""
 HELP=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -m|--mic|--microphone)
-            TEST_MODE="mic"
+        -v|--verbose)
+            VERBOSE=true
             shift
             ;;
-        -x|--mixed|--fusion)
-            TEST_MODE="mixed"
-            shift
+        -f|--filter)
+            FILTER="$2"
+            shift 2
             ;;
         -b|--basic)
-            TEST_MODE="basic"
+            # 保持向后兼容：--basic 等同于默认行为
             shift
             ;;
         -h|--help)
@@ -41,95 +40,53 @@ done
 
 # 显示帮助信息
 if [ "$HELP" = true ]; then
-    echo "AudioRecord SDK 测试脚本"
+    echo "AudioRecord SDK 测试脚本 (SwiftPM)"
     echo ""
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
-    echo "  -b, --basic      只进行基础测试（默认）"
-    echo "  -m, --mic        进行麦克风录制测试"
-    echo "  -x, --mixed      进行混音录制测试（系统音频+麦克风）"
+    echo "  -b, --basic      运行所有单元测试（默认）"
+    echo "  -v, --verbose    显示详细输出"
+    echo "  -f, --filter X   只运行包含 X 的测试"
     echo "  -h, --help       显示此帮助信息"
     echo ""
     echo "示例:"
-    echo "  $0               # 只进行基础测试"
-    echo "  $0 --mic         # 麦克风录制测试"
-    echo "  $0 --mixed       # 混音录制测试"
+    echo "  $0                        # 运行全部测试"
+    echo "  $0 --verbose              # 详细输出"
+    echo "  $0 --filter AudioUtils    # 只跑 AudioUtils 相关测试"
     exit 0
 fi
 
-echo "🧪 AudioRecord SDK 测试脚本"
-echo "================================"
-case "$TEST_MODE" in
-    "mic")
-        echo "🎤 测试模式: 麦克风录制"
-        ;;
-    "mixed")
-        echo "🎵 测试模式: 混音录制（系统音频+麦克风）"
-        ;;
-    *)
-        echo "📋 测试模式: 基础测试"
-        ;;
-esac
+echo "🧪 AudioRecord SDK 测试 (SwiftPM)"
 echo "================================"
 
-# 清理测试构建目录
-echo "[1/3] 清理测试构建目录..."
-rm -rf "$TEST_BUILD_DIR"
-mkdir -p "$TEST_BUILD_DIR"
+if [ ! -f "$SDK_DIR/Package.swift" ]; then
+    echo "❌ Package.swift 未找到: $SDK_DIR"
+    exit 1
+fi
 
-# 编译测试程序
-echo "[2/3] 编译 SDK 测试程序..."
-swiftc \
-  -sdk "$(xcrun --show-sdk-path --sdk macosx)" \
-  -target "$(uname -m)-apple-macosx14.4" \
-  -framework AppKit \
-  -framework AVFoundation \
-  -framework Accelerate \
-  -framework CoreAudio \
-  -framework AudioToolbox \
-  -framework ScreenCaptureKit \
-  -o "$TEST_BUILD_DIR/$APP_NAME" \
-  "$SRC_DIR/Utils/Logger.swift" \
-  "$SRC_DIR/Utils/FileManagerUtils.swift" \
-  "$SRC_DIR/Utils/AudioUtils.swift" \
-  "$SRC_DIR/Utils/LevelMonitor.swift" \
-  "$SRC_DIR/Utils/PermissionManager.swift" \
-  "$SRC_DIR/Models/AudioRecording.swift" \
-  "$SRC_DIR/Recorder/AudioRecorderProtocol.swift" \
-  "$SRC_DIR/Recorder/MicrophoneRecorder.swift" \
-  "$SRC_DIR/Recorder/MixedAudioRecorder.swift" \
-  "$SRC_DIR/ProcessTapRecorder/AudioProcessEnumerator.swift" \
-  "$SRC_DIR/ProcessTapRecorder/ProcessTapManager.swift" \
-  "$SRC_DIR/ProcessTapRecorder/AggregateDeviceManager.swift" \
-  "$SRC_DIR/ProcessTapRecorder/AudioToolboxFileManager.swift" \
-  "$SRC_DIR/ProcessTapRecorder/AudioCallbackHandler.swift" \
-  "$SRC_DIR/ProcessTapRecorder/CoreAudioProcessTapRecorder.swift" \
-  "$SRC_DIR/ProcessTapRecorder/SwiftProcessTapManager.swift" \
-  "$SRC_DIR/AudioRecordSDK/AudioRecordAPI.swift" \
-  "$SRC_DIR/AudioRecordSDK/AudioConstraints.swift" \
-  "$SRC_DIR/AudioRecordSDK/MediaStream.swift" \
-  "$SRC_DIR/AudioRecordSDK/MediaStreamTrack.swift" \
-  "$SRC_DIR/AudioRecordSDK/AudioRecordError.swift" \
-  "$SRC_DIR/AudioRecordSDK/AudioRecordSDK.swift" \
-  "$SRC_DIR/AudioRecordSDK/Tests/SDKTestRunner.swift" \
-  "$SRC_DIR/AudioRecordSDK/Tests/TestMain.swift"
+# 构建测试命令
+CMD="swift test"
+if [ "$VERBOSE" = true ]; then
+    CMD="$CMD --verbose"
+fi
+if [ -n "$FILTER" ]; then
+    CMD="$CMD --filter $FILTER"
+fi
 
-echo "[3/3] 运行测试程序..."
+echo "📦 Package: $SDK_DIR"
+echo "📋 命令: $CMD"
 echo "================================"
 
-# 根据测试模式运行不同的测试
-case "$TEST_MODE" in
-    "mic")
-        echo "2" | "$TEST_BUILD_DIR/$APP_NAME"
-        ;;
-    "mixed")
-        echo "3" | "$TEST_BUILD_DIR/$APP_NAME"
-        ;;
-    *)
-        echo "1" | "$TEST_BUILD_DIR/$APP_NAME"
-        ;;
-esac
+# 运行测试
+cd "$SDK_DIR"
+eval "$CMD"
+EXIT_CODE=$?
 
 echo "================================"
-echo "✅ SDK 测试完成"
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "✅ SDK 测试全部通过"
+else
+    echo "❌ SDK 测试有失败项 (exit code: $EXIT_CODE)"
+fi
+exit $EXIT_CODE

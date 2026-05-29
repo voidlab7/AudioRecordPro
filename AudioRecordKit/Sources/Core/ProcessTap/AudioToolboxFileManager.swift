@@ -127,9 +127,10 @@ class AudioToolboxFileManager {
         
         totalFramesWritten += UInt64(inNumPackets)
         
-        // 每50000帧记录一次（约1秒@48kHz），减少日志输出
-        if totalFramesWritten % 50000 == 0 {
-            logger.info("📝 AudioToolboxFileManager: 已写入 \(totalFramesWritten) 帧")
+        // REQ-1.0-01: Log every ~1 minute at 48kHz (2880000 frames) for long recording stability
+        if totalFramesWritten % 2_880_000 == 0 {
+            let durationMinutes = Double(totalFramesWritten) / audioFormat.mSampleRate / 60.0
+            logger.info("📝 AudioToolboxFileManager: 已写入 \(totalFramesWritten) 帧 (\(String(format: "%.1f", durationMinutes)) 分钟)")
         }
     }
     

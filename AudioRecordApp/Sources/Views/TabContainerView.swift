@@ -28,8 +28,9 @@ class TabContainerView: NSView {
     // MARK: - UI Components
     private let tabBarView = NSView()
     private let contentView = NSView()
-    private var tabButtons: [String: NSButton] = [:]
+    private var tabButtons: [String: IndustrialTabButtonView] = [:]
     private var selectedTabId: String?
+    private var tabButtonConstraints: [NSLayoutConstraint] = []
     
     // MARK: - Properties
     weak var delegate: TabContainerViewDelegate?
@@ -47,9 +48,9 @@ class TabContainerView: NSView {
     }
     
     private func setupView() {
-        // 背景色
+        // Industrial Design: 透明背景（不覆盖父视图）
         wantsLayer = true
-        layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        layer?.backgroundColor = NSColor.clear.cgColor
         
         setupTabBar()
         setupContentView()
@@ -58,14 +59,16 @@ class TabContainerView: NSView {
     
     private func setupTabBar() {
         tabBarView.wantsLayer = true
-        tabBarView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        // Industrial Design: 深灰背景
+        tabBarView.layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
         tabBarView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(tabBarView)
     }
     
     private func setupContentView() {
         contentView.wantsLayer = true
-        contentView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+        // Industrial Design: 透明背景（不覆盖）
+        contentView.layer?.backgroundColor = NSColor.clear.cgColor
         contentView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(contentView)
     }
@@ -126,70 +129,64 @@ class TabContainerView: NSView {
     // MARK: - Private Methods
     
     private func createTabButton(for tab: TabItem) {
-        let button = NSButton()
-        button.title = tab.title
-        button.bezelStyle = .rounded
-        button.isBordered = false
-        button.wantsLayer = true
-        button.layer?.cornerRadius = 8
-        button.translatesAutoresizingMaskIntoConstraints = false
-        
-        // 设置字体
-        button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        
-        // 设置图标（如果有）
-        if let icon = tab.icon {
-            button.image = NSImage(systemSymbolName: icon, accessibilityDescription: nil)
-            button.imagePosition = .imageLeft
-            button.imageHugsTitle = true
+        let button = IndustrialTabButtonView(title: tab.title, icon: tab.icon)
+        let index = tabs.count - 1
+        button.onClick = { [weak self] in
+            guard let self = self, index >= 0 && index < self.tabs.count else { return }
+            self.selectTab(self.tabs[index].id)
         }
-        
-        // 设置点击事件
-        button.target = self
-        button.action = #selector(tabButtonClicked(_:))
-        button.tag = tabs.count - 1
         
         tabButtons[tab.id] = button
         tabBarView.addSubview(button)
         
-        // 设置按钮约束
-        setupTabButtonConstraints(button, at: tabs.count - 1)
+        // Rebuild all button constraints from scratch
+        rebuildAllTabButtonConstraints()
     }
     
-    private func setupTabButtonConstraints(_ button: NSButton, at index: Int) {
-        NSLayoutConstraint.activate([
-            button.centerYAnchor.constraint(equalTo: tabBarView.centerYAnchor),
-            button.heightAnchor.constraint(equalToConstant: 32)
-        ])
+    private func rebuildAllTabButtonConstraints() {
+        // Remove all existing tab button constraints
+        NSLayoutConstraint.deactivate(tabButtonConstraints)
+        tabButtonConstraints.removeAll()
         
-        if index == 0 {
-            // 第一个按钮
-            button.leadingAnchor.constraint(equalTo: tabBarView.leadingAnchor, constant: 16).isActive = true
-        } else {
-            // 后续按钮
-            let previousButton = tabButtons[tabs[index - 1].id]
-            button.leadingAnchor.constraint(equalTo: previousButton!.trailingAnchor, constant: 8).isActive = true
+        guard !tabs.isEmpty else { return }
+        
+        var constraints: [NSLayoutConstraint] = []
+        var previousButton: IndustrialTabButtonView?
+        
+        for (index, tab) in tabs.enumerated() {
+            guard let button = tabButtons[tab.id] else { continue }
+            button.translatesAutoresizingMaskIntoConstraints = false
+            
+            // Vertical centering and height
+            constraints.append(button.centerYAnchor.constraint(equalTo: tabBarView.centerYAnchor))
+            constraints.append(button.heightAnchor.constraint(equalToConstant: 32))
+            
+            if index == 0 {
+                // First button: leading anchor
+                constraints.append(button.leadingAnchor.constraint(equalTo: tabBarView.leadingAnchor, constant: 8))
+            } else if let prev = previousButton {
+                // Subsequent buttons: follow previous button with gap
+                constraints.append(button.leadingAnchor.constraint(equalTo: prev.trailingAnchor, constant: 4))
+                // Equal width to first button
+                let firstButton = tabButtons[tabs[0].id]!
+                constraints.append(button.widthAnchor.constraint(equalTo: firstButton.widthAnchor))
+            }
+            
+            // Last button: trailing anchor
+            if index == tabs.count - 1 {
+                constraints.append(button.trailingAnchor.constraint(equalTo: tabBarView.trailingAnchor, constant: -8))
+            }
+            
+            previousButton = button
         }
         
-        // 最后一个按钮的右边距
-        if index == tabs.count - 1 {
-            button.trailingAnchor.constraint(lessThanOrEqualTo: tabBarView.trailingAnchor, constant: -16).isActive = true
-        }
+        NSLayoutConstraint.activate(constraints)
+        tabButtonConstraints = constraints
     }
     
     private func updateTabButtonStates(selectedId: String) {
         for (tabId, button) in tabButtons {
-            if tabId == selectedId {
-                // 选中状态
-                button.layer?.backgroundColor = NSColor.selectedControlColor.cgColor
-                button.contentTintColor = NSColor.selectedControlTextColor
-                button.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-            } else {
-                // 未选中状态
-                button.layer?.backgroundColor = NSColor.clear.cgColor
-                button.contentTintColor = NSColor.labelColor
-                button.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-            }
+            button.isSelectedTab = (tabId == selectedId)
         }
     }
     
@@ -211,11 +208,4 @@ class TabContainerView: NSView {
         ])
     }
     
-    @objc private func tabButtonClicked(_ sender: NSButton) {
-        let index = sender.tag
-        guard index >= 0 && index < tabs.count else { return }
-        
-        let tab = tabs[index]
-        selectTab(tab.id)
-    }
 }

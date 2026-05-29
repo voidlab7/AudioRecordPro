@@ -118,12 +118,14 @@ public struct TrackInfo: Sendable {
     public let title: String
     public let isActive: Bool
     public let appIcon: NSImage?
+    public let sourceType: String  // "SYSTEM MIXDOWN" | "PROCESS TAP · PID xxx" | "MICROPHONE INPUT"
     
-    public init(icon: String, title: String, isActive: Bool, appIcon: NSImage? = nil) {
+    public init(icon: String, title: String, isActive: Bool, appIcon: NSImage? = nil, sourceType: String = "") {
         self.icon = icon
         self.title = title
         self.isActive = isActive
         self.appIcon = appIcon
+        self.sourceType = sourceType
     }
 }
 

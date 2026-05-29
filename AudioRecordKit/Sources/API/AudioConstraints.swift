@@ -14,15 +14,21 @@ public struct AudioConstraints {
     // MARK: - 扩展功能
     public var includeSystemAudio: Bool = false
     
+    /// 目标进程 ID（用于录制特定进程的音频）
+    /// 当设置此值时，录制将只捕获指定进程的音频输出
+    public var targetProcessID: Int32? = nil
+    
     // MARK: - 初始化
     public init(
         echoCancellation: Bool = true,
         noiseSuppression: Bool = true,
-        includeSystemAudio: Bool = false
+        includeSystemAudio: Bool = false,
+        targetProcessID: Int32? = nil
     ) {
         self.echoCancellation = echoCancellation
         self.noiseSuppression = noiseSuppression
         self.includeSystemAudio = includeSystemAudio
+        self.targetProcessID = targetProcessID
     }
 }
 

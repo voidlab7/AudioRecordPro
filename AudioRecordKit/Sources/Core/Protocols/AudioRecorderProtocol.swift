@@ -12,6 +12,7 @@ protocol AudioRecorderProtocol: AnyObject {
     
     // MARK: - Callbacks
     var onLevel: ((Float) -> Void)? { get set }
+    var onPeakLevel: ((Float) -> Void)? { get set }
     var onStatus: ((String) -> Void)? { get set }
     var onRecordingComplete: ((AudioRecording) -> Void)? { get set }
     var onPlaybackComplete: (() -> Void)? { get set }
@@ -53,6 +54,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     
     // MARK: - Callbacks
     var onLevel: ((Float) -> Void)?
+    var onPeakLevel: ((Float) -> Void)?
     var onStatus: ((String) -> Void)?
     var onRecordingComplete: ((AudioRecording) -> Void)?
     var onPlaybackComplete: (() -> Void)?

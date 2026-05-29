@@ -1,0 +1,38 @@
+{
+  "name": "weiyige-0508-full-review",
+  "leadAgentId": "7c0126d0c0334b5b831041daa3aaf30a",
+  "workspacePath": "/Users/voidzhang/Documents/workspace/audio_record_mac",
+  "createdAt": "2026-05-08T06:48:26.766Z",
+  "options": {
+    "workspacePath": "/Users/voidzhang/Documents/workspace/audio_record_mac",
+    "isAutoTeam": false
+  },
+  "members": [
+    {
+      "memberId": "team-lead@weiyige-0508-full-review",
+      "name": "team-lead",
+      "role": "Team Lead - coordinates the team and interacts with the user"
+    },
+    {
+      "memberId": "启@weiyige-0508-full-review",
+      "name": "启",
+      "role": "启·执事 Leader 调度"
+    },
+    {
+      "memberId": "绘@weiyige-0508-full-review",
+      "name": "绘",
+      "role": "绘·设计 UI审查"
+    },
+    {
+      "memberId": "鉴@weiyige-0508-full-review",
+      "name": "鉴",
+      "role": "鉴·QA 测试审查"
+    },
+    {
+      "memberId": "矩@weiyige-0508-full-review",
+      "name": "矩",
+      "role": "矩·架构 工程审查"
+    }
+  ],
+  "isAutoTeam": false
+}

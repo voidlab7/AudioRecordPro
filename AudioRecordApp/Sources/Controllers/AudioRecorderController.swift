@@ -38,6 +38,12 @@ class AudioRecorderController: NSObject {
         }
     }
     
+    var onPeakLevel: ((Float) -> Void)? {
+        didSet {
+            activeRecorders.values.forEach { $0.onPeakLevel = onPeakLevel }
+        }
+    }
+    
     var onStatus: ((String) -> Void)? {
         didSet {
             activeRecorders.values.forEach { $0.onStatus = onStatus }
@@ -259,6 +265,10 @@ class AudioRecorderController: NSObject {
     private func setupRecorderCallbacks(_ recorder: AudioRecorderProtocol, sourceType: AudioSourceType) {
         recorder.onLevel = { [weak self] lvl in
             self?.onLevel?(lvl)
+        }
+        
+        recorder.onPeakLevel = { [weak self] peak in
+            self?.onPeakLevel?(peak)
         }
         
         recorder.onStatus = { [weak self] status in

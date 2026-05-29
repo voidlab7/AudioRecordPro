@@ -23,6 +23,7 @@ public class AudioRecordAPI {
     
     // MARK: - 回调
     public var onLevel: ((Float) -> Void)?
+    public var onPeakLevel: ((Float) -> Void)?
     public var onStatus: ((String) -> Void)?
     public var onRecordingComplete: ((AudioRecording) -> Void)?
     
@@ -102,6 +103,10 @@ public class AudioRecordAPI {
     private func setupRecorderCallbacks() {
         currentRecorder?.onLevel = { [weak self] level in
             self?.onLevel?(level)
+        }
+        
+        currentRecorder?.onPeakLevel = { [weak self] peak in
+            self?.onPeakLevel?(peak)
         }
         
         currentRecorder?.onStatus = { [weak self] status in

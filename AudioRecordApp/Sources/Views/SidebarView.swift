@@ -8,8 +8,9 @@ protocol SidebarViewDelegate: AnyObject {
     func sidebarViewDidRequestProcessRefresh(_ view: SidebarView)
     func sidebarViewDidSelectFile(_ view: SidebarView, file: RecordedFileInfo)
     func sidebarViewDidDoubleClickFile(_ view: SidebarView, file: RecordedFileInfo)
-    func sidebarViewDidRequestExportToMP3(_ view: SidebarView, file: RecordedFileInfo)
+    func sidebarViewDidRenameFile(_ view: SidebarView, file: RecordedFileInfo, newName: String)
     func sidebarViewDidChangeMixAudio(_ view: SidebarView, enabled: Bool)
+    func sidebarViewDidRequestEditFile(_ view: SidebarView, file: RecordedFileInfo)
 }
 
 // MARK: - SidebarView
@@ -27,13 +28,13 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     private let appsHeader = NSTextField()
     private let systemTargetRow = IndustrialAudioTargetRowView(
         title: "全部系统声音",
-        subtitle: "CAPTURE FULL MAC OUTPUT",
+        subtitle: "录制 Mac 全部系统声音",
         systemSymbolName: "speaker.wave.3.fill"
     )
     private let refreshButton = IndustrialButtonView(title: "刷新", icon: "arrow.clockwise")
     private let appsScroll = NSScrollView()
     private let appsStack = NSStackView()
-    private let microphonePanel = IndustrialMicrophonePanelView()
+    private let microphonePanel = IndustrialMicrophoneRowView()
     
     // 已录制文件Tab的组件
     private let recordedFilesView = RecordedFilesView()
@@ -126,10 +127,9 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         setupRefreshButton()
         setupAppsTable()
         
-        // 添加所有组件到audioRecorderTabView
+        // 添加所有组件到audioRecorderTabView（已移除 systemTargetRow — 不再显示系统音频源）
         audioRecorderTabView.addSubview(targetHeader)
         audioRecorderTabView.addSubview(targetHintLabel)
-        audioRecorderTabView.addSubview(systemTargetRow)
         audioRecorderTabView.addSubview(appsHeader)
         audioRecorderTabView.addSubview(refreshButton)
         audioRecorderTabView.addSubview(appsScroll)
@@ -138,7 +138,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         // 创建Tab
         let audioRecorderTab = TabItem(
             id: "audioRecorder",
-            title: "Audio Recorder",
+            title: "录制",
             icon: "waveform",
             view: audioRecorderTabView
         )
@@ -163,7 +163,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         // 创建Tab
         let recordedFilesTab = TabItem(
             id: "recordedFiles",
-            title: "Saved Files",
+            title: "文件",
             icon: "folder",
             view: recordedFilesTabView
         )
@@ -172,7 +172,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     
     private func setupHeaders() {
         func styleHeader(_ textField: NSTextField, _ title: String) {
-            textField.stringValue = title.uppercased() // Industrial Design: 大写标题
+            textField.stringValue = title
             textField.isBordered = false
             textField.isEditable = false
             textField.backgroundColor = .clear
@@ -194,11 +194,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     }
     
     private func setupTargetControls() {
-        systemTargetRow.translatesAutoresizingMaskIntoConstraints = false
-        systemTargetRow.isSelectedTarget = true
-        systemTargetRow.onClick = { [weak self] in
-            self?.selectSystemAudioTarget()
-        }
+        // systemTargetRow 已移除 — 不再显示系统音频源行
         
         microphonePanel.translatesAutoresizingMaskIntoConstraints = false
         microphonePanel.onChange = { [weak self] enabled in
@@ -254,12 +250,13 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             targetHintLabel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
             targetHintLabel.trailingAnchor.constraint(lessThanOrEqualTo: audioRecorderTabView.trailingAnchor, constant: -16),
             
-            systemTargetRow.topAnchor.constraint(equalTo: targetHintLabel.bottomAnchor, constant: 10),
-            systemTargetRow.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
-            systemTargetRow.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
-            systemTargetRow.heightAnchor.constraint(equalToConstant: 56),
+            // 麦克风行紧跟提示文字（已移除 systemTargetRow）
+            microphonePanel.topAnchor.constraint(equalTo: targetHintLabel.bottomAnchor, constant: 10),
+            microphonePanel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
+            microphonePanel.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
+            microphonePanel.heightAnchor.constraint(equalToConstant: 44),
             
-            appsHeader.topAnchor.constraint(equalTo: systemTargetRow.bottomAnchor, constant: 18),
+            appsHeader.topAnchor.constraint(equalTo: microphonePanel.bottomAnchor, constant: 14),
             appsHeader.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
             appsHeader.trailingAnchor.constraint(lessThanOrEqualTo: refreshButton.leadingAnchor, constant: -8),
             
@@ -268,23 +265,18 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             refreshButton.widthAnchor.constraint(equalToConstant: 80),
             refreshButton.heightAnchor.constraint(equalToConstant: 24),
             
-            microphonePanel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
-            microphonePanel.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
-            microphonePanel.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12),
-            microphonePanel.heightAnchor.constraint(equalToConstant: 92),
-            
+            // 进程列表扩展到底部（不再被麦克风面板占用 92px）
             appsScroll.topAnchor.constraint(equalTo: appsHeader.bottomAnchor, constant: 10),
             appsScroll.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
             appsScroll.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
-            appsScroll.bottomAnchor.constraint(equalTo: microphonePanel.topAnchor, constant: -12)
+            appsScroll.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12)
         ])
     }
     
     // MARK: - Actions
     private func selectSystemAudioTarget() {
-        logger.info("录制目标切换为：全部系统声音")
+        logger.info("录制目标切换为：全部系统声音（无进程选中）")
         selectedPIDs = []
-        systemTargetRow.isSelectedTarget = true
         rebuildProcessRows()
         delegate?.sidebarViewDidSelectProcesses(self, pids: [])
         delegate?.sidebarViewDidChangeSourceSelection(self)
@@ -303,6 +295,10 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     // MARK: - TabContainerViewDelegate
     func tabContainerViewDidSelectTab(_ view: TabContainerView, tabId: String) {
         logger.info("侧边栏切换到Tab: \(tabId)")
+        if tabId == "audioRecorder" {
+            // 切到录制 Tab → 通知 delegate 回到录制态
+            delegate?.sidebarViewDidChangeSourceSelection(self)
+        }
     }
     
     // MARK: - RecordedFilesViewDelegate
@@ -315,9 +311,12 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         delegate?.sidebarViewDidDoubleClickFile(self, file: file)
     }
     
-    func recordedFilesViewDidRequestExportToMP3(_ view: RecordedFilesView, file: RecordedFileInfo) {
-        // 导出为MP3格式
-        delegate?.sidebarViewDidRequestExportToMP3(self, file: file)
+    func recordedFilesViewDidRenameFile(_ view: RecordedFilesView, file: RecordedFileInfo, newName: String) {
+        delegate?.sidebarViewDidRenameFile(self, file: file, newName: newName)
+    }
+    
+    func recordedFilesViewDidRequestEditFile(_ view: RecordedFilesView, file: RecordedFileInfo) {
+        delegate?.sidebarViewDidRequestEditFile(self, file: file)
     }
     
     
@@ -340,21 +339,28 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     }
     
     func isMicrophoneSourceSelected() -> Bool {
-        return microphonePanel.isMicrophoneIncluded
+        return microphonePanel.isSelected
     }
     
     func getSelectedProcesses() -> [AudioProcessInfo] {
         return availableProcesses.filter { selectedPIDs.contains($0.pid) }
     }
     
+    /// REQ-2.0-02: 获取当前选中录制目标的名称（用于状态栏引导文案）
+    func getSelectedProcessName() -> String? {
+        if isSystemAudioSourceSelected() {
+            return "系统声音"
+        }
+        return getSelectedProcesses().first?.name
+    }
+    
     /// 获取指定进程的应用图标
     func getIconForProcess(_ process: AudioProcessInfo) -> NSImage {
-        return getCachedIcon(for: process.path)
+        return getCachedIcon(for: process)
     }
     
     // MARK: - Process Rows
     private func rebuildProcessRows() {
-        systemTargetRow.isSelectedTarget = selectedPIDs.isEmpty
         
         for view in appsStack.arrangedSubviews {
             appsStack.removeArrangedSubview(view)
@@ -362,7 +368,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
         
         if availableProcesses.isEmpty {
-            let emptyLabel = NSTextField(labelWithString: "NO AUDIO PROCESSES DETECTED")
+            let emptyLabel = NSTextField(labelWithString: "未检测到音频进程")
             emptyLabel.font = IndustrialTypography.label
             emptyLabel.textColor = IndustrialColors.textTertiary
             emptyLabel.alignment = .center
@@ -374,12 +380,11 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
         
         for process in availableProcesses {
-            let row = IndustrialProcessRowView(process: process, icon: getCachedIcon(for: process.path))
+            let row = IndustrialProcessRowView(process: process, icon: getCachedIcon(for: process))
             row.isSelectedRow = selectedPIDs.contains(process.pid)
             row.onClick = { [weak self] in
                 guard let self = self else { return }
                 self.selectedPIDs = [process.pid]
-                self.systemTargetRow.isSelectedTarget = false
                 self.rebuildProcessRows()
                 self.delegate?.sidebarViewDidSelectProcesses(self, pids: [process.pid])
                 self.delegate?.sidebarViewDidChangeSourceSelection(self)
@@ -399,8 +404,8 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             for process in processes {
                 let key = process.path as NSString
                 if !process.path.isEmpty && self.iconCache.object(forKey: key) == nil {
-                    // 使用改进的 loadAppIcon 方法，支持 Helper 进程图标映射
-                    let icon = self.loadAppIcon(for: process.path)
+                    // 使用改进的 loadAppIcon 方法，支持 Helper 进程图标映射和 bundleID 查找
+                    let icon = self.loadAppIcon(for: process.path, bundleID: process.bundleID)
                     // 调整图标大小以优化性能
                     icon.size = NSSize(width: 24, height: 24)
                     
@@ -417,14 +422,14 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
     }
     
-    private func getCachedIcon(for path: String) -> NSImage {
-        let key = path as NSString
+    private func getCachedIcon(for process: AudioProcessInfo) -> NSImage {
+        let key = process.path as NSString
         if let cachedIcon = iconCache.object(forKey: key) {
             return cachedIcon
         }
         
-        // 如果缓存中没有，立即加载并缓存
-        let icon = loadAppIcon(for: path)
+        // 如果缓存中没有，立即加载并缓存（传入 bundleID 以支持更精确的图标查找）
+        let icon = loadAppIcon(for: process.path, bundleID: process.bundleID)
         icon.size = NSSize(width: 24, height: 24)
         iconCache.setObject(icon, forKey: key)
         
@@ -432,7 +437,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     }
     
     /// 加载应用图标，支持多种方式
-    private func loadAppIcon(for path: String) -> NSImage {
+    private func loadAppIcon(for path: String, bundleID: String = "") -> NSImage {
         // 特殊处理: 各种浏览器 Helper 进程使用主应用图标
         if let mainAppPath = getMainAppPathForHelper(path: path) {
             let icon = NSWorkspace.shared.icon(forFile: mainAppPath)
@@ -464,18 +469,46 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             }
         }
         
-        // 方法3: 尝试从 Bundle ID 获取图标
-        if let bundleID = getBundleID(from: path) {
-            let icon = NSWorkspace.shared.icon(forFile: bundleID)
-            if icon.size.width > 0 && icon.size.height > 0 {
-                logger.debug("✅ 从 Bundle ID 加载图标成功: \(bundleID)")
-                return icon
+        // 方法3: 通过 bundleID 查找主应用路径并获取图标
+        if !bundleID.isEmpty {
+            // 尝试从 Helper 的 bundleID 推导主应用 bundleID
+            let mainBundleID = deriveMainAppBundleID(from: bundleID)
+            if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: mainBundleID) {
+                let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+                if icon.representations.count > 1 || (icon.size.width > 16 && icon.size.height > 16) {
+                    logger.debug("✅ 从 bundleID 查找主应用图标成功: \(mainBundleID) -> \(appURL.path)")
+                    return icon
+                }
+            }
+            // 也尝试直接用原始 bundleID 查找
+            if mainBundleID != bundleID, let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
+                let icon = NSWorkspace.shared.icon(forFile: appURL.path)
+                if icon.representations.count > 1 || (icon.size.width > 16 && icon.size.height > 16) {
+                    logger.debug("✅ 从原始 bundleID 加载图标成功: \(bundleID) -> \(appURL.path)")
+                    return icon
+                }
             }
         }
         
-        // 方法4: 使用默认图标
-        logger.debug("⚠️ 所有方法都失败，使用默认图标: \(path)")
-        return NSImage(named: NSImage.applicationIconName) ?? NSImage(named: NSImage.multipleDocumentsName)!
+        // 方法4: 使用通用应用图标（不使用当前 App 图标）
+        logger.debug("⚠️ 所有方法都失败，使用通用应用图标: \(path)")
+        return NSWorkspace.shared.icon(forFile: "/Applications")
+    }
+    
+    /// 从 Helper 进程的 bundleID 推导主应用的 bundleID
+    /// 例如: "com.google.Chrome.helper" → "com.google.Chrome"
+    ///       "com.google.Chrome.helper.renderer" → "com.google.Chrome"
+    private func deriveMainAppBundleID(from helperBundleID: String) -> String {
+        let lowered = helperBundleID.lowercased()
+        // Remove common helper suffixes
+        let suffixes = [".helper.renderer", ".helper.gpu", ".helper.plugin", ".helper", ".renderer", ".gpu"]
+        for suffix in suffixes {
+            if lowered.hasSuffix(suffix) {
+                let endIndex = helperBundleID.index(helperBundleID.endIndex, offsetBy: -suffix.count)
+                return String(helperBundleID[helperBundleID.startIndex..<endIndex])
+            }
+        }
+        return helperBundleID
     }
     
     /// 从可执行文件路径查找 .app bundle 路径
@@ -519,49 +552,17 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         return foundApp?.path ?? executablePath
     }
     
-    /// 从路径获取 Bundle ID（简化版本）
-    private func getBundleID(from path: String) -> String? {
-        // 这里可以扩展更复杂的 Bundle ID 获取逻辑
-        // 目前返回 nil，让系统使用默认图标
-        return nil
-    }
+
     
-    /// 获取 Helper 进程对应的主应用路径
+    /// 获取 Helper 进程对应的主应用路径（通用方案，不再逐品牌硬编码）
     private func getMainAppPathForHelper(path: String) -> String? {
-        let lowerPath = path.lowercased()
-        
-        // Chrome 主应用或 Helper -> Chrome 主应用
-        if lowerPath.contains("google chrome") {
-            let chromeAppPath = "/Applications/Google Chrome.app"
-            if FileManager.default.fileExists(atPath: chromeAppPath) {
-                return chromeAppPath
-            }
+        // 通用方案：从路径中提取最顶层的 .app bundle
+        // 例如 /Applications/Comet.app/.../Helpers/Comet Helper.app/.../Comet Helper
+        //    → /Applications/Comet.app
+        let mainPath = findMainAppBundlePath(from: path)
+        if mainPath != path && FileManager.default.fileExists(atPath: mainPath) {
+            return mainPath
         }
-        
-        // Edge Helper -> Edge 主应用
-        if lowerPath.contains("microsoft edge helper") || lowerPath.contains("microsoft edge framework") {
-            let edgeAppPath = "/Applications/Microsoft Edge.app"
-            if FileManager.default.fileExists(atPath: edgeAppPath) {
-                return edgeAppPath
-            }
-        }
-        
-        // Firefox Helper -> Firefox 主应用
-        if lowerPath.contains("firefox") && lowerPath.contains("helper") {
-            let firefoxAppPath = "/Applications/Firefox.app"
-            if FileManager.default.fileExists(atPath: firefoxAppPath) {
-                return firefoxAppPath
-            }
-        }
-        
-        // Safari Helper -> Safari 主应用
-        if lowerPath.contains("safari") && lowerPath.contains("helper") {
-            let safariAppPath = "/System/Applications/Safari.app"
-            if FileManager.default.fileExists(atPath: safariAppPath) {
-                return safariAppPath
-            }
-        }
-        
         return nil
     }
     
@@ -596,8 +597,8 @@ final class IndustrialAudioTargetRowView: NSView {
     init(title: String, subtitle: String, systemSymbolName: String) {
         super.init(frame: .zero)
         setupView()
-        titleLabel.stringValue = title.uppercased()
-        metaLabel.stringValue = subtitle.uppercased()
+        titleLabel.stringValue = title
+        metaLabel.stringValue = subtitle
         iconView.image = NSImage(systemSymbolName: systemSymbolName, accessibilityDescription: title)
     }
     
@@ -696,9 +697,9 @@ final class IndustrialMicrophonePanelView: NSView {
     var onChange: ((Bool) -> Void)?
     var isMicrophoneIncluded: Bool { microphoneToggle.state == .on }
     
-    private let titleLabel = NSTextField(labelWithString: "ADD MICROPHONE")
+    private let titleLabel = NSTextField(labelWithString: "附加麦克风")
     private let microphoneToggle = IndustrialToggleView(title: "同时录入麦克风")
-    private let hintLabel = NSTextField(labelWithString: "MIX INTO SELECTED TARGET")
+    private let hintLabel = NSTextField(labelWithString: "混合到录制目标")
     private let meterLabel = NSTextField(labelWithString: "▂▃▅▆▇")
     
     override init(frame frameRect: NSRect) {
@@ -766,7 +767,98 @@ final class IndustrialMicrophonePanelView: NSView {
         let enabled = microphoneToggle.state == .on
         layer?.borderColor = (enabled ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
         meterLabel.alphaValue = enabled ? 1.0 : 0.35
-        hintLabel.stringValue = enabled ? "MIC WILL BE MIXED IN" : "MIX INTO SELECTED TARGET"
+        hintLabel.stringValue = enabled ? "麦克风已混入" : "混合到录制目标"
+    }
+}
+
+// MARK: - IndustrialMicrophoneRowView
+/// 紧凑麦克风行 — 🎤图标 + 标题，点击切换选中/未选中（边框高亮）
+final class IndustrialMicrophoneRowView: NSView {
+    var onChange: ((Bool) -> Void)?
+    var isSelected: Bool = false { didSet { updateAppearance() } }
+    
+    private let iconView = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "同时录入麦克风")
+    private let subtitleLabel = NSTextField(labelWithString: "混合录入当前目标")
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: .zero)
+        setupView()
+    }
+    
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+    
+    private func setupView() {
+        wantsLayer = true
+        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
+        layer?.cornerRadius = IndustrialCornerRadius.xs
+        layer?.borderWidth = 1
+        layer?.borderColor = IndustrialColors.outlineVariant.cgColor
+        translatesAutoresizingMaskIntoConstraints = false
+        
+        // 麦克风图标
+        if let image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "麦克风") {
+            iconView.image = image
+        }
+        iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+        iconView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(iconView)
+        
+        titleLabel.font = IndustrialTypography.body
+        titleLabel.textColor = IndustrialColors.onSurface
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(titleLabel)
+        
+        subtitleLabel.font = IndustrialTypography.monoDB
+        subtitleLabel.textColor = IndustrialColors.textTertiary
+        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(subtitleLabel)
+        
+        NSLayoutConstraint.activate([
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            iconView.widthAnchor.constraint(equalToConstant: 18),
+            iconView.heightAnchor.constraint(equalToConstant: 18),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
+            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+            
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
+            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+        ])
+        
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
+        updateAppearance()
+    }
+    
+    private func updateAppearance() {
+        layer?.borderColor = (isSelected ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
+        layer?.borderWidth = isSelected ? 2 : 1
+        layer?.backgroundColor = (isSelected ? IndustrialColors.surfaceContainerHigh : IndustrialColors.surfaceContainerLow).cgColor
+        iconView.contentTintColor = isSelected ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+        titleLabel.textColor = isSelected ? IndustrialColors.primary : IndustrialColors.onSurface
+    }
+    
+    override func mouseEntered(with event: NSEvent) {
+        NSCursor.pointingHand.set()
+        if !isSelected {
+            layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+        }
+    }
+    
+    override func mouseExited(with event: NSEvent) {
+        NSCursor.arrow.set()
+        updateAppearance()
+    }
+    
+    override func mouseDown(with event: NSEvent) {
+        isSelected.toggle()
+        onChange?(isSelected)
     }
 }
 
@@ -839,8 +931,8 @@ final class IndustrialProcessRowView: NSView {
     
     private func configure(process: AudioProcessInfo, icon: NSImage) {
         iconView.image = icon
-        titleLabel.stringValue = process.name.uppercased()
-        metaLabel.stringValue = "PID \(process.pid)   PROCESS TAP"
+        titleLabel.stringValue = process.name
+        metaLabel.stringValue = "系统音频源"
     }
     
     override func layout() {

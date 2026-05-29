@@ -1,0 +1,42 @@
+{
+  "task_id": "task-0528-bug-001-录制音频无法导出mp3",
+  "title": "BUG-001 录制音频无法导出MP3",
+  "type": "bug",
+  "status": "running",
+  "created_at": "2026-05-28T00:34:36+08:00",
+  "updated_at": "2026-05-28T00:34:36+08:00",
+  "project_root": "/Users/voidzhang/Documents/workspace/audio_record_mac",
+  "current_phase": 2,
+  "phases": [
+    {
+      "phase": 1,
+      "name": "scope",
+      "status": "completed",
+      "agent": "启"
+    },
+    {
+      "phase": 2,
+      "name": "analysis",
+      "status": "in_progress",
+      "agent": "铸"
+    },
+    {
+      "phase": 3,
+      "name": "impl",
+      "status": "pending",
+      "agent": "铸"
+    },
+    {
+      "phase": 4,
+      "name": "test",
+      "status": "pending",
+      "agent": "鉴"
+    },
+    {
+      "phase": 5,
+      "name": "summary",
+      "status": "pending",
+      "agent": "启"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import Foundation
 class LevelMeterView: NSView {
     private var level: Float = 0.0
     // bars 从左到右表示时间序列（最左=最旧，最右=最新）
-    private var bars: [Float] = Array(repeating: 0.0, count: 80)
+    private var bars: [Float] = Array(repeating: 0.0, count: 180)
     
     private enum Style {
         case recording
@@ -13,11 +13,13 @@ class LevelMeterView: NSView {
     }
     
     private var style: Style = .recording
+    /// Whether recording is active — controls waveform color (red) vs idle center line (white)
+    private(set) var isRecording: Bool = false
     private var sensitivityMultiplier: Float = 1.6
     private var compressionExponent: Float = 0.45 // 越小越跳
-    // 不灵敏：上升慢、下降更慢
-    private var smoothUpWeight: Float = 0.15     // 上行更慢（attack 慢）
-    private var smoothDownWeight: Float = 0.05   // 下行很慢（release 慢）
+    // 干净包络：上升略快、下降稍慢，避免每根柱子乱跳
+    private var smoothUpWeight: Float = 0.38
+    private var smoothDownWeight: Float = 0.20
     // 分贝映射参数（避免轻易顶满）
     private let meterMinDB: Float = -60.0        // -60dB 作为噪声地板
     private let meterGamma: Float = 1.5          // 固定刻度：更强压缩，高电平更难顶满
@@ -41,12 +43,13 @@ class LevelMeterView: NSView {
     private var xOffset: CGFloat = 0.0
     private var advanceWidth: CGFloat = 2.0   // 每列的推进宽度（barWidth+spacing），实时在 draw 里更新
     private let stepPerFrame: CGFloat = 0.5   // 每帧左移像素，数值越大越快
-    // 视觉低通（默认仍关闭，如需更钝可将 visualAlpha 调小）
+    // 视觉低通：Mac 原生录音波形需要干净包络，不做人为毛刺
     private var visualPrevLevel: Float = 0.0
-    private let visualAlpha: Float = 1.0         // 1.0:无低通，0.2~0.35 更钝
-    // 毛刺参数：小概率短促上冲
-    private let spikeProbability: Float = 0.12   // 12% 概率出现毛刺
-    private let spikeAdd: Float = 0.06           // 毛刺幅度（加法）
+    private var recentRawLevels: [Float] = []
+    private let adaptiveWindowSize = 96
+    private let visualAlpha: Float = 0.38
+    private let waveformFloor: Float = 0.012
+    private let waveformQuantizationSteps: Float = 64
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -61,10 +64,23 @@ class LevelMeterView: NSView {
     private func setupView() {
         wantsLayer = true
         
-        // 使用Web版本的浅灰背景
-        layer?.backgroundColor = NSColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1.0).cgColor // #f9f9f9
-        layer?.cornerRadius = 5
-        layer?.borderWidth = 0
+        // Industrial Design: 深色基底 + 硬边圆角 + 边框
+        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
+        layer?.cornerRadius = IndustrialCornerRadius.xs  // 2px 硬边
+        layer?.borderWidth = 1
+        layer?.borderColor = IndustrialColors.outlineVariant.cgColor
+    }
+    
+    /// Mark recording started — waveform turns red and begins scrolling
+    func startRecording() {
+        isRecording = true
+        needsDisplay = true
+    }
+    
+    /// Mark recording stopped — waveform freezes
+    func stopRecording() {
+        isRecording = false
+        needsDisplay = true
     }
     
     /// 更新音频电平（记录模式：把最新值推入最右侧，并整体向左滚动）
@@ -90,16 +106,25 @@ class LevelMeterView: NSView {
             effectiveLevel = 0
             isSilent = true
         }
-        // 将线性电平映射到 dB，再归一化到 [0,1]，避免快速顶满
+        // 将电平映射为“绝对响度 + 局部动态”，避免高响度音乐一直满格
         let boosted: Float
         if isSilent {
             boosted = 0
+            recentRawLevels.removeAll()
         } else {
             let linear = max(nearSilenceFloor, min(1.0, effectiveLevel * sensitivityMultiplier))
+            recentRawLevels.append(linear)
+            if recentRawLevels.count > adaptiveWindowSize {
+                recentRawLevels.removeFirst(recentRawLevels.count - adaptiveWindowSize)
+            }
+            
             let db = 20.0 * log10(linear)
-            var normalized = (db - meterMinDB) / (0.0 - meterMinDB)
-            normalized = max(0.0, min(1.0, normalized))
-            boosted = min(pow(normalized, meterGamma), meterHeadroom)
+            let absoluteEnvelope = max(0.0, min(1.0, (db + 52.0) / 52.0))
+            let localMin = recentRawLevels.min() ?? 0.0
+            let localMax = recentRawLevels.max() ?? 1.0
+            let localRange = max(0.035, localMax - localMin)
+            let localEnvelope = max(0.0, min(1.0, (linear - localMin) / localRange))
+            boosted = max(0.08, min(meterHeadroom, 0.18 + absoluteEnvelope * 0.32 + localEnvelope * 0.42))
         }
         let last = bars.last ?? 0
         // 上行/下行分别平滑：下行更快回落
@@ -135,23 +160,13 @@ class LevelMeterView: NSView {
         let visualBase = isSilent ? 0 : (visualPrevLevel * (1.0 - visualAlpha) + smoothed * visualAlpha)
         visualPrevLevel = visualBase
 
-        // 静音下不产生毛刺
-        var display = visualBase
-        if !isSilent {
-            if Float.random(in: 0...1) < spikeProbability {
-                display = min(meterHeadroom, visualBase + 0.08)  // 上冲更明显
-            }
-            // 顶端微扰动：更强的破顶
-            if display > 0.75 {
-                display = max(0, display - Float.random(in: 0...0.03))
-            }
-            if display > 0.90 {
-                display = max(0, display - Float.random(in: 0...0.01))
-            }
-            // 轻微“顶部压扁”非线性
-            if display > 0.8 {
-                display = max(0, display - 0.02 * pow(display, 3))
-            }
+        // 干净包络：不加随机毛刺；保留静音小线，量化高度避免锯齿抖动
+        let display: Float
+        if isSilent {
+            display = 0
+        } else {
+            let floored = max(waveformFloor, min(meterHeadroom, visualBase))
+            display = (floored * waveformQuantizationSteps).rounded() / waveformQuantizationSteps
         }
         // 更新推进动画计数
         updateTick += 1
@@ -183,83 +198,82 @@ class LevelMeterView: NSView {
         // 清除背景
         context.clear(dirtyRect)
         
-        // 绘制背景
-        let backgroundPath = NSBezierPath(roundedRect: bounds, xRadius: 5, yRadius: 5)
-        NSColor(red: 0.98, green: 0.98, blue: 0.98, alpha: 1.0).setFill() // #f9f9f9
+        // 绘制背景 — 深色工业底板内承载原生录音红色波形
+        let backgroundPath = NSBezierPath(roundedRect: bounds, xRadius: 2, yRadius: 2)
+        IndustrialColors.surfaceContainerLow.setFill()
         backgroundPath.fill()
         
-        // 绘制多段式声纹
+        // 绘制细条录音波形
         drawBars(in: dirtyRect)
     }
     
     private func drawBars(in rect: NSRect) {
-        // 减少左右边距，给电平条更多水平空间
-        let leftPadding: CGFloat = 16
-        let rightPadding: CGFloat = 16
-        let verticalPadding: CGFloat = 8  // 最小边距
-        let insetRect = NSRect(x: rect.minX + leftPadding,
-                               y: rect.minY + verticalPadding,
-                               width: rect.width - leftPadding - rightPadding,
-                               height: rect.height - verticalPadding * 2)
-
-        // 计算电平条参数（控制间隔，并水平居中铺满可用空间）
+        let horizontalPadding: CGFloat = 18
+        let verticalPadding: CGFloat = 12
+        let insetRect = NSRect(
+            x: rect.minX + horizontalPadding,
+            y: rect.minY + verticalPadding,
+            width: rect.width - horizontalPadding * 2,
+            height: rect.height - verticalPadding * 2
+        )
+        
+        // Center line: white when idle, dimmed when recording (waveform takes focus)
+        let centerLineColor: NSColor
+        if isRecording {
+            centerLineColor = IndustrialColors.gridMedium.withAlphaComponent(0.4)
+        } else {
+            // Idle state: visible white center line as the default "audio track"
+            centerLineColor = NSColor(white: 1.0, alpha: 0.25)
+        }
+        centerLineColor.setStroke()
+        let centerLine = NSBezierPath()
+        centerLine.lineWidth = 1
+        centerLine.move(to: NSPoint(x: insetRect.minX, y: insetRect.midY))
+        centerLine.line(to: NSPoint(x: insetRect.maxX, y: insetRect.midY))
+        centerLine.stroke()
+        
+        let desiredBarWidth: CGFloat = 1.2
+        let desiredSpacing: CGFloat = 2.3
         let totalBars = CGFloat(bars.count)
-        let spacingFactor: CGFloat = 0.45  // 更大间距，条更粗更稀疏
-        // 解方程: totalWidth = barWidth*count + (count-1)*(spacingFactor*barWidth) = insetWidth
-        let denominator = totalBars + spacingFactor * max(0, totalBars - 1)
-        let barWidth = max(1.0, floor(insetRect.width / max(1, denominator)))
-        let barSpacing: CGFloat = barWidth * spacingFactor
+        let desiredUsedWidth = desiredBarWidth * totalBars + desiredSpacing * max(0, totalBars - 1)
+        let scale = min(1.0, insetRect.width / max(1, desiredUsedWidth))
+        let barWidth = max(0.9, desiredBarWidth * scale)
+        let barSpacing = max(1.2, desiredSpacing * scale)
         let usedWidth = barWidth * totalBars + barSpacing * max(0, totalBars - 1)
         let startX = insetRect.minX + max(0, (insetRect.width - usedWidth) / 2)
         advanceWidth = barWidth + barSpacing
-
-        // 绘制背景网格线（可选）
-        NSColor(calibratedWhite: 0.9, alpha: 0.5).setStroke()
-        let gridPath = NSBezierPath()
-        gridPath.lineWidth = 0.5
         
-        // 水平网格线
-        for i in 0...4 {
-            let y = insetRect.minY + (insetRect.height / 4) * CGFloat(i)
-            gridPath.move(to: NSPoint(x: insetRect.minX, y: y))
-            gridPath.line(to: NSPoint(x: insetRect.maxX, y: y))
-        }
-        gridPath.stroke()
-
-        // 绘制电平条 - 单一黑色细竖线，围绕中线上下对称延展
         for (index, barLevel) in bars.enumerated() {
-            let x = startX + CGFloat(index) * (barWidth + barSpacing)
+            // Skip drawing bars with zero level (no audio data yet)
+            guard barLevel > 0 else { continue }
             
-            // 条高度根据电平决定，围绕中线对称；使用可用高度（留白10%）避免顶满
-            let innerPaddingRatio: CGFloat = 0.0
-            let availableHeight = insetRect.height * (1.0 - innerPaddingRatio * 2.0)
-            let halfHeight = (CGFloat(barLevel) * availableHeight) * 0.5
+            let x = startX + CGFloat(index) * (barWidth + barSpacing) - xOffset
+            guard x >= insetRect.minX - advanceWidth && x <= insetRect.maxX else { continue }
+            
+            let normalized = CGFloat(barLevel)
+            let halfHeight = max(1.2, normalized * insetRect.height * 0.5)
             let barRect = NSRect(
-                x: x - xOffset,
+                x: x,
                 y: insetRect.midY - halfHeight,
-                width: max(1.0, barWidth),
-                height: max(1.0, halfHeight * 2)
+                width: barWidth,
+                height: halfHeight * 2
             )
-
-            // 单一黑色
-            NSColor.black.setFill()
-            NSBezierPath(rect: barRect).fill()
+            let alpha = max(0.32, min(1.0, 0.34 + normalized * 0.7))
+            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.7, yRadius: 0.7)
+            IndustrialColors.waveformSoft.withAlphaComponent(alpha).setFill()
+            path.fill()
         }
-
-        // 峰值保持指示 - 在最右侧绘制一条细线
+        
         if peakHoldLevel > 0 {
-            let lastX = insetRect.minX + CGFloat(max(0, bars.count - 1)) * (barWidth + barSpacing)
-            let innerPaddingRatio: CGFloat = 0.0
-            let availableHeight = insetRect.height * (1.0 - innerPaddingRatio * 2.0)
-            let uiHeadroom: CGFloat = 0.9
-            let peakHeight = CGFloat(peakHoldLevel) * availableHeight * 0.5 * uiHeadroom
+            let lastX = insetRect.minX + CGFloat(max(0, bars.count - 1)) * (barWidth + barSpacing) - xOffset
+            let peakHeight = CGFloat(peakHoldLevel) * insetRect.height * 0.5
             let peakY = insetRect.midY + peakHeight
             
-            NSColor.black.setStroke()
+            IndustrialColors.waveformAccent.withAlphaComponent(0.75).setStroke()
             let peakPath = NSBezierPath()
             peakPath.lineWidth = 1.0
-            peakPath.move(to: NSPoint(x: lastX - 2, y: peakY))
-            peakPath.line(to: NSPoint(x: lastX + barWidth + 2, y: peakY))
+            peakPath.move(to: NSPoint(x: lastX - 1, y: peakY))
+            peakPath.line(to: NSPoint(x: lastX + barWidth + 1, y: peakY))
             peakPath.stroke()
         }
     }
@@ -267,7 +281,10 @@ class LevelMeterView: NSView {
     /// 重置电平表
     func reset() {
         level = 0.0
-        bars = Array(repeating: 0.0, count: 100)
+        visualPrevLevel = 0.0
+        recentRawLevels.removeAll()
+        bars = Array(repeating: 0.0, count: 180)
+        isRecording = false
         needsDisplay = true
     }
     
@@ -278,18 +295,18 @@ class LevelMeterView: NSView {
         case .stable:
             sensitivityMultiplier = 1.2
             compressionExponent = 0.55
-            smoothUpWeight = 0.55
-            smoothDownWeight = 0.7
+            smoothUpWeight = 0.30
+            smoothDownWeight = 0.16
         case .normal:
             sensitivityMultiplier = 1.6
             compressionExponent = 0.45
-            smoothUpWeight = 0.6
-            smoothDownWeight = 0.8
+            smoothUpWeight = 0.38
+            smoothDownWeight = 0.20
         case .sensitive:
             sensitivityMultiplier = 1.9
             compressionExponent = 0.4
-            smoothUpWeight = 0.65
-            smoothDownWeight = 0.85
+            smoothUpWeight = 0.46
+            smoothDownWeight = 0.24
         }
     }
     
@@ -300,6 +317,7 @@ class LevelMeterView: NSView {
     
     /// 停止动画
     func stopAnimation() {
+        stopRecording()
         reset()
     }
 }

@@ -60,6 +60,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         
+        // 强制整个应用使用暗色外观（工业风格 = 深色模式）
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        
         // 设置应用策略
         NSApp.setActivationPolicy(.regular)
         logger.info("已设置 NSApp 策略为 regular。当前窗口数: \(NSApp.windows.count)")
@@ -103,6 +106,150 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         logger.info("应用程序设置完成")
+        
+        // 检查上次未完成的录制（crash 恢复）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            self.mainViewController?.checkAndRecoverUnfinishedRecording()
+        }
+        
+        // 添加设置菜单项（Cmd+,）和快捷键
+        setupSettingsMenu()
+        setupKeyboardShortcuts()
+    }
+    
+    // MARK: - Settings Menu
+    private func setupSettingsMenu() {
+        // 查找或创建应用菜单
+        if let appMenu = NSApp.mainMenu?.items.first?.submenu {
+            // 在「退出」之前插入「设置…」
+            let settingsItem = NSMenuItem(
+                title: "设置…",
+                action: #selector(openSettings),
+                keyEquivalent: ","
+            )
+            settingsItem.target = self
+            
+            // 找到退出菜单项的位置
+            let quitIndex = appMenu.items.firstIndex(where: { $0.action == #selector(NSApplication.terminate(_:)) }) ?? appMenu.items.count
+            appMenu.insertItem(NSMenuItem.separator(), at: quitIndex)
+            appMenu.insertItem(settingsItem, at: quitIndex)
+        }
+    }
+    
+    @objc private func openSettings() {
+        SettingsWindowController.shared.showSettings()
+    }
+    
+    // MARK: - Keyboard Shortcuts
+    private func setupKeyboardShortcuts() {
+        guard let mainMenu = NSApp.mainMenu else { return }
+        
+        // 创建 "编辑" 菜单（Undo/Redo — REQ-1.1-06）
+        let editMenu = NSMenu(title: "编辑")
+        let editMenuItem = NSMenuItem(title: "编辑", action: nil, keyEquivalent: "")
+        editMenuItem.submenu = editMenu
+        
+        let undoItem = NSMenuItem(title: "撤销", action: #selector(editorUndo), keyEquivalent: "z")
+        undoItem.keyEquivalentModifierMask = .command
+        editMenu.addItem(undoItem)
+        
+        let redoItem = NSMenuItem(title: "重做", action: #selector(editorRedo), keyEquivalent: "z")
+        redoItem.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(redoItem)
+        
+        mainMenu.addItem(editMenuItem)
+        
+        // 创建 "录制" 菜单
+        let recordMenu = NSMenu(title: "录制")
+        let recordMenuItem = NSMenuItem(title: "录制", action: nil, keyEquivalent: "")
+        recordMenuItem.submenu = recordMenu
+        
+        // Cmd+R — 开始/停止录制
+        let toggleRecordItem = NSMenuItem(
+            title: "开始/停止录制",
+            action: #selector(toggleRecording),
+            keyEquivalent: "r"
+        )
+        toggleRecordItem.keyEquivalentModifierMask = .command
+        recordMenu.addItem(toggleRecordItem)
+        
+        // Space — 播放/暂停
+        let togglePlayItem = NSMenuItem(
+            title: "播放/暂停",
+            action: #selector(togglePlayback),
+            keyEquivalent: " "
+        )
+        togglePlayItem.keyEquivalentModifierMask = []
+        recordMenu.addItem(togglePlayItem)
+        
+        // Cmd+E — 导出
+        let exportItem = NSMenuItem(
+            title: "导出 MP3",
+            action: #selector(exportCurrentFile),
+            keyEquivalent: "e"
+        )
+        exportItem.keyEquivalentModifierMask = .command
+        recordMenu.addItem(exportItem)
+        
+        recordMenu.addItem(NSMenuItem.separator())
+        
+        // Cmd+Backspace — 删除
+        let deleteItem = NSMenuItem(
+            title: "删除录音",
+            action: #selector(deleteCurrentFile),
+            keyEquivalent: "\u{8}" // backspace
+        )
+        deleteItem.keyEquivalentModifierMask = .command
+        recordMenu.addItem(deleteItem)
+        
+        recordMenu.addItem(NSMenuItem.separator())
+        
+        // Cmd+\ — 切换侧边栏
+        let toggleSidebarItem = NSMenuItem(
+            title: "切换侧边栏",
+            action: #selector(toggleSidebar),
+            keyEquivalent: "\\"
+        )
+        toggleSidebarItem.keyEquivalentModifierMask = .command
+        recordMenu.addItem(toggleSidebarItem)
+        
+        mainMenu.addItem(recordMenuItem)
+    }
+    
+    @objc private func toggleSidebar() {
+        mainViewController?.toggleSidebarFromMenu()
+    }
+    
+    @objc private func editorUndo() {
+        mainViewController?.editorUndoFromMenu()
+    }
+    
+    @objc private func editorRedo() {
+        mainViewController?.editorRedoFromMenu()
+    }
+    
+    @objc private func toggleRecording() {
+        mainViewController?.toggleRecordingFromMenu()
+    }
+    
+    @objc private func togglePlayback() {
+        mainViewController?.togglePlaybackFromMenu()
+    }
+    
+    @objc private func exportCurrentFile() {
+        mainViewController?.exportCurrentFileFromMenu()
+    }
+    
+    @objc private func deleteCurrentFile() {
+        mainViewController?.deleteCurrentFileFromMenu()
+    }
+    
+    // BUG-014 fix: 非编辑模式下灰显撤销/重做菜单项
+    @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(editorUndo) || menuItem.action == #selector(editorRedo) {
+            return mainViewController?.isInEditorMode ?? false
+        }
+        return true
     }
     
     func applicationWillTerminate(_ notification: Notification) {
@@ -119,12 +266,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     // MARK: - Window Management
     private func createMainWindow() {
-        let windowSize = NSMakeRect(0, 0, 800, 500)
+        let windowSize = NSMakeRect(0, 0, 1200, 750)
         logger.info("createMainWindow: 初始尺寸=\(NSStringFromRect(windowSize))")
         
         window = NSWindow(
             contentRect: windowSize,
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -134,28 +281,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "音频录制工具"
         window.isRestorable = false
         
-        // 全屏时保持标题栏和红绿灯按钮始终可见（类似 Chrome 的行为）
-        // 使用 fullScreenAuxiliary 而不是 fullScreenPrimary，这样可以自定义全屏行为
+        // 强制暗色外观 — 工业风格设计需要暗色系统 UI（标题栏、分割线、滚动条）
+        window.appearance = NSAppearance(named: .darkAqua)
+        
+        // 一体化标题栏：透明 + 隐藏标题 → 内容直达窗口顶部
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        
+        // 全屏时保持标题栏和红绿灯按钮始终可见
         window.collectionBehavior = [.fullScreenPrimary, .fullScreenAllowsTiling]
-        
-        // 创建一个空的工具栏，这样全屏时标题栏区域会保持可见
-        let toolbar = NSToolbar(identifier: "MainToolbar")
-        toolbar.displayMode = .iconOnly
-        toolbar.showsBaselineSeparator = false
-        window.toolbar = toolbar
-        
-        if #available(macOS 11.0, *) {
-            // 使用 expanded 样式，全屏时工具栏区域会保持可见
-            window.toolbarStyle = .expanded
-        }
-        
-        window.titleVisibility = .visible
-        window.titlebarAppearsTransparent = false
         // 移除自动保存名称，强制使用新尺寸
         // window.setFrameAutosaveName("MainWindow")
         
         // 强制设置窗口尺寸 - 使用更直接的方法
-        let newFrame = NSMakeRect(0, 0, 800, 500)
+        let newFrame = NSMakeRect(0, 0, 1200, 750)
         window.setFrame(newFrame, display: true, animate: false)
         logger.info("createMainWindow: setFrame 完成，frame=\(NSStringFromRect(window.frame))")
         
@@ -168,7 +307,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         // 设置最小尺寸
-        window.minSize = NSSize(width: 800, height: 500)
+        window.minSize = NSSize(width: 960, height: 600)
         
         // 确保窗口可以显示
         window.isReleasedWhenClosed = false

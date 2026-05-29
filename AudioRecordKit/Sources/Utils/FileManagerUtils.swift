@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import AVFoundation
 
 /// 文件管理工具类
 class FileManagerUtils {
@@ -15,7 +16,15 @@ class FileManagerUtils {
     
     /// 获取录音文件保存目录
     func getRecordingsDirectory() -> URL {
-        // 直接使用 Documents 目录
+        // 优先使用用户自定义目录
+        if let customPath = UserDefaults.standard.string(forKey: "recordingsDirectory"),
+           !customPath.isEmpty {
+            let customURL = URL(fileURLWithPath: customPath)
+            createDirectoryIfNeeded(at: customURL)
+            return customURL
+        }
+        
+        // 默认使用 Documents 目录
         let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         let recordingsDir = documentsPath.appendingPathComponent("AudioRecordings")
         createDirectoryIfNeeded(at: recordingsDir)
@@ -246,6 +255,175 @@ class FileManagerUtils {
             }
         } catch {
             logger.error("清理临时文件失败: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - 磁盘空间监控
+    
+    /// 最小磁盘空间阈值（100MB）
+    private static let minimumDiskSpaceBytes: Int64 = 100 * 1024 * 1024
+    
+    /// 获取可用磁盘空间（字节）
+    func getAvailableDiskSpace() -> Int64? {
+        let homeURL = fileManager.homeDirectoryForCurrentUser
+        guard let values = try? homeURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
+              let available = values.volumeAvailableCapacityForImportantUsage else {
+            return nil
+        }
+        return available
+    }
+    
+    /// 检查磁盘空间是否充足（> 100MB）
+    func hasSufficientDiskSpace() -> Bool {
+        guard let available = getAvailableDiskSpace() else { return true }
+        return available > FileManagerUtils.minimumDiskSpaceBytes
+    }
+    
+    /// 格式化磁盘空间显示
+    func formatDiskSpace(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
+    }
+    
+    // MARK: - Crash 恢复
+    
+    /// 录制中标记文件路径（用于 crash 恢复检测）
+    private var activeRecordingMarkerURL: URL {
+        fileManager.temporaryDirectory.appendingPathComponent(".audio_record_active")
+    }
+    
+    /// 标记录制开始（写入 marker 文件）
+    func markRecordingStarted(fileURL: URL) {
+        do {
+            try fileURL.path.write(to: activeRecordingMarkerURL, atomically: true, encoding: .utf8)
+            logger.info("已标记活跃录制: \(fileURL.lastPathComponent)")
+        } catch {
+            logger.error("写入录制标记失败: \(error.localizedDescription)")
+        }
+    }
+    
+    /// 标记录制结束（删除 marker 文件）
+    func markRecordingFinished() {
+        if fileManager.fileExists(atPath: activeRecordingMarkerURL.path) {
+            try? fileManager.removeItem(at: activeRecordingMarkerURL)
+            logger.info("已清除活跃录制标记")
+        }
+    }
+    
+    /// 检查是否有未完成的录制（crash 恢复）
+    /// marker 文件中存储的是录制目录路径，恢复时找该目录中最近 5 分钟内创建的最新音频文件
+    func checkForUnfinishedRecording() -> URL? {
+        guard fileManager.fileExists(atPath: activeRecordingMarkerURL.path) else {
+            return nil
+        }
+        
+        do {
+            let directoryPath = try String(contentsOf: activeRecordingMarkerURL, encoding: .utf8)
+            let directoryURL = URL(fileURLWithPath: directoryPath)
+            
+            // 清除标记
+            try? fileManager.removeItem(at: activeRecordingMarkerURL)
+            
+            // 扫描目录中最近 5 分钟内创建的音频文件
+            let fiveMinutesAgo = Date().addingTimeInterval(-300)
+            let contents = try fileManager.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.creationDateKey, .fileSizeKey],
+                options: [.skipsHiddenFiles]
+            )
+            
+            let recentAudio = contents
+                .filter { url in
+                    let ext = url.pathExtension.lowercased()
+                    return ["m4a", "wav", "mp3"].contains(ext)
+                }
+                .filter { url in
+                    guard let values = try? url.resourceValues(forKeys: [.creationDateKey]),
+                          let created = values.creationDate else { return false }
+                    return created > fiveMinutesAgo
+                }
+                .sorted { url1, url2 in
+                    let d1 = (try? url1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                    let d2 = (try? url2.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                    return d1 > d2
+                }
+                .first
+            
+            if let latestFile = recentAudio,
+               let size = getFileSize(at: latestFile), size > 0 {
+                logger.info("发现未完成的录制文件: \(latestFile.lastPathComponent), 大小: \(formatFileSize(size))")
+                return latestFile
+            } else {
+                logger.info("未发现最近的未完成录制文件，跳过恢复")
+                return nil
+            }
+        } catch {
+            logger.error("检查未完成录制失败: \(error.localizedDescription)")
+            try? fileManager.removeItem(at: activeRecordingMarkerURL)
+            return nil
+        }
+    }
+    
+    /// 将录制文件标记为已恢复（重命名加前缀）
+    func recoverRecording(from fileURL: URL) -> URL? {
+        let directory = fileURL.deletingLastPathComponent()
+        let recoveredName = "恢复_\(fileURL.lastPathComponent)"
+        let destinationURL = directory.appendingPathComponent(recoveredName)
+        
+        do {
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.copyItem(at: fileURL, to: destinationURL)
+            logger.info("录制文件已恢复: \(recoveredName)")
+            return destinationURL
+        } catch {
+            // 复制失败时，原文件仍可用，直接返回原路径
+            logger.warning("重命名恢复失败，使用原文件: \(error.localizedDescription)")
+            return fileURL
+        }
+    }
+    
+    // MARK: - File Integrity Check
+    
+    /// 检查音频文件完整性
+    /// 尝试用 AVAudioFile 打开文件，如果能读取长度则文件完整
+    func checkFileIntegrity(at url: URL) -> FileIntegrityResult {
+        guard fileManager.fileExists(atPath: url.path) else {
+            return .missing
+        }
+        
+        guard let size = getFileSize(at: url) else {
+            return .corrupted(reason: "无法读取文件大小")
+        }
+        
+        if size == 0 {
+            return .corrupted(reason: "文件大小为 0")
+        }
+        
+        // 尝试用 AVAudioFile 打开
+        do {
+            let audioFile = try AVAudioFile(forReading: url)
+            let duration = Double(audioFile.length) / audioFile.fileFormat.sampleRate
+            if duration <= 0 {
+                return .corrupted(reason: "音频时长为 0")
+            }
+            return .valid(duration: duration, size: size)
+        } catch {
+            return .corrupted(reason: error.localizedDescription)
+        }
+    }
+    
+    enum FileIntegrityResult {
+        case valid(duration: TimeInterval, size: Int64)
+        case corrupted(reason: String)
+        case missing
+        
+        var isValid: Bool {
+            if case .valid = self { return true }
+            return false
         }
     }
 }

@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-05-22T07:44:25Z",
+  "project": "AudioRecordMac",
+  "overall_status": "pass",
+  "summary": {
+    "total": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "results": [{"suite":"SDK","name":"swift_test_all","status":"pass","duration_ms":2000,"message":"76 tests passed"},{"suite":"Build","name":"build_script_exists","status":"pass","duration_ms":0,"message":""},{"suite":"Build","name":"app_compiles","status":"pass","duration_ms":22000,"message":"AudioRecordMac.app built successfully"},{"suite":"Static","name":"accessibility_coverage","status":"pass","duration_ms":0,"message":"14 identifiers found"},{"suite":"Static","name":"no_todos_in_views","status":"pass","duration_ms":0,"message":"Clean: no TODO/FIXME"},{"suite":"Static","name":"no_hardcoded_hex","status":"pass","duration_ms":0,"message":"No raw hex colors in views"},{"suite":"Static","name":"core_views_exist","status":"pass","duration_ms":0,"message":"All 5 core view files present"},{"suite":"Static","name":"required_identifiers","status":"pass","duration_ms":0,"message":"8/8 required identifiers found"},{"suite":"Static","name":"view_file_count","status":"pass","duration_ms":0,"message":"21 view files"},{"suite":"Arch","name":"project_yml_exists","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"dir_AudioRecordMacUITests","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"dir_AudioRecordMacSnapshotTests","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"dir_AudioRecordKit_Tests","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"script_test_sdk","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"script_test-ui","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"script_test-snapshot","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"script_ai-ui-test","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"script_test-all-ai","status":"pass","duration_ms":0,"message":""},{"suite":"Arch","name":"uitest_AppLaunchUITests.swift","status":"pass","duration_ms":0,"message":"35 lines"},{"suite":"Arch","name":"uitest_RecordingFlowUITests.swift","status":"pass","duration_ms":0,"message":"32 lines"},{"suite":"Arch","name":"uitest_LayoutUITests.swift","status":"pass","duration_ms":0,"message":"27 lines"},{"suite":"Arch","name":"snapshot_test_exists","status":"pass","duration_ms":0,"message":""},{"suite":"Smoke","name":"app_bundle_exists","status":"pass","duration_ms":0,"message":""},{"suite":"Smoke","name":"binary_exists","status":"pass","duration_ms":0,"message":""},{"suite":"Smoke","name":"info_plist","status":"pass","duration_ms":0,"message":""},{"suite":"Smoke","name":"app_launches","status":"pass","duration_ms":3000,"message":"App started successfully"}],
+  "environment": {
+    "swift_version": "6.2.3",
+    "macos_version": "26.2",
+    "xcode_version": "26.2N/A",
+    "xcodegen_available": false
+  },
+  "output_dir": "/Users/voidzhang/Documents/workspace/audio_record_mac/test_logs/ai-test-20260522_154355"
+}

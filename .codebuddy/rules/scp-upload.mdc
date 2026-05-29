@@ -1,0 +1,13 @@
+---
+description: SCP 上传文件到服务器。当用户需要将本地文件通过 SCP 上传到 microlab.top 服务器时使用此 Skill。触发关键词包括：上传到服务器、scp、传到服务器、部署脚本到服务器、同步到服务器、发到服务器。
+alwaysApply: false
+enabled: true
+updatedAt: 2026-04-01T16:25:00.000Z
+provider: 
+---
+
+# SCP 上传到服务器
+
+本规则为触发入口。详细的执行流程、命令格式、错误处理见 `.codebuddy/skills/scp-upload.md`。
+
+激活此规则后，读取 Skill 文件并按其流程执行。

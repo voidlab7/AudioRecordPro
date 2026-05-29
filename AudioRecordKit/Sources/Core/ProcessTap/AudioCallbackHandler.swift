@@ -26,40 +26,32 @@ func globalAudioCallback(
     let bufferList = inInputData.pointee
     let buffer = bufferList.mBuffers
     
-    // 添加详细的调试信息（减少频率避免日志过多）
-    // 使用全局变量来跟踪调用次数
+    // REQ-1.0-01: Optimized callback counter for long recording stability (4h+)
+    // Using modular counter to prevent unbounded growth
     struct CallCounter {
-        static var count = 0
+        static var count: UInt64 = 0
         static var lastNonZeroDataSize = UInt32(0)
-        static var nonZeroCount = 0
+        static var nonZeroCount: UInt64 = 0
     }
-    CallCounter.count += 1
+    CallCounter.count &+= 1  // Wrapping addition for safety
     
-    // 前几次回调都记录详细信息
-    if CallCounter.count <= 5 {
-        handler.logger.info("🎧 音频回调[\(CallCounter.count)]: device=\(inDevice), dataSize=\(buffer.mDataByteSize), channels=\(bufferList.mNumberBuffers)")
-    }
+    // Log first 3 callbacks for debugging, then every 10000 (~2 min at 48kHz)
+    let shouldLog = CallCounter.count <= 3 || CallCounter.count % 10000 == 0
     
-    // 每100次回调记录一次统计信息
-    if CallCounter.count % 100 == 1 && CallCounter.count > 5 {
-        handler.logger.info("🎧 音频回调统计: 总调用次数=\(CallCounter.count), 非零数据次数=\(CallCounter.nonZeroCount)")
+    if shouldLog {
+        handler.logger.info("🎧 音频回调[\(CallCounter.count)]: device=\(inDevice), dataSize=\(buffer.mDataByteSize), 有效数据次数=\(CallCounter.nonZeroCount)")
     }
     
-    // 记录非零数据大小的情况
+    // Track non-zero data
     if buffer.mDataByteSize > 0 {
         CallCounter.lastNonZeroDataSize = buffer.mDataByteSize
-        CallCounter.nonZeroCount += 1
+        CallCounter.nonZeroCount &+= 1
     }
     
-    if CallCounter.count % 100 == 1 { // 每100次回调记录一次
-        handler.logger.debug("🎧 音频回调[\(CallCounter.count)]: device=\(inDevice), dataSize=\(buffer.mDataByteSize), channels=\(bufferList.mNumberBuffers)")
-        handler.logger.debug("📊 统计信息: 非零数据次数=\(CallCounter.nonZeroCount), 最后非零大小=\(CallCounter.lastNonZeroDataSize)")
-    }
-    
-    // 如果连续1000次都是0数据，发出警告
-    if CallCounter.count % 1000 == 0 && CallCounter.nonZeroCount == 0 {
-        handler.logger.warning("⚠️ 警告: 已调用\(CallCounter.count)次音频回调，但从未收到有效数据！")
-        handler.logger.warning("💡 建议: 检查Process Tap配置或QQ音乐是否真的在播放音频")
+    // Warn if no valid data received after 1000 callbacks (only once)
+    if CallCounter.count == 1000 && CallCounter.nonZeroCount == 0 {
+        handler.logger.warning("⚠️ 警告: 已调用1000次音频回调，但从未收到有效数据！")
+        handler.logger.warning("💡 建议: 检查Process Tap配置或目标应用是否真的在播放音频")
     }
     
     // 计算实际的帧数：使用正确的帧数计算
@@ -68,9 +60,8 @@ func globalAudioCallback(
     // 注意：bufferList.mNumberBuffers 是缓冲区数量，不是声道数
     // 对于交错格式，通常只有一个缓冲区包含所有声道数据
     let totalSamples = Int(buffer.mDataByteSize) / bytesPerSample
-    // 从Process Tap获取的格式信息中获取声道数
-    // 这里需要从实际的音频格式中获取，暂时使用默认值2
-    let channels = 2 // TODO: 从实际的音频格式中获取声道数
+    // 从 handler 获取实际音频格式的声道数
+    let channels = handler.channelCount
     let frameCount = UInt32(totalSamples / channels)
     
     // 计算电平
@@ -92,6 +83,10 @@ class AudioCallbackHandler {
     private var audioFile: AVAudioFile?
     private var audioToolboxFileManager: AudioToolboxFileManager?
     private var onLevel: ((Float) -> Void)?
+    private var onPeakLevel: ((Float) -> Void)?
+    
+    /// 音频格式的声道数（从实际音频格式中获取）
+    private(set) var channelCount: Int = 2
     
     // 自定义回调（用于混音录制）
     private var customCallback: ((UnsafePointer<AudioBufferList>, UInt32) -> Void)?
@@ -99,6 +94,12 @@ class AudioCallbackHandler {
     // MARK: - Initialization
     
     init() {}
+    
+    /// 设置声道数（应在录制开始时从 ASBD 格式中获取并设置）
+    func setChannelCount(_ count: Int) {
+        self.channelCount = max(1, count)
+        logger.info("🎵 AudioCallbackHandler: 声道数设置为 \(self.channelCount)")
+    }
     
     // MARK: - Public Methods
     
@@ -113,9 +114,14 @@ class AudioCallbackHandler {
         logger.info("🎵 AudioCallbackHandler: 设置 AudioToolbox 文件管理器")
     }
     
-    /// 设置电平回调
+    /// 设置电平回调（RMS，用于电平表）
     func setLevelCallback(_ callback: @escaping (Float) -> Void) {
         self.onLevel = callback
+    }
+    
+    /// 设置峰值回调（PCM 峰值，用于波形绘制——与播放波形同源）
+    func setPeakLevelCallback(_ callback: @escaping (Float) -> Void) {
+        self.onPeakLevel = callback
     }
     
     /// 设置自定义回调（用于混音录制）
@@ -192,20 +198,17 @@ class AudioCallbackHandler {
     // MARK: - Private Methods
     
     func calculateAndReportLevel(from bufferList: AudioBufferList, frameCount: UInt32) {
-        guard let onLevel = onLevel else { 
-            // 如果没有设置电平回调，记录警告
-            // logger.debug("⚠️ AudioCallbackHandler: 电平回调未设置")
-            return 
-        }
+        let hasLevelCb = onLevel != nil
+        let hasPeakCb = onPeakLevel != nil
+        guard hasLevelCb || hasPeakCb else { return }
         
-        // 使用统一的工具类计算电平
-        let (_, _, normalizedLevel) = AudioUtils.calculateAudioLevel(from: bufferList, frameCount: frameCount)
+        // 使用统一的工具类计算电平（同时拿到 maxLevel 和 normalizedLevel）
+        let (maxLevel, _, normalizedLevel) = AudioUtils.calculateAudioLevel(from: bufferList, frameCount: frameCount)
         
-        // 只在电平有意义时输出日志（减少冗余）
-        // logger.debug("AudioCallbackHandler: 电平 \(normalizedLevel)")
-        
-        DispatchQueue.main.async {
-            onLevel(normalizedLevel)
+        DispatchQueue.main.async { [weak self] in
+            self?.onLevel?(normalizedLevel)
+            // 峰值回调：直接传 PCM 峰值（0~1），与 extractWaveformSamples 一致
+            self?.onPeakLevel?(maxLevel)
         }
     }
     

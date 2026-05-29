@@ -1,0 +1,31 @@
+id: task-0528-bug-001-录制音频无法导出mp3
+title: "BUG-001 录制音频无法导出MP3"
+type: bug
+priority: 90
+max_minutes: 45
+created_at: "2026-05-28T00:31:31+08:00"
+
+allowed_actions:
+  - read
+  - edit
+  - test
+  - local_commit
+
+forbidden_actions:
+  - push
+  - deploy
+  - delete_data
+
+instructions:
+  - 读取当前项目的 .weiyige/执事_启/start.md
+  - 按维弈阁协议创建 ai-workspace/{task-id}/
+  - 排查音频导出逻辑，定位无法导出MP3的根因
+  - 修复并验证导出功能
+  - 完成任务并写入 artifacts/
+  - 更新 state.json 和 progress-board.md
+  - 如遇到权限不足、信息不足、破坏性操作，停止并写 blocked.md
+
+acceptance:
+  - 录制音频可成功导出为MP3格式
+  - 生成 workflow-summary.md
+  - 无 push/deploy/delete_data 操作

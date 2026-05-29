@@ -23,6 +23,10 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     private let audioCallbackHandler = AudioCallbackHandler()
     private var audioToolboxFileManager: AudioToolboxFileManager?
     
+    // REQ-1.0-01: Hot-plug device change listener
+    private var deviceChangeListenerBlock: AudioObjectPropertyListenerBlock?
+    private let deviceChangeQueue = DispatchQueue(label: "com.audiorecord.devicechange", qos: .utility)
+    
     // MARK: - Initialization
     override init(mode: RecordingMode) {
         super.init(mode: mode)
@@ -138,6 +142,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         }
         
         // 设置回调处理器
+        audioCallbackHandler.setChannelCount(Int(streamFormat.mChannelsPerFrame))
         audioCallbackHandler.setAudioToolboxFileManager(audioToolboxFileManager!)
         
         logger.info("✅ Swift API: 音频文件设置完成 - \(fileURL.lastPathComponent)")
@@ -160,11 +165,8 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     }
     
     private func startCoreAudioRecordingWithTapFormat() {
-        // 直接开始录制，不需要预先创建测试Tap
-        Task { @MainActor in
-            // 创建音频文件（使用默认格式）
-            self.createAudioFileWithTapFormat(tapFormat: nil)
-        }
+        // REQ-1.0-01: 直接同步调用，避免不必要的线程跳转以减少启动延迟
+        createAudioFileWithTapFormat(tapFormat: nil)
     }
     
     private func createAudioFileWithTapFormat(tapFormat: AudioStreamBasicDescription?) {
@@ -173,23 +175,36 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         // 使用默认格式或提供的格式
         let audioFormat: AudioStreamBasicDescription
         if let tapFormat = tapFormat {
-            audioFormat = tapFormat
-            logger.info("📊 使用Tap格式: 采样率=\(tapFormat.mSampleRate), 声道数=\(tapFormat.mChannelsPerFrame), 位深=\(tapFormat.mBitsPerChannel)")
-        } else {
-            // 使用动态检测的音频格式（匹配当前音频设备）
-            let detectedSampleRate = AudioUtils.getCurrentAudioDeviceSampleRate()
+            // DR-02: Tap 返回的是 Float32 格式，但文件输出应为 16-bit PCM
+            // 保留 Tap 的采样率和声道数，仅改变位深和格式标志
             audioFormat = AudioStreamBasicDescription(
-                mSampleRate: detectedSampleRate,        // ← 动态检测的采样率
+                mSampleRate: tapFormat.mSampleRate,
                 mFormatID: kAudioFormatLinearPCM,
-                mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
-                mBytesPerPacket: 8,
+                mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+                mBytesPerPacket: 4,                     // 2 channels × 2 bytes
                 mFramesPerPacket: 1,
-                mBytesPerFrame: 8,
-                mChannelsPerFrame: 2,
-                mBitsPerChannel: 32,         // ← 32位浮点格式
+                mBytesPerFrame: 4,                      // 2 channels × 2 bytes
+                mChannelsPerFrame: tapFormat.mChannelsPerFrame,
+                mBitsPerChannel: 16,                    // REQ-1.0-01: 16-bit PCM output
                 mReserved: 0
             )
-            logger.info("📊 使用动态检测格式: \(detectedSampleRate)Hz, 32bit Float, 立体声")
+            logger.info("📊 使用Tap采样率 + 16-bit PCM输出: \(tapFormat.mSampleRate)Hz, 声道数=\(tapFormat.mChannelsPerFrame)")
+        } else {
+            // DR-01: 采样率跟随设备，不硬编码 48kHz
+            // 硬编码会导致音频变调（设备44.1kHz但文件头写48kHz → 变快8.8%）
+            let detectedSampleRate = AudioUtils.getCurrentAudioDeviceSampleRate()
+            audioFormat = AudioStreamBasicDescription(
+                mSampleRate: detectedSampleRate,        // ← 跟随设备实际采样率
+                mFormatID: kAudioFormatLinearPCM,
+                mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
+                mBytesPerPacket: 4,                     // 2 channels × 2 bytes
+                mFramesPerPacket: 1,
+                mBytesPerFrame: 4,                      // 2 channels × 2 bytes
+                mChannelsPerFrame: 2,
+                mBitsPerChannel: 16,                    // REQ-1.0-01: 16-bit PCM output
+                mReserved: 0
+            )
+            logger.info("📊 使用设备采样率 + 16-bit PCM输出: \(detectedSampleRate)Hz, 立体声")
         }
         
         // 获取应用名称
@@ -203,6 +218,9 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             // 创建 AudioToolbox 文件管理器
             let audioToolboxManager = AudioToolboxFileManager(audioFormat: audioFormat)
             try audioToolboxManager.createAudioFile(at: defaultURL)
+            
+            // 从音频格式中设置实际声道数到回调处理器
+            audioCallbackHandler.setChannelCount(Int(audioFormat.mChannelsPerFrame))
             
             // 设置到回调处理器
             audioCallbackHandler.setAudioToolboxFileManager(audioToolboxManager)
@@ -231,37 +249,41 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             audioCallbackHandler.setAudioFile(audioFile)
         }
         
-        // 设置电平回调
+        // 设置电平回调（RMS，用于电平表）
         audioCallbackHandler.setLevelCallback { [weak self] level in
             self?.callOnLevel(level)
         }
         
-        // 对于系统音频录制，优先尝试Swift API，否则使用C API
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
+        // 设置峰值回调（PCM 峰值，用于波形绘制——与播放波形同源）
+        audioCallbackHandler.setPeakLevelCallback { [weak self] peakLevel in
             Task { @MainActor in
-                var success = false
-                var statusMessage = ""
-                
-                self.logger.info("🎯 开始录制，使用C API")
-                
-                success = await self.startCoreAudioProcessTapCapture()
-                statusMessage = success ? "已通过 C API 开始录制" : "CoreAudio Process Tap 初始化失败"
-                
-                if success {
-                    self.levelMonitor.startMonitoring(source: .simulated)
-                    self.isRunning = true
-                    self.callOnStatus(statusMessage)
-                } else {
-                    self.logger.error("❌ \(statusMessage)")
-                    self.callOnStatus(statusMessage)
-                }
+                self?.onPeakLevel?(peakLevel)
+            }
+        }
+        
+        // REQ-1.0-01: 直接在当前 MainActor 上下文启动，减少线程跳转延迟
+        // startCoreAudioProcessTapCapture 内部的 CoreAudio 调用本身是同步的
+        Task { @MainActor in
+            let success = await self.startCoreAudioProcessTapCapture()
+            let statusMessage = success ? "已通过 C API 开始录制" : "CoreAudio Process Tap 初始化失败"
+            
+            if success {
+                self.levelMonitor.startMonitoring(source: .simulated)
+                self.isRunning = true
+                self.installDeviceChangeListener()  // REQ-1.0-01: Monitor device changes
+                self.callOnStatus(statusMessage)
+            } else {
+                self.logger.error("❌ \(statusMessage)")
+                self.callOnStatus(statusMessage)
             }
         }
     }
     
     override func stopRecording() {
         logger.info("🛑 停止CoreAudio Process Tap录制")
+        
+        // REQ-1.0-01: Remove device change listener
+        removeDeviceChangeListener()
         
         // 停止 Swift API 录制（如果正在使用）
         if let swiftManager = swiftProcessTapManager {
@@ -278,6 +300,62 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         audioToolboxFileManager = nil
         
         super.stopRecording()
+    }
+    
+    // MARK: - REQ-1.0-01: Hot-plug Device Support
+    
+    /// Install a listener for default output device changes
+    private func installDeviceChangeListener() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        let listenerBlock: AudioObjectPropertyListenerBlock = { [weak self] (numberAddresses, addresses) in
+            guard let self = self else { return }
+            Task { @MainActor in
+                self.logger.info("🔌 REQ-1.0-01: Audio output device changed during recording")
+                self.logger.info("🔌 Process Tap + Aggregate Device architecture handles device switching automatically")
+                self.callOnStatus("音频设备已切换，录制继续中")
+            }
+        }
+        
+        self.deviceChangeListenerBlock = listenerBlock
+        
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            deviceChangeQueue,
+            listenerBlock
+        )
+        
+        if status == noErr {
+            logger.info("🔌 REQ-1.0-01: Device change listener installed")
+        } else {
+            logger.warning("⚠️ REQ-1.0-01: Failed to install device change listener: \(status)")
+        }
+    }
+    
+    /// Remove the device change listener
+    private func removeDeviceChangeListener() {
+        guard let listenerBlock = deviceChangeListenerBlock else { return }
+        
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            deviceChangeQueue,
+            listenerBlock
+        )
+        
+        self.deviceChangeListenerBlock = nil
+        logger.info("🔌 REQ-1.0-01: Device change listener removed")
     }
     
     // MARK: - Public Methods
@@ -532,14 +610,15 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         var processObjectIDs: [AudioObjectID] = []
         
         if !targetPIDs.isEmpty {
-            // 使用指定的多个PID
+            // 使用指定的多个PID — 始终关联查找（Chrome 等多进程应用主进程不产生音频）
             logger.info("🎯 使用指定的目标PID列表: \(targetPIDs)")
             for pid in targetPIDs {
-                if let processObjectID = processEnumerator.findProcessObjectID(by: pid) {
-                    processObjectIDs.append(processObjectID)
-                    logger.info("✅ 找到进程对象ID: PID=\(pid) -> ObjectID=\(processObjectID)")
+                let related = processEnumerator.findAllRelatedProcessObjectIDs(by: pid)
+                if !related.isEmpty {
+                    processObjectIDs.append(contentsOf: related)
+                    logger.info("✅ PID=\(pid) 关联到 \(related.count) 个音频进程对象")
                 } else {
-                    logger.warning("⚠️ 未找到PID=\(pid)对应的进程对象，跳过")
+                    logger.warning("⚠️ 未找到PID=\(pid)对应的任何进程对象，跳过")
                 }
             }
             

@@ -8,11 +8,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_ROOT/build"
 APP_NAME="AudioRecordMac"
+EXECUTABLE_NAME="audio_record_mac"
 
 echo "🔨 开始构建 $APP_NAME..."
 echo "项目根目录: $PROJECT_ROOT"
 
-# 创建构建目录
+# 创建构建目录（先清理，避免旧 executable 残留）
+rm -rf "$BUILD_DIR/$APP_NAME.app"
 mkdir -p "$BUILD_DIR/$APP_NAME.app/Contents/MacOS"
 mkdir -p "$BUILD_DIR/$APP_NAME.app/Contents/Resources"
 
@@ -27,7 +29,7 @@ APP_SOURCES=$(find "$SCRIPT_DIR/Sources" -name "*.swift" 2>/dev/null | tr '\n' '
 
 # 合并编译
 swiftc \
-    -o "$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME" \
+    -o "$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$EXECUTABLE_NAME" \
     -sdk $(xcrun --show-sdk-path) \
     -target arm64-apple-macos13.0 \
     -framework Cocoa \
