@@ -85,7 +85,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 创建主窗口
         logger.info("准备创建主窗口…")
         createMainWindow()
-        logger.info("createMainWindow 调用完成。当前窗口数: \(NSApp.windows.count)")
         
         // 立即显示窗口（改为在 createMainWindow 里处理，这里仅记录当前窗口数）
         logger.info("applicationDidFinishLaunching: 当前窗口数=\(NSApp.windows.count)，window.isVisible=\(window.isVisible)")
@@ -315,12 +314,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("createMainWindow: 窗口属性设置完成")
         
         // 创建主视图控制器
+        NSLog("🔴 [AppDelegate] B1: before MainViewController()")
         mainViewController = MainViewController()
+        NSLog("🔴 [AppDelegate] B2: MainViewController 已创建")
         logger.info("createMainWindow: MainViewController 已创建")
         window.contentViewController = mainViewController
+        NSLog("🔴 [AppDelegate] B3: contentViewController 设置完成")
         logger.info("createMainWindow: contentViewController 设置完成")
         // 强制加载视图层次，避免延迟加载导致前置失败
+        NSLog("🔴 [AppDelegate] B4: before mainViewController.view")
         _ = mainViewController.view
+        NSLog("🔴 [AppDelegate] B5: after mainViewController.view")
         // 立即前置（放在任何异步操作之前）
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -340,6 +344,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.orderFrontRegardless()
         NSApp.activate(ignoringOtherApps: true)
         logger.info("createMainWindow: ensure front -> visible=\(window.isVisible) key=\(String(describing: NSApp.keyWindow)) count=\(NSApp.windows.count)")
+        
+        // 窗口显示后，异步加载进程列表（避免 viewDidLoad 中 Auto Layout 死锁）
+        DispatchQueue.main.async { [weak self] in
+            self?.mainViewController.loadAvailableProcesses()
+        }
 
         // 再次兜底：稍后再次前置并打印窗口列表
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {

@@ -1,0 +1,17 @@
+{
+  "task_id": "task-0527-req-2-0-06-多应用同时录音",
+  "task_title": "多应用同时录音 + 多轨道显示",
+  "status": "running",
+  "current_phase": "01-ideation",
+  "current_step": "initializing",
+  "started_at": "2026-05-27T00:00:00.000Z",
+  "updated_at": "2026-05-30T01:11:43.000Z",
+  "phases": {
+    "01-ideation": {"status": "pending", "agents": []},
+    "02-requirement": {"status": "pending", "agents": []},
+    "03-design": {"status": "pending", "agents": []},
+    "04-development": {"status": "pending", "agents": []},
+    "05-testing": {"status": "pending", "agents": []},
+    "06-deployment": {"status": "pending", "agents": []}
+  }
+}

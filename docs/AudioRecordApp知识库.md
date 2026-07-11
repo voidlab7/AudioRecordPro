@@ -7,25 +7,25 @@
 
 | 文档 | 用途 |
 |---|---|
-| `knowledge/README.md` | 当前知识库入口 |
-| `knowledge/product.md` | 产品定位、目标用户、版本需求全景 |
-| `knowledge/ux.md` | UI / 交互 / 信息架构事实源 |
-| `knowledge/tech.md` | 技术架构、录制、编辑器、文件导出 |
-| `knowledge/risks.md` | 风险、技术债、代码事实差异、QA 重点 |
+| `知识库/README.md` | 当前知识库入口 |
+| `知识库/product.md` | 产品定位、目标用户、版本需求全景 |
+| `设计/设计规范.md` | UI / 交互 / 信息架构事实源 |
+| `知识库/tech.md` | 技术架构、录制、编辑器、文件导出 |
+| `知识库/risks.md` | 风险、技术债、代码事实差异、QA 重点 |
 
 ## 使用规则
 
 1. 新增或修正文档事实时，不再更新本文件。
-2. 根据主题更新 `knowledge/` 下对应文档。
-3. 若 `knowledge/` 与代码冲突，以实际代码为准。
-4. 需求执行状态仍以 `requirements/README.md` 和具体 `REQ-*.md` 为准。
-5. 产品路线资料在 `product/`；竞品资料在 `research/competitors/`；历史资料在 `archive/`。
+2. 根据主题更新 `知识库/` 下对应文档。
+3. 若 `知识库/` 与代码冲突，以实际代码为准。
+4. 需求执行状态仍以 `需求/README.md` 和具体 `REQ-*.md` 为准。
+5. 产品路线资料在 `产品/`；竞品资料在 `研究/competitors/`；历史资料在 `归档/`。
 
 ## 原文档拆分映射
 
 | 原章节 | 新位置 |
 |---|---|
-| 产品定位、需求全景 | `knowledge/product.md` |
-| UI 设计、交互、重构任务 | `knowledge/ux.md` |
-| 模块地图、底层技术方案、文件与导出 | `knowledge/tech.md` |
-| 代码事实差异、状态机、风险、QA、维护规则 | `knowledge/risks.md` |
+| 产品定位、需求全景 | `知识库/product.md` |
+| UI 设计、交互、重构任务 | `设计/设计规范.md` |
+| 模块地图、底层技术方案、文件与导出 | `知识库/tech.md` |
+| 代码事实差异、状态机、风险、QA、维护规则 | `知识库/risks.md` |

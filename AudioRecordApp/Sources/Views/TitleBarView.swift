@@ -88,6 +88,25 @@ class TitleBarView: NSView {
         targetLabel.stringValue = description
     }
     
+    /// 更新录制目标文字 — 多选格式：1 个源显示 App 名，多个显示 "A, B +N"
+    /// - Parameter names: 选中音源名称数组（有序）
+    func updateTargetNames(_ names: [String]) {
+        if names.isEmpty {
+            targetLabel.stringValue = "未选择录制目标"
+        } else if names.count == 1 {
+            targetLabel.stringValue = names[0]
+        } else {
+            // "A, B +N" 格式：显示前 2 个名 + 剩余数
+            let displayNames = names.prefix(2).joined(separator: ", ")
+            let remaining = names.count - 2
+            if remaining > 0 {
+                targetLabel.stringValue = "\(displayNames) +\(remaining)"
+            } else {
+                targetLabel.stringValue = displayNames
+            }
+        }
+    }
+    
     func setExportEnabled(_ enabled: Bool) {
         isExportEnabled = enabled
         exportButton.isEnabled = enabled

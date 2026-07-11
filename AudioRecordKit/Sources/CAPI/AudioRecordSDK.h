@@ -308,12 +308,6 @@ AudioPermissionStatus AudioRecord_GetMicrophonePermission(void);
  */
 void AudioRecord_RequestMicrophonePermission(void (*callback)(AudioPermissionStatus status, void* userData), void* userData);
 
-/**
- * @brief 检查屏幕录制权限（系统音频）
- * @return 权限状态
- */
-AudioPermissionStatus AudioRecord_GetScreenCapturePermission(void);
-
 // ============================================================================
 // MARK: - 进程枚举
 // ============================================================================

@@ -22,14 +22,13 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("AudioToolbox"),
-                .linkedFramework("ScreenCaptureKit")
             ]
         ),
         .testTarget(
             name: "AudioRecordKitTests",
             dependencies: ["AudioRecordKit"],
             path: "Tests"
-        )
+        ),
     ]
 )
 

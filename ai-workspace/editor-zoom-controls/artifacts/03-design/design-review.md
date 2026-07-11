@@ -2,7 +2,7 @@
 
 > **评审者**: 绘·设计师 | **日期**: 2026-05-25 | **模式**: Check（评审）
 > **评审对象**: `artifacts/02-requirement/编辑器缩放控件-交互规格.md`
-> **评审基准**: `docs/design/design-system.md` + `IndustrialDesignTokens.swift`
+> **评审基准**: `docs/设计/设计规范.md` + `IndustrialDesignTokens.swift`
 
 ---
 

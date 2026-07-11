@@ -425,13 +425,6 @@ public func AudioRecord_RequestMicrophonePermission(
     }
 }
 
-@_cdecl("AudioRecord_GetScreenCapturePermission")
-public func AudioRecord_GetScreenCapturePermission() -> Int32 {
-    // ScreenCaptureKit 权限检查比较复杂，这里简化处理
-    // 实际使用时系统会自动弹窗
-    return 0 // NotDetermined
-}
-
 // MARK: - 进程枚举
 
 /// 进程列表句柄（内部存储）

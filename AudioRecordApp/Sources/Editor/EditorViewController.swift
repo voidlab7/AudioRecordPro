@@ -35,13 +35,55 @@ class EditorViewController {
     
     // 编辑器视图组件
     private let navigationBar = EditorNavigationBar()
-    private let waveformView = EditorWaveformView()
     private let scrollBarView = HorizontalScrollBarView()
     private let toolbar = EditorToolbar()
     private let statusBar = EditorStatusBar()
+    
+    /// P0-B: 多轨道容器（替代原来的单个 waveformView）
+    private let trackContainerView = TrackContainerView()
+    
+    /// 便捷：主轨道波形视图（第一轨）
+    private var waveformView: EditorWaveformView {
+        trackContainerView.waveformView(for: 0) ?? EditorWaveformView()
+    }
 
     /// 编辑器的根视图
     let editorView = EditorRootView()
+
+    /// P0-A: 嵌入模式 — 当嵌入到 MainWindowView 时，隐藏自带的 navigationBar/toolbar
+    /// 编辑操作统一由 MainWindowView 的 EditToolbarView 触发
+    var isEmbedded: Bool = false {
+        didSet {
+            guard isEmbedded != oldValue else { return }
+            
+            // 隐藏所有 UI chrome
+            navigationBar.isHidden = isEmbedded
+            toolbar.isHidden = isEmbedded
+            statusBar.isHidden = isEmbedded
+            scrollBarView.isHidden = isEmbedded
+            
+            if isEmbedded {
+                // 简单策略：把所有 chrome 高度压为 0
+                // 原有约束链不变：navBar(0h) → trackContainer → scrollBar(0h) → toolbar(0h) → statusBar(0h)
+                // 结果：trackContainer 自动填满整个 editorView
+                navBarHeightConstraint?.constant = 0
+                scrollBarHeightConstraint.constant = 0
+                toolbarHeightConstraint?.constant = 0
+                statusBarHeightConstraint?.constant = 0
+            } else {
+                // 恢复标准高度
+                navBarHeightConstraint?.constant = IndustrialSpacing.editorNavBarHeight
+                scrollBarHeightConstraint.constant = 0  // scroll bar 默认就是 0
+                toolbarHeightConstraint?.constant = IndustrialSpacing.editorToolbarHeight
+                statusBarHeightConstraint?.constant = IndustrialSpacing.editorStatusBarHeight
+            }
+        }
+    }
+    
+    // P0-A: 约束引用（嵌入模式下修改常量值）
+    private var navBarHeightConstraint: NSLayoutConstraint?
+    private var toolbarHeightConstraint: NSLayoutConstraint?
+    private var statusBarHeightConstraint: NSLayoutConstraint?
 
     private var hasUnsavedChanges: Bool = false
 
@@ -103,29 +145,39 @@ class EditorViewController {
         editorView.keyHandler = self
 
         navigationBar.translatesAutoresizingMaskIntoConstraints = false
-        waveformView.translatesAutoresizingMaskIntoConstraints = false
+        trackContainerView.translatesAutoresizingMaskIntoConstraints = false
         scrollBarView.translatesAutoresizingMaskIntoConstraints = false
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         statusBar.translatesAutoresizingMaskIntoConstraints = false
 
         editorView.addSubview(navigationBar)
-        editorView.addSubview(waveformView)
+        editorView.addSubview(trackContainerView)
         editorView.addSubview(scrollBarView)
         editorView.addSubview(toolbar)
         editorView.addSubview(statusBar)
 
+        // P0-B: 默认创建第一轨
+        let defaultTrack = EditorAudioTrack(name: file.name, color: .coral)
+        trackContainerView.tracks = [defaultTrack]
+
         scrollBarHeightConstraint = scrollBarView.heightAnchor.constraint(equalToConstant: 0)
+
+        // P0-A: 存储约束引用（嵌入模式下将高度压为 0）
+        navBarHeightConstraint = navigationBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorNavBarHeight)
+        toolbarHeightConstraint = toolbar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorToolbarHeight)
+        statusBarHeightConstraint = statusBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorStatusBarHeight)
 
         NSLayoutConstraint.activate([
             navigationBar.topAnchor.constraint(equalTo: editorView.topAnchor),
             navigationBar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             navigationBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            navigationBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorNavBarHeight),
+            navBarHeightConstraint!,
 
-            waveformView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
-            waveformView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
-            waveformView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor, constant: -IndustrialSpacing.md),
-            waveformView.bottomAnchor.constraint(equalTo: scrollBarView.topAnchor, constant: -IndustrialSpacing.xs),
+            // trackContainer 在 navBar 和 scrollBar 之间（嵌入模式下两者高度都为 0 → 自动填满）
+            trackContainerView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
+            trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
+            trackContainerView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
+            trackContainerView.bottomAnchor.constraint(equalTo: scrollBarView.topAnchor, constant: -IndustrialSpacing.xs),
 
             scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
             scrollBarView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor, constant: -IndustrialSpacing.md),
@@ -135,12 +187,12 @@ class EditorViewController {
             toolbar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
             toolbar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
-            toolbar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorToolbarHeight),
+            toolbarHeightConstraint!,
 
             statusBar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
             statusBar.bottomAnchor.constraint(equalTo: editorView.bottomAnchor),
-            statusBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorStatusBarHeight)
+            statusBarHeightConstraint!
         ])
 
         navigationBar.setFileName(file.name)
@@ -977,6 +1029,74 @@ extension EditorViewController: EditorKeyboardHandler {
         waveformView.setZoomLevel(targetLevel)
         isUpdatingFromExternalSource = false
         syncControlsToWaveformState()
+    }
+    
+    // MARK: - P0-A: 公开工具栏操作方法（供 MainWindowView EditToolbarView 调用）
+    // 仅编辑器 embedded 模式使用。独立模式走 EditorNavigationBar/EditorToolbar。
+    
+    /// 切分 clip（P1-E）
+    func handleSplit() {
+        // P1-E: 在播放头位置切分 clip
+        let time = waveformView.currentPlayheadPosition
+        
+        // 播放头边界检查
+        guard time > 0.01, time < waveformView.totalDuration - 0.01 else {
+            logger.warning("切分失败：播放头在边界位置")
+            return
+        }
+        let cmd = SplitAudioClipCommand(time: time)
+        executeCommand(cmd)
+        hasUnsavedChanges = true
+        waveformView.splitPointTime = time
+        waveformView.needsDisplay = true
+        updateStatusBar()
+        logger.info("切分 audio clip at: \(String(format: "%.2f", time))s")
+    }
+    
+    /// 静音裁剪
+    func handleSilence() {
+        performSilenceTrim()
+    }
+    
+    /// 裁剪选区
+    func handleTrim() {
+        performTrim()
+    }
+    
+    /// 标准化
+    func handleNormalize() {
+        performNormalize()
+    }
+    
+    /// 淡入淡出
+    func handleFade() {
+        performFade()
+    }
+}
+
+// MARK: - PropertiesPanelViewDelegate (P0: 右侧属性面板联动)
+extension EditorViewController: PropertiesPanelViewDelegate {
+    
+    func propertiesPanel(_ panel: PropertiesPanelView, didChangeVolume volume: Float) {
+        // TODO: 实时调整预览音量（不修改 buffer，只改 playerNode gain）
+        previewPlayerNode?.volume = powf(10.0, volume / 20.0)  // dB → linear
+        logger.info("音量调整: \(String(format: "%.1f", volume))dB")
+    }
+    
+    func propertiesPanel(_ panel: PropertiesPanelView, didChangeFadeIn duration: TimeInterval) {
+        // P0-3: Fade-in 时长由属性面板控制
+        // 当前仅记录值，后续 P0-3 完成后联动到 Clip 模型的 fadeInDuration
+        logger.info("淡入时长: \(String(format: "%.1f", duration))s")
+    }
+    
+    func propertiesPanel(_ panel: PropertiesPanelView, didChangeFadeOut duration: TimeInterval) {
+        // P0-3: Fade-out 时长由属性面板控制
+        logger.info("淡出时长: \(String(format: "%.1f", duration))s")
+    }
+    
+    func propertiesPanel(_ panel: PropertiesPanelView, didToggleEffect effectId: String, enabled: Bool) {
+        logger.info("音效 \(effectId): \(enabled ? "开启" : "关闭")")
+        // 后续实现各音效的处理逻辑
     }
 }
 

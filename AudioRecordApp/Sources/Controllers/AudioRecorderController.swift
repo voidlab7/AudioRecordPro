@@ -11,6 +11,16 @@ enum AudioSourceType: String {
     case specificProcess = "process"
 }
 
+/// 单个进程的录制状态信息
+struct ProcessRecordingInfo {
+    let pid: pid_t
+    let processName: String
+    var level: Float = 0
+    var peakLevel: Float = 0
+    var isRunning: Bool = false
+    var outputURL: URL?
+}
+
 /// 重构后的音频录制控制器（支持多音源同时录制）
 @MainActor
 class AudioRecorderController: NSObject {
@@ -21,6 +31,14 @@ class AudioRecorderController: NSObject {
     private var _coreAudioTargetPID: pid_t?  // 保存CoreAudio目标PID
     private let logger = Logger.shared
     
+    // MARK: - Multi-Process Independent Recording
+    /// Per-process independent recorders (keyed by PID)
+    private var processRecorders: [pid_t: AudioRecorderProtocol] = [:]
+    /// Per-process recording info (keyed by PID)
+    private(set) var processRecordingInfos: [pid_t: ProcessRecordingInfo] = [:]
+    /// Whether currently in multi-process independent recording mode
+    private(set) var isMultiProcessMode: Bool = false
+    
     // 混音设置（预留，暂未实现）
     var shouldMixAudio: Bool = false
     
@@ -29,6 +47,9 @@ class AudioRecorderController: NSObject {
     
     // MARK: - Public Interface
     var isRunning: Bool {
+        if isMultiProcessMode {
+            return !processRecorders.isEmpty && processRecorders.values.contains(where: { $0.isRunning })
+        }
         return !activeRecorders.isEmpty && activeRecorders.values.contains(where: { $0.isRunning })
     }
     
@@ -43,6 +64,18 @@ class AudioRecorderController: NSObject {
             activeRecorders.values.forEach { $0.onPeakLevel = onPeakLevel }
         }
     }
+    
+    /// Per-process level callback: (pid, rmsLevel)
+    var onProcessLevel: ((pid_t, Float) -> Void)?
+    
+    /// Per-process peak level callback: (pid, peakLevel)
+    var onProcessPeakLevel: ((pid_t, Float) -> Void)?
+    
+    /// Per-process recording complete callback: (pid, recording)
+    var onProcessRecordingComplete: ((pid_t, AudioRecording) -> Void)?
+    
+    /// All process recordings complete callback
+    var onAllProcessRecordingsComplete: (([pid_t: AudioRecording]) -> Void)?
     
     var onStatus: ((String) -> Void)? {
         didSet {
@@ -70,8 +103,109 @@ class AudioRecorderController: NSObject {
     func setAudioFormat(_ format: AudioFormat) {
         _currentFormat = format
         activeRecorders.values.forEach { $0.setAudioFormat(format) }
+        processRecorders.values.forEach { $0.setAudioFormat(format) }
         logger.info("音频格式已设置为: \(format.rawValue)")
     }
+    
+    // MARK: - Multi-Process Independent Recording
+    
+    /// 启动多进程独立录制（每个进程独立音轨 + 独立电平）
+    /// - Parameters:
+    ///   - pids: 要录制的进程 PID 列表
+    ///   - processNames: PID 对应的进程名称字典
+    ///   - mixAudio: 是否同时混入麦克风（每个进程轨道都混入）
+    func startMultiProcessIndependentRecording(
+        pids: [pid_t],
+        processNames: [pid_t: String],
+        mixAudio: Bool = false
+    ) {
+        guard !isRunning else {
+            logger.warning("录制已在进行中")
+            onStatus?("录制已在进行中")
+            return
+        }
+        
+        guard !pids.isEmpty else {
+            logger.warning("没有指定要录制的进程")
+            onStatus?("请选择至少一个应用")
+            return
+        }
+        
+        guard #available(macOS 14.4, *) else {
+            logger.warning("多进程独立录制需要 macOS 14.4+")
+            onStatus?("多进程独立录制需要 macOS 14.4+")
+            return
+        }
+        
+        isMultiProcessMode = true
+        logger.info("🎯 启动多进程独立录制模式，进程数: \(pids.count)")
+        
+        // Clear previous state
+        processRecorders.removeAll()
+        processRecordingInfos.removeAll()
+        var completedRecordings: [pid_t: AudioRecording] = [:]
+        
+        // Create independent recorder for each process
+        for pid in pids {
+            let processName = processNames[pid] ?? "Process-\(pid)"
+            
+            if mixAudio {
+                // Mixed mode: each process + microphone
+                let recorder = MixedAudioRecorder(mode: .specificProcess)
+                recorder.setTargetPID(pid)
+                recorder.setAudioFormat(_currentFormat)
+                setupProcessRecorderCallbacks(recorder, pid: pid, processName: processName, completedRecordings: &completedRecordings)
+                processRecorders[pid] = recorder
+            } else {
+                // Pure process audio capture
+                let recorder = CoreAudioProcessTapRecorder(mode: .specificProcess)
+                recorder.setTargetPID(pid)
+                recorder.setAudioFormat(_currentFormat)
+                setupProcessRecorderCallbacks(recorder, pid: pid, processName: processName, completedRecordings: &completedRecordings)
+                processRecorders[pid] = recorder
+            }
+            
+            // Initialize recording info
+            processRecordingInfos[pid] = ProcessRecordingInfo(
+                pid: pid,
+                processName: processName,
+                isRunning: true
+            )
+            
+            logger.info("✅ 创建进程录制器: \(processName) (PID: \(pid))")
+        }
+        
+        // Start all recorders
+        for (pid, recorder) in processRecorders {
+            let name = processNames[pid] ?? "Process-\(pid)"
+            logger.info("🎬 启动录制器: \(name) (PID: \(pid))")
+            recorder.startRecording()
+        }
+        
+        let names = pids.compactMap { processNames[$0] }.joined(separator: ", ")
+        onStatus?("正在独立录制 \(pids.count) 个应用: \(names)")
+    }
+    
+    /// 获取指定进程的当前电平
+    func getProcessLevel(for pid: pid_t) -> Float {
+        return processRecordingInfos[pid]?.level ?? 0
+    }
+    
+    /// 获取指定进程的当前峰值电平
+    func getProcessPeakLevel(for pid: pid_t) -> Float {
+        return processRecordingInfos[pid]?.peakLevel ?? 0
+    }
+    
+    /// 获取所有进程的电平字典
+    func getAllProcessLevels() -> [pid_t: Float] {
+        var levels: [pid_t: Float] = [:]
+        for (pid, info) in processRecordingInfos {
+            levels[pid] = info.level
+        }
+        return levels
+    }
+    
+    // MARK: - Legacy Multi-Source Recording
     
     /// 启动多个音源的录制
     /// - Parameters:
@@ -100,6 +234,7 @@ class AudioRecorderController: NSObject {
             return
         }
         
+        isMultiProcessMode = false
         logger.info("开始多音源录制 - 麦克风:\(wantMic), 系统:\(wantSystem), 进程:\(wantProcess)")
         
         // 创建需要的录制器
@@ -114,20 +249,18 @@ class AudioRecorderController: NSObject {
             newRecorders[.microphone] = micRecorder
         }
         
-        // 2. 系统音频录制器
+        // 2. 系统音频录制器（需要 macOS 14.4+）
         if wantSystem {
-            logger.info("创建系统音频录制器")
             if #available(macOS 14.4, *) {
+                logger.info("创建系统音频录制器")
                 let systemRecorder = CoreAudioProcessTapRecorder(mode: .systemMixdown)
                 systemRecorder.setTargetPID(nil)
                 systemRecorder.setAudioFormat(_currentFormat)
                 setupRecorderCallbacks(systemRecorder, sourceType: .systemAudio)
                 newRecorders[.systemAudio] = systemRecorder
             } else {
-                let systemRecorder = ScreenCaptureAudioRecorder(mode: .systemMixdown)
-                systemRecorder.setAudioFormat(_currentFormat)
-                setupRecorderCallbacks(systemRecorder, sourceType: .systemAudio)
-                newRecorders[.systemAudio] = systemRecorder
+                logger.warning("系统音频录制需要 macOS 14.4+")
+                onStatus?("系统音频录制需要 macOS 14.4+，请升级系统")
             }
         }
         
@@ -167,11 +300,19 @@ class AudioRecorderController: NSObject {
     
     /// 停止所有录制
     func stopRecording() {
-        logger.info("停止所有录制，当前活跃录制器数: \(activeRecorders.count)")
-        
-        for (type, recorder) in activeRecorders {
-            logger.info("停止录制器: \(type.rawValue)")
-            recorder.stopRecording()
+        if isMultiProcessMode {
+            logger.info("停止多进程独立录制，当前活跃录制器数: \(processRecorders.count)")
+            for (pid, recorder) in processRecorders {
+                let name = processRecordingInfos[pid]?.processName ?? "PID-\(pid)"
+                logger.info("停止录制器: \(name) (PID: \(pid))")
+                recorder.stopRecording()
+            }
+        } else {
+            logger.info("停止所有录制，当前活跃录制器数: \(activeRecorders.count)")
+            for (type, recorder) in activeRecorders {
+                logger.info("停止录制器: \(type.rawValue)")
+                recorder.stopRecording()
+            }
         }
     }
     
@@ -214,6 +355,9 @@ class AudioRecorderController: NSObject {
     func clearRecorders() {
         logger.info("清理所有录制器")
         activeRecorders.removeAll()
+        processRecorders.removeAll()
+        processRecordingInfos.removeAll()
+        isMultiProcessMode = false
     }
     
     // MARK: - 向后兼容的单音源录制方法
@@ -236,6 +380,7 @@ class AudioRecorderController: NSObject {
     /// 启动混音录制（系统音频 + 麦克风混合到一个文件）
     private func startMixedRecording(wantSystem: Bool, wantProcess: Bool, targetPID: pid_t?) {
         if #available(macOS 14.4, *) {
+            isMultiProcessMode = false
             logger.info("创建混音录制器")
             let mixedRecorder = MixedAudioRecorder(mode: wantProcess ? .specificProcess : .systemMixdown)
             
@@ -259,6 +404,59 @@ class AudioRecorderController: NSObject {
         } else {
             logger.warning("混音录制需要 macOS 14.4+")
             onStatus?("混音录制需要 macOS 14.4+")
+        }
+    }
+    
+    /// Setup callbacks for per-process independent recorders
+    private func setupProcessRecorderCallbacks(
+        _ recorder: AudioRecorderProtocol,
+        pid: pid_t,
+        processName: String,
+        completedRecordings: inout [pid_t: AudioRecording]
+    ) {
+        // Per-process level callback
+        recorder.onLevel = { [weak self] lvl in
+            guard let self = self else { return }
+            self.processRecordingInfos[pid]?.level = lvl
+            self.onProcessLevel?(pid, lvl)
+            // Also forward combined level (max of all processes) for backward compatibility
+            let maxLevel = self.processRecordingInfos.values.map { $0.level }.max() ?? 0
+            self.onLevel?(maxLevel)
+        }
+        
+        // Per-process peak level callback
+        recorder.onPeakLevel = { [weak self] peak in
+            guard let self = self else { return }
+            self.processRecordingInfos[pid]?.peakLevel = peak
+            self.onProcessPeakLevel?(pid, peak)
+            // Also forward combined peak for backward compatibility
+            let maxPeak = self.processRecordingInfos.values.map { $0.peakLevel }.max() ?? 0
+            self.onPeakLevel?(maxPeak)
+        }
+        
+        recorder.onStatus = { [weak self] status in
+            self?.onStatus?("[\(processName)] \(status)")
+        }
+        
+        recorder.onRecordingComplete = { [weak self] recording in
+            guard let self = self else { return }
+            
+            self.logger.info("✅ 进程录制完成: \(processName) (PID: \(pid)) → \(recording.fileURL.lastPathComponent)")
+            self.processRecordingInfos[pid]?.isRunning = false
+            self.processRecordingInfos[pid]?.outputURL = recording.fileURL
+            
+            // Notify per-process completion
+            self.onProcessRecordingComplete?(pid, recording)
+            
+            // Also notify legacy callback
+            self.onRecordingComplete?(recording)
+            
+            // Check if all process recorders are done
+            self.checkAllProcessRecordingsComplete()
+        }
+        
+        recorder.onPlaybackComplete = { [weak self] in
+            self?.onPlaybackComplete?()
         }
     }
     
@@ -298,10 +496,44 @@ class AudioRecorderController: NSObject {
         
         if allStopped {
             logger.info("所有录制器已完成")
-            // 这里可以触发多录制完成的回调
-            // 暂时清理录制器列表
             Task { @MainActor in
-                // 延迟清理，确保所有回调都执行完毕
+                try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
+                self.clearRecorders()
+            }
+        }
+    }
+    
+    private func checkAllProcessRecordingsComplete() {
+        let allStopped = processRecorders.values.allSatisfy { !$0.isRunning }
+        
+        if allStopped {
+            logger.info("🎉 所有进程录制器已完成")
+            
+            // Collect all recordings
+            var allRecordings: [pid_t: AudioRecording] = [:]
+            for (pid, info) in processRecordingInfos {
+                if let url = info.outputURL {
+                    // Create AudioRecording from URL
+                    if let audioInfo = AudioUtils.shared.getAudioFileInfo(at: url),
+                       let fileSize = FileManagerUtils.shared.getFileSize(at: url) {
+                        let recording = AudioRecording(
+                            fileURL: url,
+                            duration: audioInfo.duration,
+                            fileSize: fileSize,
+                            format: _currentFormat.rawValue,
+                            recordingMode: RecordingMode.specificProcess.rawValue,
+                            sampleRate: audioInfo.sampleRate,
+                            channels: Int(audioInfo.channels)
+                        )
+                        allRecordings[pid] = recording
+                    }
+                }
+            }
+            
+            // Notify all complete
+            onAllProcessRecordingsComplete?(allRecordings)
+            
+            Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 100_000_000) // 0.1秒
                 self.clearRecorders()
             }
@@ -310,6 +542,9 @@ class AudioRecorderController: NSObject {
     
     /// 获取当前活跃的录制器（向后兼容）
     func getCurrentRecorder() -> AudioRecorderProtocol? {
+        if isMultiProcessMode {
+            return processRecorders.values.first
+        }
         return activeRecorders.values.first
     }
 }

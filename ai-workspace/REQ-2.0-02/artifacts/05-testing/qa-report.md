@@ -8,7 +8,7 @@
 
 ## 测试范围
 
-基于 `docs/requirements/REQ-2.0-02.md` PRD 和设计评审报告，对 idle 态 UI 重构进行功能验证。
+基于 `docs/需求/REQ-2.0-02.md` PRD 和设计评审报告，对 idle 态 UI 重构进行功能验证。
 
 ---
 

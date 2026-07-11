@@ -508,7 +508,7 @@ main() {
     echo "Next steps for AI review:"
     echo "  1. AI reads screenshots via read_image tool"
     echo "  2. AI reads static-audit-report.md"
-    echo "  3. AI compares against docs/design/design-system.md"
+    echo "  3. AI compares against docs/设计/design-system.md"
     echo "  4. AI outputs findings and fix suggestions"
     echo "═══════════════════════════════════════════════════"
 }

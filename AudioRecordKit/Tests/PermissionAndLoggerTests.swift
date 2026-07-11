@@ -19,14 +19,6 @@ final class PermissionManagerTests: XCTestCase {
         XCTAssertTrue(guide.contains("隐私"))
     }
     
-    func testScreenRecordingPermissionGuide() {
-        let pm = createTestablePermissionManager()
-        let guide = pm.getPermissionGuide(for: .screenRecording)
-        
-        XCTAssertTrue(guide.contains("屏幕录制"))
-        XCTAssertTrue(guide.contains("重启"))
-    }
-    
     func testSystemAudioCapturePermissionGuide() {
         let pm = createTestablePermissionManager()
         let guide = pm.getPermissionGuide(for: .systemAudioCapture)

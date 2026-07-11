@@ -1,11 +1,22 @@
 import Cocoa
 
+/// 编辑器工具栏操作枚举（P0-A：统一工具栏调度）
+enum EditorToolbarAction {
+    case split       // 切分
+    case trim        // 裁剪
+    case silence     // 静音裁剪
+    case normalize   // 标准化
+    case fade        // 淡入淡出
+}
+
 /// 编辑工具栏委托
 protocol EditToolbarViewDelegate: AnyObject {
     func editToolbarDidRequestTrim(_ view: EditToolbarView)
     func editToolbarDidRequestNormalize(_ view: EditToolbarView)
     func editToolbarDidRequestFadeIn(_ view: EditToolbarView)
     func editToolbarDidRequestFadeOut(_ view: EditToolbarView)
+    func editToolbarDidRequestSplit(_ view: EditToolbarView)
+    func editToolbarDidRequestSilence(_ view: EditToolbarView)
 }
 
 /// 顶部编辑工具栏 — 录制态禁用，编辑态自动激活
@@ -18,7 +29,9 @@ class EditToolbarView: NSView {
     
     // MARK: - UI Components
     private let stackView = NSStackView()
+    private let splitButton = EditToolbarButton(title: "切分", symbol: "scissors.badge.ellipsis")
     private let trimButton = EditToolbarButton(title: "裁剪", symbol: "scissors")
+    private let silenceButton = EditToolbarButton(title: "静音", symbol: "speaker.slash")
     private let normalizeButton = EditToolbarButton(title: "标准化", symbol: "waveform.badge.magnifyingglass")
     private let fadeInButton = EditToolbarButton(title: "淡入", symbol: "arrow.up.right")
     private let fadeOutButton = EditToolbarButton(title: "淡出", symbol: "arrow.down.right")
@@ -53,8 +66,8 @@ class EditToolbarView: NSView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
         
-        // 按钮
-        let buttons = [trimButton, normalizeButton, fadeInButton, fadeOutButton]
+        // 按钮（参考竞品顺序：切分 | 裁剪 | 静音 | 标准化 | 淡入 | 淡出）
+        let buttons = [splitButton, trimButton, silenceButton, normalizeButton, fadeInButton, fadeOutButton]
         for btn in buttons {
             btn.translatesAutoresizingMaskIntoConstraints = false
             stackView.addArrangedSubview(btn)
@@ -73,9 +86,17 @@ class EditToolbarView: NSView {
         ])
         
         // 按钮点击
+        splitButton.onClick = { [weak self] in
+            guard let self = self, self.isEnabled else { return }
+            self.delegate?.editToolbarDidRequestSplit(self)
+        }
         trimButton.onClick = { [weak self] in
             guard let self = self, self.isEnabled else { return }
             self.delegate?.editToolbarDidRequestTrim(self)
+        }
+        silenceButton.onClick = { [weak self] in
+            guard let self = self, self.isEnabled else { return }
+            self.delegate?.editToolbarDidRequestSilence(self)
         }
         normalizeButton.onClick = { [weak self] in
             guard let self = self, self.isEnabled else { return }
@@ -99,7 +120,7 @@ class EditToolbarView: NSView {
     func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
         let alpha: CGFloat = enabled ? 1.0 : 0.35
-        [trimButton, normalizeButton, fadeInButton, fadeOutButton].forEach { btn in
+        [splitButton, trimButton, silenceButton, normalizeButton, fadeInButton, fadeOutButton].forEach { btn in
             btn.alphaValue = alpha
             btn.isUserInteractionEnabled = enabled
         }

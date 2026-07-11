@@ -168,10 +168,8 @@ class MainViewController: NSViewController {
         mainWindowView.updateRecordingState(.idle)
         mainWindowView.updateStatus("准备就绪")
         
-        // 加载可用进程列表
-        loadAvailableProcesses()
-        
         // 启动进程列表自动刷新（2 秒间隔）
+        // 首次加载推迟到窗口显示后（createMainWindow 中调用）
         startProcessRefreshTimer()
         
         // 监听进程退出通知
@@ -203,7 +201,7 @@ class MainViewController: NSViewController {
             logger.info("麦克风权限受限制")
         }
         
-        switch permissions.screenRecording {
+        switch permissions.systemAudioCapture {
         case .granted:
             logger.info("屏幕录制权限已授予")
         case .denied:
@@ -237,7 +235,7 @@ class MainViewController: NSViewController {
         }
         
         // 检查屏幕录制权限
-        switch permissions.screenRecording {
+        switch permissions.systemAudioCapture {
         case .granted:
             logger.info("屏幕录制权限已授予")
         case .denied:
@@ -276,17 +274,6 @@ class MainViewController: NSViewController {
                 if currentRecordingMode == .microphone {
                     mainWindowView.updateStatus("麦克风权限被拒绝，请切换到系统音频模式")
                 }
-            default:
-                break
-            }
-        case .screenRecording:
-            switch status {
-            case .granted:
-                logger.info("屏幕录制权限已授予")
-                // 屏幕录制权限相关代码已移除
-            case .denied:
-                logger.warning("屏幕录制权限被拒绝")
-                // 屏幕录制权限相关代码已移除
             default:
                 break
             }
@@ -755,10 +742,8 @@ class MainViewController: NSViewController {
         // 播放电平监测 → 更新电平表
         player.updateMeters()
         let leftDB = player.averagePower(forChannel: 0)
-        let rightDB = player.numberOfChannels > 1 ? player.averagePower(forChannel: 1) : leftDB
         // dB → 归一化 (0~1)，-60dB=0，0dB=1
         let leftNorm = max(0, min(1, (leftDB + 60) / 60))
-        let rightNorm = max(0, min(1, (rightDB + 60) / 60))
         mainWindowView.updateLevel(Float(leftNorm))
         
         // 同步波形播放进度
@@ -903,11 +888,11 @@ class MainViewController: NSViewController {
         }
     }
 
-    private func checkScreenRecordingPermissionOnModeSwitch() {
+    private func checkSystemAudioPermissionOnModeSwitch() {
         logger.info("检查屏幕录制权限（模式切换时）")
         
         let permissions = PermissionManager.shared.checkAllPermissions()
-        switch permissions.screenRecording {
+        switch permissions.systemAudioCapture {
         case .granted:
             logger.info("屏幕录制权限已授予")
             mainWindowView.updateStatus("屏幕录制权限已授予，可以开始录制")
@@ -1106,7 +1091,7 @@ extension MainViewController: MainWindowViewDelegate {
         ensureAudioControllerInitialized()
         audioRecorderController?.setCoreAudioTargetPID(pids.first)
         
-        if let first = pids.first {
+        if pids.first != nil {
             mainWindowView.updateStatus("录制目标：应用声音")
         } else {
             mainWindowView.updateStatus("录制目标：全部系统声音")
@@ -1441,15 +1426,12 @@ extension MainViewController: MainWindowViewDelegate {
     }
     
     /// 加载可用的音频进程列表
-    private func loadAvailableProcesses() {
+    func loadAvailableProcesses() {
         logger.info("开始加载可用音频进程列表")
-        
-        // 在主线程获取，避免 MainActor 隔离告警
         ensureAudioControllerInitialized()
         
         let processes: [AudioProcessInfo]
         if #available(macOS 14.4, *) {
-            // Use AudioProcessEnumerator directly to avoid MainActor isolation issues
             let enumerator = AudioProcessEnumerator()
             processes = enumerator.getAvailableAudioProcesses()
         } else {
@@ -1461,8 +1443,6 @@ extension MainViewController: MainWindowViewDelegate {
         self.mainWindowView.updateProcessList(processes)
         self.mainWindowView.updateTracksDisplay()
         self.logger.info("已加载 \(processes.count) 个可用音频进程")
-        
-        // 不恢复上次的选择状态，完全重置
         logger.info("📝 完全重置状态，不恢复上次选择")
     }
     

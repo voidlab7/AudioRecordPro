@@ -548,8 +548,10 @@ class MainWindowView: NSView {
     }
     
     func hideEditor() {
-        guard isInEditorMode else { return }
+        NSLog("[E2E] hideEditor — entering, currentMode=%@", "\(currentMode)")
+        guard isInEditorMode else { NSLog("[E2E] hideEditor — SKIP not in editor mode"); return }
         isInEditorMode = false
+        NSLog("[E2E] hideEditor — restoring editor views to recording layout")
         
         // Restore to idle mode (disable export button)
         switchToMode(.idle)
@@ -680,6 +682,14 @@ extension MainWindowView: EditToolbarViewDelegate {
         if let file = lastCompletedFile {
             delegate?.mainWindowViewDidRequestEditFile(self, file: file)
         }
+    }
+    
+    func editToolbarDidRequestSplit(_ view: EditToolbarView) {
+        // P0 编辑器预留
+    }
+    
+    func editToolbarDidRequestSilence(_ view: EditToolbarView) {
+        // P0 编辑器预留
     }
 }
 

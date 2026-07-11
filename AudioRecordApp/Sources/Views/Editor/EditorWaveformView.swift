@@ -40,11 +40,27 @@ class EditorWaveformView: NSView {
     private var playbackTime: TimeInterval = 0
     
     // 交互状态
-    private enum DragMode { case none, panScroll, leftHandle, rightHandle, seeking, creating }
+    private enum DragMode { case none, panScroll, leftHandle, rightHandle, seeking, creating, trimLeft, trimRight }
     private var dragMode: DragMode = .none
     private var dragStartX: CGFloat = 0
     private var dragStartVisibleStart: TimeInterval = 0
     private var dragCreateStartTime: TimeInterval = 0
+    private var dragTrimStartTime: TimeInterval = 0  // P1-D: trim 起始值
+    
+    // P0-C: Clip 视觉边界
+    var showClipBorders: Bool = true
+    var clipColor: NSColor = IndustrialColors.waveformCoral
+    
+    // P1-D: Trim 拖柄位置（相对时间偏移）
+    var clipTrimStart: TimeInterval = 0
+    var clipTrimEnd: TimeInterval = 0
+    
+    // P1-E: Split 切分线位置
+    var splitPointTime: TimeInterval?
+    
+    // P2-F: Fade 时长
+    var fadeInTime: TimeInterval = 0
+    var fadeOutTime: TimeInterval = 0
     
     // 波形绘制参数
     private let barWidth: CGFloat = 1.2
@@ -331,9 +347,10 @@ class EditorWaveformView: NSView {
     }
     
     private var waveformRect: NSRect {
-        // BUG-012 fix: 确保高度不为负
-        let h = max(0, bounds.height - 48)
-        return NSRect(x: 0, y: 24, width: bounds.width, height: h)
+        // 波形从顶部开始，底部留时间标尺（单轨 120px 时自适应）
+        let rulerH: CGFloat = min(28, bounds.height * 0.25)
+        let h = max(20, bounds.height - rulerH)
+        return NSRect(x: 0, y: 0, width: bounds.width, height: h)
     }
     
     private func timeToPixel(_ time: TimeInterval) -> CGFloat {
@@ -376,8 +393,14 @@ class EditorWaveformView: NSView {
             drawWaveformBars(in: dirtyRect)
         }
         
+        // P0-C~P2-F: Clip 视觉元素（按层级从底到顶绘制）
+        if showClipBorders { drawClipBorders(in: dirtyRect) }
+        if splitPointTime != nil { drawClipSplitLine(in: dirtyRect) }
+        drawFadeOverlay(in: dirtyRect)          // P2-F: Fade 渐变遮罩
         drawPlayhead(in: dirtyRect)
         drawSelectionHandles(in: dirtyRect)
+        drawTrimHandles(in: dirtyRect)           // P1-D: Trim 拖柄
+        drawFadeHandles(in: dirtyRect)           // P2-F: Fade 三角拖柄
         
         // BUG-010 fix: 无选区时显示操作引导
         if selection == nil {
@@ -562,30 +585,85 @@ class EditorWaveformView: NSView {
         
         let centerY = waveformRect.midY
         let drawHeight = waveformRect.height * 0.82
-        let step = barWidth + barSpacing
-        let visibleBars = Int(waveformRect.width / step)
+        
+        // P0-1: 填充波形渲染（Filled Waveform）
+        // 构建上下包络路径，替代离散柱状条
+        let pixelWidth = waveformRect.width
+        let pixelCount = Int(pixelWidth)
+        guard pixelCount > 0 else { return }
         
         let startSampleIndex = Int(Double(allSamples.count) * visibleStartTime / totalDuration)
         let endSampleIndex = min(allSamples.count, Int(Double(allSamples.count) * (visibleStartTime + visibleDuration) / totalDuration))
         let sampleRange = max(1, endSampleIndex - startSampleIndex)
         
-        for i in 0..<visibleBars {
-            let sampleIndex = startSampleIndex + Int(Double(i) / Double(visibleBars) * Double(sampleRange))
-            guard sampleIndex < allSamples.count else { break }
+        // 为每个像素列计算 min/max 峰值（降采样）
+        let bucketsCount = min(pixelCount, sampleRange)
+        guard bucketsCount > 0 else { return }
+        let samplesPerBucket = max(1, sampleRange / bucketsCount)
+        
+        // 构建上包络路径（从左到右）
+        let upperPath = NSBezierPath()
+        var lowerPoints: [(x: CGFloat, y: CGFloat)] = []
+        var firstPoint = true
+        
+        for i in 0..<bucketsCount {
+            let bucketStart = startSampleIndex + i * samplesPerBucket
+            let bucketEnd = min(bucketStart + samplesPerBucket, endSampleIndex)
+            guard bucketStart < allSamples.count, bucketEnd <= allSamples.count else { break }
             
-            let level = CGFloat(allSamples[sampleIndex])
-            let amplitude = max(1.5, level * drawHeight * 0.5)
-            let x = waveformRect.minX + CGFloat(i) * step
+            // 取桶内最大值作为包络
+            var maxVal: Float = 0
+            for j in bucketStart..<bucketEnd {
+                let s = allSamples[j]
+                if s > maxVal { maxVal = s }
+            }
             
-            let barTime = pixelToTime(x)
-            let isInSelection = selection.map { $0.contains(barTime) } ?? true
-            let alpha: CGFloat = isInSelection ? max(0.34, min(1.0, 0.34 + level * 0.66)) : max(0.15, min(0.4, 0.15 + level * 0.25))
+            let x = waveformRect.minX + CGFloat(i) / CGFloat(bucketsCount) * pixelWidth
+            let amplitude = CGFloat(maxVal) * drawHeight * 0.48
             
-            let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
-            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-            IndustrialColors.waveformCoral.withAlphaComponent(alpha).setFill()
-            path.fill()
+            let upperY = centerY + amplitude
+            let lowerY = centerY - amplitude
+            
+            if firstPoint {
+                upperPath.move(to: NSPoint(x: x, y: upperY))
+                lowerPoints.append((x, lowerY))
+                firstPoint = false
+            } else {
+                upperPath.line(to: NSPoint(x: x, y: upperY))
+                lowerPoints.append((x, lowerY))
+            }
         }
+        
+        guard !lowerPoints.isEmpty else { return }
+        
+        // 合并为闭合填充路径：上包络 → 下包络反向 → 闭合
+        let filledPath = NSBezierPath()
+        filledPath.append(upperPath)
+        for pt in lowerPoints.reversed() {
+            filledPath.line(to: NSPoint(x: pt.x, y: pt.y))
+        }
+        filledPath.close()
+        
+        // 绘制填充
+        IndustrialColors.waveformCoral.withAlphaComponent(0.75).setFill()
+        filledPath.fill()
+        
+        // 绘制包络线（增加波形边缘清晰度）
+        let lowerPath = NSBezierPath()
+        if let first = lowerPoints.first {
+            lowerPath.move(to: NSPoint(x: first.x, y: first.y))
+            for pt in lowerPoints.dropFirst() {
+                lowerPath.line(to: NSPoint(x: pt.x, y: pt.y))
+            }
+        }
+        
+        IndustrialColors.waveformCoral.withAlphaComponent(0.95).setStroke()
+        upperPath.lineWidth = 1.0
+        upperPath.stroke()
+        lowerPath.lineWidth = 1.0
+        lowerPath.stroke()
+        
+        // 选区外遮罩已由 drawSelectionOverlay 处理，这里不重复
     }
     
     private func drawPlayhead(in rect: NSRect) {
@@ -841,5 +919,199 @@ extension EditorWaveformView: WaveformTileProviderDelegate {
     func tileProvider(_ provider: WaveformTileProvider, didFailForKey key: WaveformTileKey, error: Error) {
         // Tile generation failed — log but don't block other tiles
         // The skeleton will remain for this tile's region
+    }
+}
+
+// MARK: - P0-C Clip 视觉边界
+extension EditorWaveformView {
+    
+    /// 绘制 clip 边框（白色高亮区域）
+    private func drawClipBorders(in rect: NSRect) {
+        let leftX = max(waveformRect.minX, timeToPixel(visibleStartTime))
+        let rightX = min(waveformRect.maxX, timeToPixel(visibleStartTime + visibleDuration))
+        let clipFrame = NSRect(
+            x: leftX,
+            y: waveformRect.minY + 2,
+            width: rightX - leftX,
+            height: waveformRect.height - 4
+        )
+        
+        // Clip 外边框 — 半透明白色
+        let borderPath = NSBezierPath(roundedRect: clipFrame, xRadius: 4, yRadius: 4)
+        clipColor.withAlphaComponent(0.3).setStroke()
+        borderPath.lineWidth = 2.0
+        borderPath.stroke()
+    }
+}
+
+// MARK: - P1-D Trim 拖柄
+extension EditorWaveformView {
+    
+    /// 绘制 trim 拖柄（cyan 竖线 + 抓握线）
+    private func drawTrimHandles(in rect: NSRect) {
+        guard selection != nil else { return }
+        
+        let trimColor = IndustrialColors.waveformAccent
+        let handleWidth: CGFloat = 4
+        
+        // 左 trim 拖柄
+        let leftTime = clipTrimStart > 0 ? clipTrimStart : (selectionStart ?? visibleStartTime)
+        let leftX = timeToPixel(leftTime)
+        if leftX >= waveformRect.minX && leftX <= waveformRect.maxX {
+            let leftHandleRect = NSRect(
+                x: leftX - handleWidth / 2,
+                y: waveformRect.minY + 4,
+                width: handleWidth,
+                height: waveformRect.height - 8
+            )
+            let leftPath = NSBezierPath(roundedRect: leftHandleRect, xRadius: 1, yRadius: 2)
+            trimColor.setFill()
+            leftPath.fill()
+            
+            // 三条抓握横线
+            drawGripLines(at: leftX, in: waveformRect, color: trimColor)
+        }
+        
+        // 右 trim 拖柄
+        let clipEnd = clipTrimEnd > 0 ? clipTrimEnd : totalDuration
+        let rightTime = selectionEnd ?? totalDuration
+        let rightX = timeToPixel(min(rightTime, clipEnd == 0 ? totalDuration : clipEnd))
+        if rightX >= waveformRect.minX && rightX <= waveformRect.maxX {
+            let rightHandleRect = NSRect(
+                x: rightX - handleWidth / 2,
+                y: waveformRect.minY + 4,
+                width: handleWidth,
+                height: waveformRect.height - 8
+            )
+            let rightPath = NSBezierPath(roundedRect: rightHandleRect, xRadius: 1, yRadius: 2)
+            trimColor.setFill()
+            rightPath.fill()
+            
+            // 三条抓握横线
+            drawGripLines(at: rightX, in: waveformRect, color: trimColor)
+        }
+    }
+    
+    /// 在 x 位置绘制抓握线
+    private func drawGripLines(at x: CGFloat, in rect: NSRect, color: NSColor) {
+        color.setStroke()
+        for i in 0..<3 {
+            let cy = rect.midY - 6 + CGFloat(i) * 6
+            let path = NSBezierPath()
+            path.lineWidth = 0.5
+            path.move(to: NSPoint(x: x - 1.5, y: cy))
+            path.line(to: NSPoint(x: x + 1.5, y: cy))
+            path.stroke()
+        }
+    }
+}
+
+// MARK: - P1-E Split 切分虚线
+extension EditorWaveformView {
+    
+    /// 绘制切分点虚线
+    private func drawClipSplitLine(in rect: NSRect) {
+        guard let splitTime = splitPointTime else { return }
+        let x = timeToPixel(splitTime)
+        guard x >= waveformRect.minX && x <= waveformRect.maxX else { return }
+        
+        NSColor.white.withAlphaComponent(0.6).setStroke()
+        let path = NSBezierPath()
+        path.lineWidth = 1.5
+        
+        let dash: [CGFloat] = [4, 4]
+        path.setLineDash(dash, count: 2, phase: 0)
+        path.move(to: NSPoint(x: x, y: waveformRect.minY + 4))
+        path.line(to: NSPoint(x: x, y: waveformRect.maxY - 4))
+        path.stroke()
+    }
+}
+
+// MARK: - P2-F Fade 拖柄 & 渐变遮罩
+extension EditorWaveformView {
+    
+    /// 绘制 fade 渐变遮罩（淡入/淡出区域波形渐变透明）
+    private func drawFadeOverlay(in rect: NSRect) {
+        guard fadeInTime > 0 || fadeOutTime > 0 else { return }
+        
+        if fadeInTime > 0 {
+            let fadeRightX = timeToPixel(visibleStartTime + fadeInTime)
+            let fadeLeftX = timeToPixel(visibleStartTime)
+            let fadeWidth = fadeRightX - fadeLeftX
+            if fadeWidth > 0 {
+                // 渐变从透明（波形正常）到不透明（覆盖波形）
+                let gradient = NSGradient(
+                    starting: IndustrialColors.surfaceContainer.withAlphaComponent(0.6),
+                    ending: IndustrialColors.surfaceContainer.withAlphaComponent(0.0)
+                )
+                let fadeFrame = NSRect(x: fadeLeftX, y: waveformRect.minY + 2, width: fadeWidth, height: waveformRect.height - 4)
+                gradient?.draw(in: fadeFrame, angle: 0)
+            }
+        }
+        
+        if fadeOutTime > 0 {
+            let fadeLeftX = timeToPixel(totalDuration - fadeOutTime)
+            let fadeRightX = timeToPixel(totalDuration)
+            let fadeWidth = fadeRightX - fadeLeftX
+            if fadeWidth > 0 {
+                let gradient = NSGradient(
+                    starting: IndustrialColors.surfaceContainer.withAlphaComponent(0.0),
+                    ending: IndustrialColors.surfaceContainer.withAlphaComponent(0.6)
+                )
+                let fadeFrame = NSRect(x: fadeLeftX, y: waveformRect.minY + 2, width: fadeWidth, height: waveformRect.height - 4)
+                gradient?.draw(in: fadeFrame, angle: 0)
+            }
+        }
+    }
+    
+    /// 绘制 fade 白色三角拖柄
+    private func drawFadeHandles(in rect: NSRect) {
+        guard selection != nil else { return }
+        
+        let triangleSize: CGFloat = 8
+        
+        // 淡入三角（左上角）
+        if fadeInTime > 0 {
+            let fx = timeToPixel(visibleStartTime + fadeInTime)
+            let fy = waveformRect.maxY - 4
+            drawTriangle(at: NSPoint(x: fx, y: fy), size: triangleSize, pointing: .up, color: .white)
+        }
+        
+        // 淡出三角（右上角）
+        if fadeOutTime > 0 {
+            let fx = timeToPixel(totalDuration - fadeOutTime)
+            let fy = waveformRect.maxY - 4
+            drawTriangle(at: NSPoint(x: fx, y: fy), size: triangleSize, pointing: .up, color: .white)
+        }
+    }
+    
+    private enum TriangleDirection { case up, down, left, right }
+    
+    private func drawTriangle(at point: NSPoint, size: CGFloat, pointing: TriangleDirection, color: NSColor) {
+        color.setFill()
+        let path = NSBezierPath()
+        let hw = size / 2
+        let hh = size * 0.866 / 2  // equilateral triangle height
+        
+        switch pointing {
+        case .up:
+            path.move(to: NSPoint(x: point.x, y: point.y + hh))
+            path.line(to: NSPoint(x: point.x - hw, y: point.y - hh))
+            path.line(to: NSPoint(x: point.x + hw, y: point.y - hh))
+        case .down:
+            path.move(to: NSPoint(x: point.x, y: point.y - hh))
+            path.line(to: NSPoint(x: point.x - hw, y: point.y + hh))
+            path.line(to: NSPoint(x: point.x + hw, y: point.y + hh))
+        case .left:
+            path.move(to: NSPoint(x: point.x - hh, y: point.y))
+            path.line(to: NSPoint(x: point.x + hh, y: point.y - hw))
+            path.line(to: NSPoint(x: point.x + hh, y: point.y + hw))
+        case .right:
+            path.move(to: NSPoint(x: point.x + hh, y: point.y))
+            path.line(to: NSPoint(x: point.x - hh, y: point.y - hw))
+            path.line(to: NSPoint(x: point.x - hh, y: point.y + hw))
+        }
+        path.close()
+        path.fill()
     }
 }

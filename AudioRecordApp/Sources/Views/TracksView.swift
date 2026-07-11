@@ -58,6 +58,7 @@ class TracksView: NSView {
         
         // 先把子视图都 addSubview，再设置约束
         tracksStack.orientation = .vertical
+        tracksStack.distribution = .fillEqually
         tracksStack.spacing = IndustrialSpacing.sm
         tracksStack.alignment = .leading
         tracksStack.translatesAutoresizingMaskIntoConstraints = false
@@ -236,11 +237,13 @@ class TracksView: NSView {
     func updateTracks(_ tracks: [TrackInfo]) {
         currentTracks = tracks
         
-        // 隐藏轨道卡片区域（REQ-1.0-14：去除冗余进程详情卡片）
-        // 左侧 Sidebar 已显示选中进程，此处不再重复展示
-        tracksStack.isHidden = true
-        emptyStateContainer.isHidden = true
-        mixOutputLabel.isHidden = true
+        // 显示轨道卡片区域（REQ-2.0-06：多应用同时录音）
+        tracksStack.isHidden = tracks.isEmpty
+        emptyStateContainer.isHidden = !tracks.isEmpty
+        mixOutputLabel.isHidden = tracks.isEmpty
+        
+        // 重建轨道视图
+        rebuildAllTracks()
         
         delegate?.tracksViewDidUpdateTracks(self, tracks: tracks)
     }
@@ -372,7 +375,12 @@ class TracksView: NSView {
         trackView.layer?.borderWidth = 1
         trackView.layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         trackView.translatesAutoresizingMaskIntoConstraints = false
-        
+
+        // Accessibility: 用轨道标题唯一标识每一行
+        trackView.setAccessibilityElement(true)
+        trackView.setAccessibilityRole(.row)
+        trackView.setAccessibilityIdentifier("TrackRow-\(track.title)")
+
         // 顶部头部区域（图标 + 标题）
         let headerView = NSView()
         headerView.translatesAutoresizingMaskIntoConstraints = false
@@ -440,7 +448,7 @@ class TracksView: NSView {
         trackView.addSubview(sourceLabel)
 
         NSLayoutConstraint.activate([
-            trackView.heightAnchor.constraint(equalToConstant: 100),
+            // 去掉固定高度，由 tracksStack 的 NSStackViewDistribution 等分控制
 
             // Header 布局
             headerView.topAnchor.constraint(equalTo: trackView.topAnchor, constant: 10),
@@ -485,7 +493,7 @@ class TracksView: NSView {
 
 // MARK: - Convenience Extensions
 extension TracksView {
-    /// 根据侧边栏选择创建轨道信息
+    /// 根据侧边栏选择创建轨道信息（支持多应用同时录音，最多5条轨道）
     static func createTracksFromSelection(
         systemSelected: Bool,
         microphoneSelected: Bool,
@@ -493,14 +501,18 @@ extension TracksView {
     ) -> [TrackInfo] {
         var tracks: [TrackInfo] = []
         
-        if let process = selectedProcesses.first {
+        // 添加所有选中的进程轨道（最多5条）
+        for process in selectedProcesses.prefix(5) {
             tracks.append(TrackInfo(
                 icon: "📱",
                 title: process.name,
                 isActive: true,
                 sourceType: "应用声音"
             ))
-        } else if systemSelected {
+        }
+        
+        // 系统声音轨道（与进程轨道互斥，优先显示进程）
+        if tracks.isEmpty, systemSelected {
             tracks.append(TrackInfo(
                 icon: "speaker.wave.2.fill",
                 title: "全部系统声音",
@@ -509,10 +521,11 @@ extension TracksView {
             ))
         }
         
+        // 麦克风轨道（始终可附加）
         if microphoneSelected {
             tracks.append(TrackInfo(
                 icon: "mic.fill",
-                title: "同时录入麦克风",
+                title: "麦克风输入",
                 isActive: true,
                 sourceType: "麦克风输入"
             ))

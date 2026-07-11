@@ -32,7 +32,6 @@ swiftc \
   -framework AVFoundation \
   -framework CoreAudio \
   -framework AudioToolbox \
-  -framework ScreenCaptureKit \
   -framework IOKit \
   -framework ServiceManagement \
   -o "$MACOS_DIR/$APP_NAME" \

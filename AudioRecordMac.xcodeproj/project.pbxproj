@@ -58,6 +58,11 @@
 		759B790FF688A2201A20871E /* RecordedFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FB87918AA2059D900407666 /* RecordedFilesView.swift */; };
 		77D6DC64D78762E81E22EACE /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = C90639910640A72019C4A46B /* SnapshotTesting */; };
 		7AFB0EE071C348F71A99F55A /* ProcessTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23B1300527680981672366C /* ProcessTapManager.swift */; };
+		ASBL00000000000000000000001 /* AudioSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = ASRC00000000000000000000001 /* AudioSource.swift */; };
+		TRK01 /* TrackContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRK00 /* TrackContainerView.swift */; };
+		SPL01 /* SplitAudioClipCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = SPL00 /* SplitAudioClipCommand.swift */; };
+		EDI01 /* EditorAudioTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDI00 /* EditorAudioTrack.swift */; };
+		PRD01 /* PropertiesPanelViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRD00 /* PropertiesPanelViewDelegate.swift */; };
 		7B9C5B83BCFFA3C9C3A5DC14 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63A582236C844AD77468EAD7 /* StatusBarView.swift */; };
 		7FA73CD8139D9FF04D7D3E9B /* WaveformTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C2FCF74508B557ED3216B0 /* WaveformTile.swift */; };
 		7FB5202158C32A4A2BC5E9AC /* ControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7D13D2E87191F3EDE4A3E7 /* ControlPanelView.swift */; };
@@ -67,6 +72,9 @@
 		8ED83C6D1831173DC5C004F7 /* IndustrialControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DE11D1C315E44D56BDE25C /* IndustrialControls.swift */; };
 		8F6EEE7F733CC49ECF9D115F /* MediaStreamTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB7EA64114787A503EA51ED3 /* MediaStreamTrack.swift */; };
 		8F8120D96B12B0B9B2F7E3ED /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286CE49910D2F03ECA77C8C8 /* SidebarView.swift */; };
+		P01 /* PropertiesPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = P00 /* PropertiesPanelView.swift */; };
+		P03 /* RecordingTracksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = P02 /* RecordingTracksView.swift */; };
+		P05 /* MultiProcessLevelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = P04 /* MultiProcessLevelView.swift */; };
 		92E5E8C9B042516009BDEF85 /* WaveformTileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AF8AB476A90CE931F4C5763 /* WaveformTileProvider.swift */; };
 		93B4DC3988401EF29EDAD267 /* ControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7D13D2E87191F3EDE4A3E7 /* ControlPanelView.swift */; };
 		9DE9F4B40953130283F520C2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23C53A9B7EF5BE07C5AD544 /* main.swift */; };
@@ -3173,14 +3181,22 @@
 		63523EDECD9F32040CFE2C3F /* CSIdentityAuthority.h-2E2IBZQ2ZI1H9 */ = {isa = PBXFileReference; path = "CSIdentityAuthority.h-2E2IBZQ2ZI1H9"; sourceTree = "<group>"; };
 		6355491004A7B33129A2B248 /* activity.h-1ZIRMC5X96EAO */ = {isa = PBXFileReference; path = "activity.h-1ZIRMC5X96EAO"; sourceTree = "<group>"; };
 		63823C0CF9ABD07F73B1D371 /* AVMediaFormat.h-397Z84NCCAJ6G */ = {isa = PBXFileReference; path = "AVMediaFormat.h-397Z84NCCAJ6G"; sourceTree = "<group>"; };
+		TRK00 /* TrackContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackContainerView.swift; sourceTree = "<group>"; };
 		6383916AD656111B8AF6B141 /* NSUserActivity.h-1EQFI5IMBOTUD */ = {isa = PBXFileReference; path = "NSUserActivity.h-1EQFI5IMBOTUD"; sourceTree = "<group>"; };
+		SPL00 /* SplitAudioClipCommand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitAudioClipCommand.swift; sourceTree = "<group>"; };
 		638AC1DC6569DA62074D73FC /* description.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = description.json; sourceTree = "<group>"; };
+		EDI00 /* EditorAudioTrack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorAudioTrack.swift; sourceTree = "<group>"; };
+		ASRC00000000000000000000001 /* AudioSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSource.swift; sourceTree = "<group>"; };
+		PRD00 /* PropertiesPanelViewDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertiesPanelViewDelegate.swift; sourceTree = "<group>"; };
 		63A582236C844AD77468EAD7 /* StatusBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBarView.swift; sourceTree = "<group>"; };
 		63AA3D1C8C47D09DEE9D53CD /* NSDistributedLock.h-JREY25PUWN3B */ = {isa = PBXFileReference; path = "NSDistributedLock.h-JREY25PUWN3B"; sourceTree = "<group>"; };
 		63AE29F02A8F471AFF841F18 /* CATransform3D.h-392TJ1E8144AM */ = {isa = PBXFileReference; path = "CATransform3D.h-392TJ1E8144AM"; sourceTree = "<group>"; };
 		63B985A43F7157881A3BCD4B /* appleapiopts.h-3ITOOK4VH6MGT */ = {isa = PBXFileReference; path = "appleapiopts.h-3ITOOK4VH6MGT"; sourceTree = "<group>"; };
 		63C4F714895D2AF0C40F4861 /* NSBrowser.h-240EEVBXX7DB8 */ = {isa = PBXFileReference; path = "NSBrowser.h-240EEVBXX7DB8"; sourceTree = "<group>"; };
 		63C59433D988A5FBDF130DA3 /* CAAnimation.h-3RAY5SUY291CO */ = {isa = PBXFileReference; path = "CAAnimation.h-3RAY5SUY291CO"; sourceTree = "<group>"; };
+		P00 /* PropertiesPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertiesPanelView.swift; sourceTree = "<group>"; };
+		P02 /* RecordingTracksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingTracksView.swift; sourceTree = "<group>"; };
+		P04 /* MultiProcessLevelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiProcessLevelView.swift; sourceTree = "<group>"; };
 		63D7BD13BD206E7D210C396B /* CMFormatDescriptionBridge.h-1WD592AS6DJV2 */ = {isa = PBXFileReference; path = "CMFormatDescriptionBridge.h-1WD592AS6DJV2"; sourceTree = "<group>"; };
 		63DB62A43B95380DF4635AE1 /* CarbonEventsCore.h-2R4WBDJF6ZL9S */ = {isa = PBXFileReference; path = "CarbonEventsCore.h-2R4WBDJF6ZL9S"; sourceTree = "<group>"; };
 		63DDB48EC3E6F25B9FB01AAC /* REQ-1.0-09.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "REQ-1.0-09.md"; sourceTree = "<group>"; };
@@ -28103,14 +28119,22 @@
 				74DE11D1C315E44D56BDE25C /* IndustrialControls.swift */,
 				A05FD8A9D4E8340B1CABE7E9 /* LevelMeterCardView.swift */,
 				00CD061BE600F30EECF89729 /* LevelMetersOverlay.swift */,
+				TRK00 /* TrackContainerView.swift */,
 				3CA503E5B1DC32364F89F8D0 /* LevelMeterView.swift */,
 				8BF2CAAAFD26D3F7108B2C8B /* MainWindowView.swift */,
+				SPL00 /* SplitAudioClipCommand.swift */,
 				6FB87918AA2059D900407666 /* RecordedFilesView.swift */,
 				D9214A70D6372107698EB499 /* SettingsWindowController.swift */,
+				EDI00 /* EditorAudioTrack.swift */,
 				286CE49910D2F03ECA77C8C8 /* SidebarView.swift */,
+				ASRC00000000000000000000001 /* AudioSource.swift */,
+				PRD00 /* PropertiesPanelViewDelegate.swift */,
 				63A582236C844AD77468EAD7 /* StatusBarView.swift */,
 				AC0954E697B710F7FA3AEBA7 /* TabContainerView.swift */,
 				6B5C5AA30DA1D792CC3C5C5A /* TimerLabel.swift */,
+				P00 /* PropertiesPanelView.swift */,
+				P02 /* RecordingTracksView.swift */,
+				P04 /* MultiProcessLevelView.swift */,
 				56DD69DBEDF553D64E513D03 /* TitleBarView.swift */,
 				DEA9C4815DF289AEF60BA5D2 /* TrackPanelView.swift */,
 				B165853D9A91C7530D4F7E4E /* TracksView.swift */,
@@ -35259,11 +35283,19 @@
 				1800ACB7B0041A4C8C466810 /* NormalizeCommand.swift in Sources */,
 				0A40AC70EE8BE464187959C6 /* PermissionManager.swift in Sources */,
 				BF0D5755CC47700B435AD28F /* ProcessTapManager.swift in Sources */,
+				TRK01 /* TrackContainerView.swift in Sources */,
 				759B790FF688A2201A20871E /* RecordedFilesView.swift in Sources */,
 				DA95725C1CED48F6018E1BB0 /* ScreenCaptureAudioRecorder.swift in Sources */,
 				57EDFA56A4BDEF7CB71DF998 /* SettingsWindowController.swift in Sources */,
+				SPL01 /* SplitAudioClipCommand.swift in Sources */,
 				8F8120D96B12B0B9B2F7E3ED /* SidebarView.swift in Sources */,
 				72E2DA38A143D25142000415 /* SilenceTrimCommand.swift in Sources */,
+				P01 /* PropertiesPanelView.swift in Sources */,
+				EDI01 /* EditorAudioTrack.swift in Sources */,
+				P03 /* RecordingTracksView.swift in Sources */,
+				P05 /* MultiProcessLevelView.swift in Sources */,
+				ASBL00000000000000000000001 /* AudioSource.swift in Sources */,
+				PRD01 /* PropertiesPanelViewDelegate.swift in Sources */,
 				7B9C5B83BCFFA3C9C3A5DC14 /* StatusBarView.swift in Sources */,
 				AC7FD8CBD01F3BD941ACF90E /* SwiftProcessTapManager.swift in Sources */,
 				CAECEF1955617DB3F8BFD55D /* TabContainerView.swift in Sources */,

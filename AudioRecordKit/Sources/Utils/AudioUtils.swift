@@ -1,7 +1,6 @@
 import Foundation
 import AVFoundation
 import Accelerate
-import ScreenCaptureKit
 import CoreAudio
 
 /// 音频工具类
@@ -121,68 +120,35 @@ class AudioUtils {
     }
     
     /// 检查音频权限
-    func checkAudioPermissions() -> (microphone: Bool, screenRecording: Bool) {
-        // 在macOS上，我们通过尝试创建AVAudioEngine来检查麦克风权限
+    func checkAudioPermissions() -> (microphone: Bool, systemAudioCapture: Bool) {
         let microphonePermission = checkMicrophonePermission()
-        let screenRecordingPermission = checkScreenRecordingPermission()
+        let systemAudioCapturePermission = checkSystemAudioCapturePermission()
         
-        logger.info("音频权限 - 麦克风: \(microphonePermission), 屏幕录制: \(screenRecordingPermission)")
+        logger.info("音频权限 - 麦克风: \(microphonePermission), 系统音频捕获: \(systemAudioCapturePermission)")
         
-        return (microphonePermission, screenRecordingPermission)
+        return (microphonePermission, systemAudioCapturePermission)
     }
     
-    /// 检查屏幕录制权限
-    private func checkScreenRecordingPermission() -> Bool {
-        // 通过尝试获取可共享内容来检查屏幕录制权限
-        var hasPermission = false
-        let semaphore = DispatchSemaphore(value: 0)
-        
-        Task {
-            do {
-                let _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                hasPermission = true
-            } catch {
-                // 检查是否是权限错误
-                if error.localizedDescription.contains("permission") || 
-                   error.localizedDescription.contains("权限") ||
-                   error.localizedDescription.contains("denied") ||
-                   error.localizedDescription.contains("not authorized") {
-                    hasPermission = false
-                } else {
-                    // 其他错误，可能权限是有的
-                    hasPermission = true
-                }
-            }
-            semaphore.signal()
-        }
-        
-        semaphore.wait()
-        return hasPermission
+    /// 检查系统音频捕获权限（通过 TCC preflight）
+    private func checkSystemAudioCapturePermission() -> Bool {
+        let status = PermissionManager.shared.checkAllPermissions().systemAudioCapture
+        return status == .granted
     }
     
-    /// 请求屏幕录制权限（通过尝试获取内容来触发系统权限对话框）
+    /// 请求屏幕录制权限（已废弃，转发到系统音频捕获权限）
     func requestScreenRecordingPermission(completion: @escaping (Bool) -> Void) {
-        Task {
-            do {
-                let _ = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                DispatchQueue.main.async {
-                    completion(true)
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(false)
-                }
-            }
+        PermissionManager.shared.requestSystemAudioCapturePermission { status in
+            completion(status == .granted)
         }
     }
     
     /// 获取详细的权限状态信息
-    func getDetailedPermissionStatus() -> (microphone: Bool, screenRecording: Bool, systemVersion: String) {
+    func getDetailedPermissionStatus() -> (microphone: Bool, systemAudioCapture: Bool, systemVersion: String) {
         let microphonePermission = checkMicrophonePermission()
-        let screenRecordingPermission = checkScreenRecordingPermission()
+        let systemAudioCapturePermission = checkSystemAudioCapturePermission()
         let systemVersion = ProcessInfo.processInfo.operatingSystemVersionString
         
-        return (microphonePermission, screenRecordingPermission, systemVersion)
+        return (microphonePermission, systemAudioCapturePermission, systemVersion)
     }
     
     /// 检查麦克风权限（macOS方式）

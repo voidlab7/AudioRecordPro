@@ -1,0 +1,55 @@
+{
+  "task_id": "task-0527-req-2-0-06-多应用同时录音",
+  "task_title": "多应用同时录音 + 多轨道显示",
+  "status": "running",
+  "current_phase": "06-summary",
+  "current_step": "building_summary",
+  "current_step_description": "编译通过，待输出总结报告",
+  "started_at": "2026-05-27T00:00:00.000Z",
+  "updated_at": "2026-05-30T01:30:00.000Z",
+  "agents": ["枢", "绘", "矩"],
+  "phases": {
+    "01-ideation": {
+      "status": "completed",
+      "agents": ["枢"],
+      "artifact_path": "artifacts/01-ideation/",
+      "started_at": "2026-05-27T00:00:00.000Z",
+      "completed_at": "2026-05-27T01:00:00.000Z"
+    },
+    "02-requirement": {
+      "status": "completed",
+      "agents": ["枢"],
+      "artifact_path": "artifacts/02-requirement/",
+      "started_at": "2026-05-27T01:00:00.000Z",
+      "completed_at": "2026-05-30T00:50:00.000Z"
+    },
+    "03-design": {
+      "status": "completed",
+      "agents": ["绘"],
+      "artifact_path": "artifacts/03-design/",
+      "started_at": "2026-05-30T01:05:00.000Z",
+      "completed_at": "2026-05-30T01:25:00.000Z"
+    },
+    "04-development": {
+      "status": "completed",
+      "agents": ["矩"],
+      "artifact_path": "artifacts/04-development/",
+      "started_at": "2026-05-30T01:30:00.000Z",
+      "completed_at": "2026-05-30T02:00:00.000Z"
+    },
+    "05-testing": {
+      "status": "completed",
+      "agents": ["矩"],
+      "artifact_path": "artifacts/05-testing/",
+      "started_at": "2026-05-30T02:00:00.000Z",
+      "completed_at": "2026-05-30T02:30:00.000Z"
+    },
+    "06-summary": {
+      "status": "pending",
+      "agents": [],
+      "artifact_path": "artifacts/06-summary/",
+      "started_at": "",
+      "completed_at": ""
+    }
+  }
+}

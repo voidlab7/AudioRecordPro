@@ -504,30 +504,61 @@ class WaveformView: NSView {
         // 左起右滚：最新数据在右端，填满后左侧数据被裁切
         let startIndex = max(0, waveformData.count - maxVisibleBars)
         let visibleData = Array(waveformData[startIndex...])
+        guard visibleData.count > 1 else { return }
         
-        // 从左侧开始绘制
+        // P0-1: 填充波形渲染
+        let pixelsPerSample = timelineRect.width / CGFloat(maxVisibleBars)
         let startX = timelineRect.minX
         
+        let upperPath = NSBezierPath()
+        var lowerPoints: [(x: CGFloat, y: CGFloat)] = []
+        var firstPoint = true
+        
         for (offset, level) in visibleData.enumerated() {
-            // Skip zero-level bars — no audio data yet, show only the white center line
-            guard level > 0 else { continue }
+            let x = startX + CGFloat(offset) * pixelsPerSample
+            guard x <= timelineRect.maxX else { break }
             
-            let x = startX + CGFloat(offset) * step
-            guard x + barWidth <= timelineRect.maxX else { break }
-            let normalized = CGFloat(level)
-            let amplitude = max(1.8, normalized * drawHeight * 0.5)
-            let alpha = max(0.34, min(1.0, 0.34 + normalized * 0.72))
-            let barRect = NSRect(
-                x: x,
-                y: centerY - amplitude,
-                width: barWidth,
-                height: amplitude * 2
-            )
+            let normalized = CGFloat(max(0, level))
+            let amplitude = max(0.5, normalized * drawHeight * 0.48)
             
-            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.8, yRadius: 0.8)
-            IndustrialColors.waveformCoral.withAlphaComponent(alpha).setFill()
-            path.fill()
+            if firstPoint {
+                upperPath.move(to: NSPoint(x: x, y: centerY + amplitude))
+                lowerPoints.append((x, centerY - amplitude))
+                firstPoint = false
+            } else {
+                upperPath.line(to: NSPoint(x: x, y: centerY + amplitude))
+                lowerPoints.append((x, centerY - amplitude))
+            }
         }
+        
+        guard !lowerPoints.isEmpty else { return }
+        
+        // 合并为闭合填充路径：上包络 → 下包络反向
+        let filledPath = NSBezierPath()
+        filledPath.append(upperPath)
+        for pt in lowerPoints.reversed() {
+            filledPath.line(to: NSPoint(x: pt.x, y: pt.y))
+        }
+        filledPath.close()
+        
+        // 填充主体
+        IndustrialColors.waveformCoral.withAlphaComponent(0.75).setFill()
+        filledPath.fill()
+        
+        // 包络线（下包络用 lowerPoints 构建）
+        let lowerPath = NSBezierPath()
+        if let first = lowerPoints.first {
+            lowerPath.move(to: NSPoint(x: first.x, y: first.y))
+            for pt in lowerPoints.dropFirst() {
+                lowerPath.line(to: NSPoint(x: pt.x, y: pt.y))
+            }
+        }
+        
+        IndustrialColors.waveformCoral.withAlphaComponent(0.95).setStroke()
+        upperPath.lineWidth = 1.0
+        upperPath.stroke()
+        lowerPath.lineWidth = 1.0
+        lowerPath.stroke()
     }
     
     private func drawPlayhead(in rect: NSRect) {
@@ -547,58 +578,113 @@ class WaveformView: NSView {
         let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
         
         let totalBars = data.count
-        guard totalBars > 0 else { return }
+        guard totalBars > 1 else { return }
         
-        // 使用与录制波形一致的固定柱宽
-        let step = barWidth + barSpacing
-        let maxVisibleBars = Int(floor(timelineRect.width / step))
+        // P0-1: 填充波形渲染
+        let pixelWidth = timelineRect.width
+        let bucketsCount = min(Int(pixelWidth), totalBars)
+        guard bucketsCount > 1 else { return }
+        let samplesPerBucket = max(1, totalBars / bucketsCount)
         
-        // 如果数据点多于可见柱数，需要降采样
-        let displayData: [Float]
-        if totalBars > maxVisibleBars {
-            // 降采样：取每个桶的峰值
-            let ratio = Float(totalBars) / Float(maxVisibleBars)
-            displayData = (0..<maxVisibleBars).map { i in
-                let start = Int(Float(i) * ratio)
-                let end = min(Int(Float(i + 1) * ratio), totalBars)
-                return data[start..<end].max() ?? 0
+        let progressBucket = Int(playbackProgress * CGFloat(bucketsCount))
+        
+        // 构建上下包络路径 — 已播放/未播放两段
+        let playedUpperPath = NSBezierPath()
+        var playedLowerPts: [(CGFloat, CGFloat)] = []
+        let unplayedUpperPath = NSBezierPath()
+        var unplayedLowerPts: [(CGFloat, CGFloat)] = []
+        
+        var playedFirst = true
+        var unplayedFirst = true
+        
+        for i in 0..<bucketsCount {
+            let bucketStart = i * samplesPerBucket
+            let bucketEnd = min(bucketStart + samplesPerBucket, totalBars)
+            var maxVal: Float = 0
+            for j in bucketStart..<bucketEnd {
+                if data[j] > maxVal { maxVal = data[j] }
             }
-        } else {
-            displayData = data
+            
+            let x = timelineRect.minX + CGFloat(i) / CGFloat(bucketsCount) * pixelWidth
+            let amplitude = CGFloat(maxVal) * drawHeight * 0.48
+            let upperY = centerY + amplitude
+            let lowerY = centerY - amplitude
+            
+            let isPlayed = i <= progressBucket && playbackProgress > 0
+            
+            if isPlayed {
+                if playedFirst {
+                    playedUpperPath.move(to: NSPoint(x: x, y: upperY))
+                    playedLowerPts.append((x, lowerY))
+                    playedFirst = false
+                } else {
+                    playedUpperPath.line(to: NSPoint(x: x, y: upperY))
+                    playedLowerPts.append((x, lowerY))
+                }
+            } else {
+                if unplayedFirst {
+                    unplayedUpperPath.move(to: NSPoint(x: x, y: upperY))
+                    unplayedLowerPts.append((x, lowerY))
+                    unplayedFirst = false
+                } else {
+                    unplayedUpperPath.line(to: NSPoint(x: x, y: upperY))
+                    unplayedLowerPts.append((x, lowerY))
+                }
+            }
         }
         
-        let progressBarIndex = Int(playbackProgress * CGFloat(displayData.count))
-        
-        for (index, level) in displayData.enumerated() {
-            let x = timelineRect.minX + CGFloat(index) * step
-            guard x + barWidth <= timelineRect.maxX else { break }
-            let normalized = CGFloat(level)
-            let amplitude = max(1.5, normalized * drawHeight * 0.5)
-            
-            let isPlayed = index <= progressBarIndex && playbackProgress > 0
-            let alpha: CGFloat
-            if isPlayed {
-                alpha = max(0.5, min(1.0, 0.5 + normalized * 0.5))
-            } else {
-                alpha = max(0.2, min(0.6, 0.2 + normalized * 0.4))
+        // 辅助：将上下点数组合并为闭合填充路径
+        func makeFilledPath(upper: NSBezierPath, lowerPts: [(CGFloat, CGFloat)]) -> NSBezierPath {
+            let filled = NSBezierPath()
+            filled.append(upper)
+            for pt in lowerPts.reversed() {
+                filled.line(to: NSPoint(x: pt.0, y: pt.1))
             }
-            
-            let barRect = NSRect(
-                x: x,
-                y: centerY - amplitude,
-                width: barWidth,
-                height: amplitude * 2
-            )
-            
-            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-            IndustrialColors.waveformCoral.withAlphaComponent(alpha).setFill()
-            path.fill()
+            filled.close()
+            return filled
+        }
+        
+        // 辅助：从点数组构建 NSBezierPath
+        func makeStrokePath(from pts: [(CGFloat, CGFloat)]) -> NSBezierPath {
+            let path = NSBezierPath()
+            if let first = pts.first {
+                path.move(to: NSPoint(x: first.0, y: first.1))
+                for pt in pts.dropFirst() {
+                    path.line(to: NSPoint(x: pt.0, y: pt.1))
+                }
+            }
+            return path
+        }
+        
+        // 绘制已播放区域（较亮）
+        if !playedFirst {
+            let playedFilled = makeFilledPath(upper: playedUpperPath, lowerPts: playedLowerPts)
+            IndustrialColors.waveformCoral.withAlphaComponent(0.85).setFill()
+            playedFilled.fill()
+            IndustrialColors.waveformCoral.setStroke()
+            playedUpperPath.lineWidth = 1.0
+            playedUpperPath.stroke()
+            let playedLowerStroke = makeStrokePath(from: playedLowerPts)
+            playedLowerStroke.lineWidth = 1.0
+            playedLowerStroke.stroke()
+        }
+        
+        // 绘制未播放区域（较暗）
+        if !unplayedFirst {
+            let unplayedFilled = makeFilledPath(upper: unplayedUpperPath, lowerPts: unplayedLowerPts)
+            IndustrialColors.waveformCoral.withAlphaComponent(0.35).setFill()
+            unplayedFilled.fill()
+            IndustrialColors.waveformCoral.withAlphaComponent(0.5).setStroke()
+            unplayedUpperPath.lineWidth = 1.0
+            unplayedUpperPath.stroke()
+            let unplayedLowerStroke = makeStrokePath(from: unplayedLowerPts)
+            unplayedLowerStroke.lineWidth = 1.0
+            unplayedLowerStroke.stroke()
         }
         
         // 绘制播放进度游标线
         if playbackProgress > 0 {
-            let totalDrawWidth = CGFloat(displayData.count) * step
-            let playheadX = timelineRect.minX + playbackProgress * totalDrawWidth
+            let playheadX = timelineRect.minX + playbackProgress * pixelWidth
             
             IndustrialColors.waveformAccent.setStroke()
             let playhead = NSBezierPath()
