@@ -66,7 +66,7 @@ class WaveformView: NSView {
         // Industrial Design: 深灰背景
         layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
         layer?.cornerRadius = 4
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         
         // 初始化波形数据

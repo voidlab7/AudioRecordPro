@@ -62,7 +62,7 @@ class LevelMeterCardView: NSView {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
         layer?.cornerRadius = IndustrialCornerRadius.sm
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
     }
     

@@ -1,254 +1,190 @@
 import Cocoa
 
-// MARK: - Industrial Design Tokens
-// 基于 Stitch Desktop Application Project 的 Industrial Design 风格
+// MARK: - Studio Dark Design Tokens (v3.0)
+// 参考剪映专业版设计语言 — 色差分层、无边框、克制表达
 
-/// 颜色系统
+/// 颜色系统（Studio Dark v3.0）
 struct IndustrialColors {
     
-    // MARK: - 背景色（Surface）
+    // MARK: - 背景色（3 级核心阶梯）
     
-    /// 主背景色 - 最深黑
-    static let surface = NSColor(hex: "#0e1416")
+    /// 最深底色 — 轨道区、时间线背景、窗口底
+    static let surface = NSColor(hex: "#1B1B1F")
     
-    /// 暗色背景
-    static let surfaceDim = NSColor(hex: "#0e1416")
+    /// 同 surface（兼容旧接口）
+    static let surfaceDim = NSColor(hex: "#1B1B1F")
     
-    /// 亮色背景
-    static let surfaceBright = NSColor(hex: "#343a3c")
+    /// 亮色背景（Tooltip、Popover）
+    static let surfaceBright = NSColor(hex: "#424245")
     
-    /// 容器背景 - 最低层
-    static let surfaceContainerLowest = NSColor(hex: "#090f11")
+    /// 最深底色（兼容旧接口，统一到 surface）
+    static let surfaceContainerLowest = NSColor(hex: "#1B1B1F")
     
-    /// 容器背景 - 低层（WaveformView、TracksView）
-    static let surfaceContainerLow = NSColor(hex: "#161d1e")
+    /// 轨道区/波形区底色（= surface，最深层）
+    static let surfaceContainerLow = NSColor(hex: "#1B1B1F")
     
-    /// 容器背景 - 标准（Sidebar、TracksView 轨道项）
-    static let surfaceContainer = NSColor(hex: "#1a2122")
+    /// 面板色 — Sidebar、Toolbar、控制面板、卡片
+    static let surfaceContainer = NSColor(hex: "#2A2A2E")
     
-    /// 容器背景 - 高层（hover 状态）
-    static let surfaceContainerHigh = NSColor(hex: "#242b2d")
+    /// Hover 态 / 抬升色
+    static let surfaceContainerHigh = NSColor(hex: "#363638")
     
-    /// 容器背景 - 最高层（选中状态）
-    static let surfaceContainerHighest = NSColor(hex: "#2f3638")
+    /// Active / 选中容器（非主选中色，用于非强调区域）
+    static let surfaceContainerHighest = NSColor(hex: "#363638")
     
-    // MARK: - 文字色（On-Surface）
+    // MARK: - 文字色
     
-    /// 主文字色 - 亮灰
-    static let onSurface = NSColor(hex: "#dde4e5")
+    /// 主文字 — 标题、文件名、数值
+    static let onSurface = NSColor(hex: "#E8E8EA")
     
-    /// 次要文字色 - 浅灰
-    static let onSurfaceVariant = NSColor(hex: "#bbc9cd")
+    /// 次要文字 — 描述、元数据、分区标题
+    static let onSurfaceVariant = NSColor(hex: "#A0A0A5")
     
-    /// 文字三级色（禁用）
-    static let textTertiary = NSColor(hex: "#9CA3AF")
+    /// 三级文字 — 占位符、禁用态、时间刻度
+    static let textTertiary = NSColor(hex: "#6B6B70")
     
-    /// 反转背景色（深色主题用）
-    static let inverseSurface = NSColor(hex: "#dde4e5")
+    /// 反转背景色
+    static let inverseSurface = NSColor(hex: "#E8E8EA")
     
-    /// 反转文字色（深色主题用）
-    static let inverseOnSurface = NSColor(hex: "#2b3233")
+    /// 反转文字色
+    static let inverseOnSurface = NSColor(hex: "#2A2A2E")
     
-    // MARK: - 边框与分割线（Outline）
+    // MARK: - 分割线（极少使用）
     
-    /// 主边框色
-    static let outline = NSColor(hex: "#859397")
+    /// 主边框（几乎不用，仅高对比场景）
+    static let outline = NSColor(white: 1.0, alpha: 0.15)
     
-    /// 次要边框色（组件边框、Sidebar 右侧边框）
-    static let outlineVariant = NSColor(hex: "#3c494c")
+    /// 分割线 — 仅 toolbar 底部、轨道头竖线、面板内分区
+    static let outlineVariant = NSColor(white: 1.0, alpha: 0.08)
     
-    // MARK: - 主色调（Primary）
+    // MARK: - 主强调色（Accent 青绿）
     
-    /// 主色 - 青色（电平表、计时器、链接）
-    static let primary = NSColor(hex: "#8aebff")
+    /// 主强调 — 选中态文字/icon、活跃 tab、交互元素
+    static let primary = NSColor(hex: "#3CD5C8")
     
-    /// 主色容器 - 深青色（波形、电平表正常态）
-    static let primaryContainer = NSColor(hex: "#22d3ee")
+    /// 选中态背景填充（accent 暗化）
+    static let primaryContainer = NSColor(hex: "#2A9B91")
     
     /// 主色上的文字
-    static let onPrimary = NSColor(hex: "#00363e")
+    static let onPrimary = NSColor(hex: "#FFFFFF")
     
     /// 主色容器上的文字
-    static let onPrimaryContainer = NSColor(hex: "#005763")
+    static let onPrimaryContainer = NSColor(hex: "#FFFFFF")
     
     /// 反转主色
     static let inversePrimary = NSColor(hex: "#006877")
     
-    /// 主色固定色（浅色主题用）
-    static let primaryFixed = NSColor(hex: "#a2eeff")
+    /// 主色固定色（兼容）
+    static let primaryFixed = NSColor(hex: "#3CD5C8")
+    static let primaryFixedDim = NSColor(hex: "#2A9B91")
+    static let onPrimaryFixed = NSColor(hex: "#FFFFFF")
+    static let onPrimaryFixedVariant = NSColor(hex: "#FFFFFF")
     
-    /// 主色固定色（暗色）
-    static let primaryFixedDim = NSColor(hex: "#2fd9f4")
+    // MARK: - 次要色（兼容旧接口）
     
-    /// 主色固定色上的文字
-    static let onPrimaryFixed = NSColor(hex: "#001f25")
-    
-    /// 主色固定色上的文字（变体）
-    static let onPrimaryFixedVariant = NSColor(hex: "#004e5a")
-    
-    // MARK: - 次要色（Secondary）
-    
-    /// 次要色 - 天蓝色
     static let secondary = NSColor(hex: "#7bd0ff")
-    
-    /// 次要色容器 - 深蓝色（波形渐变下半部分）
     static let secondaryContainer = NSColor(hex: "#00a6e0")
-    
-    /// 次要色上的文字
     static let onSecondary = NSColor(hex: "#00354a")
-    
-    /// 次要色容器上的文字
     static let onSecondaryContainer = NSColor(hex: "#00374d")
-    
-    /// 次要色固定色（浅色主题用）
     static let secondaryFixed = NSColor(hex: "#c4e7ff")
-    
-    /// 次要色固定色（暗色）
     static let secondaryFixedDim = NSColor(hex: "#7bd0ff")
-    
-    /// 次要色固定色上的文字
     static let onSecondaryFixed = NSColor(hex: "#001e2c")
-    
-    /// 次要色固定色上的文字（变体）
     static let onSecondaryFixedVariant = NSColor(hex: "#004c69")
     
-    // MARK: - 第三色（Tertiary）
+    // MARK: - 第三色（琥珀 — 警告）
     
-    /// 第三色 - 琥珀色（警告、注意）
-    static let tertiary = NSColor(hex: "#ffd6a3")
-    
-    /// 第三色容器 - 深琥珀色
+    static let tertiary = NSColor(hex: "#FFB74D")
     static let tertiaryContainer = NSColor(hex: "#ffb13b")
-    
-    /// 第三色上的文字
     static let onTertiary = NSColor(hex: "#462b00")
-    
-    /// 第三色容器上的文字
     static let onTertiaryContainer = NSColor(hex: "#6e4600")
-    
-    /// 第三色固定色（浅色主题用）
     static let tertiaryFixed = NSColor(hex: "#ffddb5")
-    
-    /// 第三色固定色（暗色）
     static let tertiaryFixedDim = NSColor(hex: "#ffb957")
-    
-    /// 第三色固定色上的文字
     static let onTertiaryFixed = NSColor(hex: "#2a1800")
-    
-    /// 第三色固定色上的文字（变体）
     static let onTertiaryFixedVariant = NSColor(hex: "#643f00")
     
-    // MARK: - 错误色（Error）
+    // MARK: - 错误色
     
-    /// 错误色 - 红色（过载 > 90%）
-    static let error = NSColor(hex: "#ffb4ab")
-    
-    /// 错误容器色 - 深红色
+    static let error = NSColor(hex: "#EF5350")
     static let errorContainer = NSColor(hex: "#93000a")
-    
-    /// 错误色上的文字
-    static let onError = NSColor(hex: "#690005")
-    
-    /// 错误容器上的文字
+    static let onError = NSColor(hex: "#FFFFFF")
     static let onErrorContainer = NSColor(hex: "#ffdad6")
     
-    // MARK: - 工业警示色（Status）
+    // MARK: - 状态色
     
-    /// 成功状态 - 绿色（正常运行）
-    static let statusSuccess = NSColor(hex: "#22C55E")
+    /// 正常 — 绿色
+    static let statusSuccess = NSColor(hex: "#4CAF50")
     
-    /// 警告状态 - 琥珀色（高电平 70-90%）
-    static let statusWarning = NSColor(hex: "#F59E0B")
+    /// 警告 — 琥珀（高电平 70-90%）
+    static let statusWarning = NSColor(hex: "#FFB74D")
     
-    /// 危险状态 - 红色（过载 > 90%）
-    static let statusDanger = NSColor(hex: "#EF4444")
+    /// 危险 — 红色（过载 > 90%）
+    static let statusDanger = NSColor(hex: "#EF5350")
     
-    /// 严重状态 - 深红色（录制按钮空闲态）
-    static let statusCritical = NSColor(hex: "#DC2626")
+    /// 录制按钮色
+    static let statusCritical = NSColor(hex: "#E85050")
     
-    // MARK: - 辅助颜色（Legacy）
+    // MARK: - Legacy 兼容（映射到新色值）
     
-    /// 基础背景 1（与 surface 相同）
-    static let base1 = NSColor(hex: "#0B0D11")
+    static let base1 = NSColor(hex: "#1B1B1F")
+    static let base2 = NSColor(hex: "#2A2A2E")
+    static let base3 = NSColor(hex: "#363638")
+    static let borderMuted = NSColor(white: 1.0, alpha: 0.08)
+    static let textPrimary = NSColor(hex: "#E8E8EA")
+    static let textSecondary = NSColor(hex: "#A0A0A5")
+    static let cyanDim = NSColor(hex: "#2A9B91")
+    static let blueDim = NSColor(hex: "#3CD5C8")
     
-    /// 基础背景 2（与 surfaceContainer 相似）
-    static let base2 = NSColor(hex: "#111827")
+    // MARK: - 波形色（珊瑚橙系列）
     
-    /// 基础背景 3（与 surfaceContainerLow 相似）
-    static let base3 = NSColor(hex: "#1F2937")
+    /// 播放头/录制焦点
+    static let waveformAccent = NSColor(hex: "#E85050")
     
-    /// 边框色（与 outlineVariant 相似）
-    static let borderMuted = NSColor(hex: "#374151")
+    /// 主波形条（签名色）
+    static let waveformCoral = NSColor(hex: "#E87850")
     
-    /// 主文字色（与 onSurface 相同）
-    static let textPrimary = NSColor(hex: "#E5E7EB")
+    /// 次级波形/弱电平
+    static let waveformSoft = NSColor(hex: "#E87850", alpha: 0.6)
     
-    /// 次要文字色
-    static let textSecondary = NSColor(hex: "#D1D5DB")
+    /// 波形静音段
+    static let waveformMuted = NSColor(hex: "#E87850", alpha: 0.25)
     
-    /// 青色暗色（hover 状态）
-    static let cyanDim = NSColor(hex: "#06B6D4")
+    // MARK: - 网格与纹理
     
-    /// 蓝色暗色（hover 状态）
-    static let blueDim = NSColor(hex: "#0EA5E9")
-    
-    // MARK: - 原生录音波形色（Apple Native Recording）
-    
-    /// 原生录音红 - 播放头/录制焦点
-    static let waveformAccent = NSColor(hex: "#FF453A")
-    
-    /// 原生录音珊瑚红 - 主波形
-    static let waveformCoral = NSColor(hex: "#FF6B5F")
-    
-    /// 原生录音柔红 - 次级波形/弱电平
-    static let waveformSoft = NSColor(hex: "#FF8A80")
-    
-    /// 原生录音弱底色 - 波形静音段
-    static let waveformMuted = NSColor(hex: "#FF6B5F", alpha: 0.32)
-    
-    // MARK: - 网格与纹理（Grid & Texture）
-    
-    /// 极淡网格线（背景网格）
     static let gridLight = NSColor(white: 1.0, alpha: 0.03)
-    
-    /// 淡网格线（分区网格）
     static let gridMedium = NSColor(white: 1.0, alpha: 0.06)
-    
-    /// 明显网格线（强调网格）
     static let gridHeavy = NSColor(white: 1.0, alpha: 0.12)
     
-    // MARK: - 发光效果（Glow）
+    // MARK: - 发光效果（仅录制按钮使用）
     
-    /// 青色发光（录制按钮、电平表）
-    static let glowCyan = NSColor(hex: "#22D3EE", alpha: 0.25)
+    /// 录制按钮脉冲发光
+    static let glowCyan = NSColor(hex: "#E85050", alpha: 0.3)
     
-    /// 琥珀色发光（警告状态）
-    static let glowWarning = NSColor(hex: "#F59E0B", alpha: 0.3)
+    /// 警告发光
+    static let glowWarning = NSColor(hex: "#FFB74D", alpha: 0.3)
     
-    /// 红色发光（过载状态）
-    static let glowDanger = NSColor(hex: "#EF4444", alpha: 0.35)
+    /// 危险发光
+    static let glowDanger = NSColor(hex: "#EF5350", alpha: 0.35)
     
-    // MARK: - 阴影颜色（Shadow）
+    // MARK: - 阴影（暗色界面不使用，保留接口）
     
-    /// 短而锐利的阴影（工业感）
-    static let shadowColor = NSColor(white: 0.0, alpha: 0.45)
+    static let shadowColor = NSColor(white: 0.0, alpha: 0.0)
     
-    // MARK: - 编辑器专用色（Editor）
+    // MARK: - 编辑器专用色
     
-    /// 选区拖柄色
-    static let editorHandle = IndustrialColors.primary  // #8AEBFF
+    /// 选区拖柄
+    static let editorHandle = IndustrialColors.primary
     
     /// 选区外遮罩
-    static let editorDimOverlay = NSColor(hex: "#0E1416", alpha: 0.4)
+    static let editorDimOverlay = NSColor(hex: "#1B1B1F", alpha: 0.5)
     
     /// 静音段背景
-    static let editorSilenceOverlay = NSColor(hex: "#242B2D", alpha: 0.6)
+    static let editorSilenceOverlay = NSColor(hex: "#363638", alpha: 0.6)
     
     /// 静音段删除标记线
-    static let editorSilenceLine = IndustrialColors.error  // #FFB4AB
+    static let editorSilenceLine = IndustrialColors.error
     
-    /// 编辑中状态徽章色（琥珀）
-    static let editorEditingBadge = IndustrialColors.tertiary  // #FFD6A3
+    /// 编辑中状态徽章色
+    static let editorEditingBadge = IndustrialColors.tertiary
 }
 
 // MARK: - 字体排版
@@ -276,7 +212,7 @@ struct IndustrialTypography {
     static let monoDB = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
 }
 
-// MARK: - 间距系统
+// MARK: - 间距系统（Studio Dark v3.0）
 struct IndustrialSpacing {
     
     /// 基础单位 - 4px
@@ -288,34 +224,40 @@ struct IndustrialSpacing {
     /// 小间距 - 8px
     static let sm: CGFloat = 8
     
-    /// 中间距 - 16px
-    static let md: CGFloat = 16
+    /// 面板内边距 - 12px（统一）
+    static let md: CGFloat = 12
     
-    /// 大间距 - 24px
-    static let lg: CGFloat = 24
+    /// 分区间距 - 16px
+    static let lg: CGFloat = 16
     
-    /// 超大间距 - 32px
-    static let xl: CGFloat = 32
+    /// 大分区 - 24px
+    static let xl: CGFloat = 24
     
-    /// 卡片间距 - 12px
+    /// 卡片间距 - 12px（与 md 统一）
     static let gutter: CGFloat = 12
     
-    /// Sidebar 宽度 - 260px
-    static let sidebarWidth: CGFloat = 260
+    /// Sidebar 宽度 - 220px
+    static let sidebarWidth: CGFloat = 220
     
     /// 网格纹理间隔 - 24px
     static let gridTextureInterval: CGFloat = 24
+    
+    /// 列表行高 - 40px（统一）
+    static let listRowHeight: CGFloat = 40
     
     // MARK: - 编辑器尺寸
     
     /// 编辑器导航栏高度
     static let editorNavBarHeight: CGFloat = 44
     
-    /// 编辑器播放控制栏高度（工具已移到顶部）
-    static let editorToolbarHeight: CGFloat = 36
+    /// Toolbar 高度
+    static let editorToolbarHeight: CGFloat = 44
     
     /// 编辑器状态栏高度
     static let editorStatusBarHeight: CGFloat = 24
+    
+    /// 控制面板高度
+    static let controlPanelHeight: CGFloat = 80
     
     /// 拖柄宽度
     static let editorHandleWidth: CGFloat = 4
@@ -324,91 +266,78 @@ struct IndustrialSpacing {
     static let editorHandleHitZone: CGFloat = 8
 }
 
-// MARK: - 圆角半径（参考剪映卡片风格，柔和圆角）
+// MARK: - 圆角半径（3 档统一，参考剪映）
 struct IndustrialCornerRadius {
     
-    /// 极小圆角 - 4px（小按钮、badge）
-    static let xs: CGFloat = 4
+    /// 小圆角 - 6px（按钮、badge、列表行 hover、输入框）
+    static let xs: CGFloat = 6
     
-    /// 小圆角 - 8px（按钮、行项）
-    static let sm: CGFloat = 8
+    /// 小圆角 - 6px（兼容旧接口）
+    static let sm: CGFloat = 6
     
-    /// 中圆角 - 12px（面板、卡片）
-    static let md: CGFloat = 12
+    /// 中圆角 - 10px（面板卡片、toolbar、sidebar 分区）
+    static let md: CGFloat = 10
     
-    /// 大圆角 - 16px（大面板、弹窗）
-    static let lg: CGFloat = 16
+    /// 大圆角 - 14px（弹窗、设置窗口）
+    static let lg: CGFloat = 14
     
-    /// 超大圆角 - 32px（圆形按钮，录制按钮）
-    static let xl: CGFloat = 32
+    /// 圆形 - 用于录制按钮（动态计算 bounds/2）
+    static let xl: CGFloat = 24
 }
 
-// MARK: - 阴影系统
+// MARK: - 阴影系统（暗色界面不使用阴影，保留接口兼容）
 struct IndustrialShadow {
     
-    /// 小阴影（按钮、小卡片）
+    /// 小阴影 — 不启用
     static func small(for layer: CALayer) {
-        layer.shadowColor = IndustrialColors.shadowColor.cgColor
-        layer.shadowRadius = 6
-        layer.shadowOpacity = 0.35
-        layer.shadowOffset = CGSize(width: 0, height: 2)
+        layer.shadowOpacity = 0
     }
     
-    /// 中阴影（面板、对话框）
+    /// 中阴影 — 不启用
     static func medium(for layer: CALayer) {
-        layer.shadowColor = IndustrialColors.shadowColor.cgColor
-        layer.shadowRadius = 12
-        layer.shadowOpacity = 0.45
-        layer.shadowOffset = CGSize(width: 0, height: 4)
+        layer.shadowOpacity = 0
     }
     
-    /// 大阴影（模态窗口、浮动面板）
+    /// 大阴影 — 不启用
     static func large(for layer: CALayer) {
-        layer.shadowColor = IndustrialColors.shadowColor.cgColor
-        layer.shadowRadius = 18
-        layer.shadowOpacity = 0.55
-        layer.shadowOffset = CGSize(width: 0, height: 6)
+        layer.shadowOpacity = 0
     }
 }
 
-// MARK: - 发光效果
+// MARK: - 发光效果（仅录制按钮使用单层脉冲）
 struct IndustrialGlow {
     
-    /// 青色发光（录制按钮、电平表）
-    static func cyan(for layer: CALayer, radius: CGFloat = 20, opacity: Float = 0.8) {
-        layer.shadowColor = IndustrialColors.glowCyan.cgColor
+    /// 录制按钮脉冲发光
+    static func cyan(for layer: CALayer, radius: CGFloat = 12, opacity: Float = 0.4) {
+        layer.shadowColor = IndustrialColors.statusCritical.cgColor
         layer.shadowRadius = radius
         layer.shadowOpacity = opacity
         layer.shadowOffset = .zero
     }
     
-    /// 琥珀色发光（警告状态）
-    static func warning(for layer: CALayer, radius: CGFloat = 12, opacity: Float = 0.6) {
+    /// 警告发光
+    static func warning(for layer: CALayer, radius: CGFloat = 10, opacity: Float = 0.3) {
         layer.shadowColor = IndustrialColors.glowWarning.cgColor
         layer.shadowRadius = radius
         layer.shadowOpacity = opacity
         layer.shadowOffset = .zero
     }
     
-    /// 红色发光（过载状态）
-    static func danger(for layer: CALayer, radius: CGFloat = 16, opacity: Float = 1.0) {
+    /// 过载发光
+    static func danger(for layer: CALayer, radius: CGFloat = 12, opacity: Float = 0.4) {
         layer.shadowColor = IndustrialColors.glowDanger.cgColor
         layer.shadowRadius = radius
         layer.shadowOpacity = opacity
         layer.shadowOffset = .zero
     }
     
-    /// 多重发光叠加（录制按钮）
+    /// 多重发光 — 简化为单层
     static func multiLayer(on targetLayer: CALayer, color: NSColor, configs: [(radius: CGFloat, opacity: Float)]) {
-        configs.forEach { config in
-            let glowLayer = CALayer()
-            glowLayer.shadowColor = color.cgColor
-            glowLayer.shadowRadius = config.radius
-            glowLayer.shadowOpacity = config.opacity
-            glowLayer.shadowOffset = .zero
-            glowLayer.frame = targetLayer.bounds
-            targetLayer.insertSublayer(glowLayer, at: 0)
-        }
+        guard let first = configs.first else { return }
+        targetLayer.shadowColor = color.cgColor
+        targetLayer.shadowRadius = first.radius
+        targetLayer.shadowOpacity = first.opacity
+        targetLayer.shadowOffset = .zero
     }
 }
 

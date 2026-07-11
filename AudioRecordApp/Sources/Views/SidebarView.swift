@@ -120,12 +120,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         gridLayer.fillColor = nil
         layer?.insertSublayer(gridLayer, at: 0)
         
-        // 右侧边框
-        let borderLayer = CALayer()
-        borderLayer.name = "border"
-        borderLayer.backgroundColor = IndustrialColors.outlineVariant.cgColor
-        borderLayer.frame = CGRect(x: bounds.width - 1, y: 0, width: 1, height: bounds.height)
-        layer?.addSublayer(borderLayer)
+        // v3.0: 不添加右侧边框线，靠面板色差(bgPanel vs bgDeepest)区分
     }
     
     private func setupTabContainer() {
@@ -244,7 +239,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         appsScroll.translatesAutoresizingMaskIntoConstraints = false
         appsScroll.wantsLayer = true
         appsScroll.layer?.cornerRadius = IndustrialCornerRadius.sm
-        appsScroll.layer?.borderWidth = 1
+        appsScroll.layer?.borderWidth = 0
         appsScroll.layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         
         NSLayoutConstraint.activate([
@@ -678,7 +673,7 @@ final class IndustrialAudioTargetRowView: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
         translatesAutoresizingMaskIntoConstraints = false
         
         indicatorLayer.backgroundColor = IndustrialColors.primaryContainer.cgColor
@@ -726,11 +721,20 @@ final class IndustrialAudioTargetRowView: NSView {
     }
     
     private func updateAppearance() {
-        layer?.backgroundColor = (isSelectedTarget ? IndustrialColors.surfaceContainerHighest : (isHovering ? IndustrialColors.surfaceContainerHigh : IndustrialColors.surfaceContainerLow)).cgColor
-        layer?.borderColor = (isSelectedTarget || isHovering ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
-        indicatorLayer.isHidden = !isSelectedTarget
-        titleLabel.textColor = isSelectedTarget ? IndustrialColors.primary : IndustrialColors.onSurface
-        iconView.contentTintColor = isSelectedTarget ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+        if isSelectedTarget {
+            layer?.backgroundColor = IndustrialColors.primaryContainer.cgColor
+            titleLabel.textColor = .white
+            iconView.contentTintColor = .white
+        } else if isHovering {
+            layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+            titleLabel.textColor = IndustrialColors.onSurface
+            iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+        } else {
+            layer?.backgroundColor = NSColor.clear.cgColor
+            titleLabel.textColor = IndustrialColors.onSurface
+            iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+        }
+        indicatorLayer.isHidden = true
     }
     
     override func mouseEntered(with event: NSEvent) {
@@ -784,7 +788,7 @@ final class IndustrialMicrophonePanelView: NSView {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
         layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         translatesAutoresizingMaskIntoConstraints = false
         
@@ -833,7 +837,7 @@ final class IndustrialMicrophonePanelView: NSView {
     
     private func updateAppearance() {
         let enabled = microphoneToggle.state == .on
-        layer?.borderColor = (enabled ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
+        layer?.backgroundColor = (enabled ? IndustrialColors.primaryContainer.withAlphaComponent(0.2) : NSColor.clear).cgColor
         meterLabel.alphaValue = enabled ? 1.0 : 0.35
         hintLabel.stringValue = enabled ? "麦克风已混入" : "混合到录制目标"
     }
@@ -863,7 +867,7 @@ final class IndustrialMicrophoneRowView: NSView {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
         layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         translatesAutoresizingMaskIntoConstraints = false
         
@@ -905,11 +909,16 @@ final class IndustrialMicrophoneRowView: NSView {
     }
     
     private func updateAppearance() {
-        layer?.borderColor = (isSelected ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant).cgColor
-        layer?.borderWidth = isSelected ? 2 : 1
-        layer?.backgroundColor = (isSelected ? IndustrialColors.surfaceContainerHigh : IndustrialColors.surfaceContainerLow).cgColor
-        iconView.contentTintColor = isSelected ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
-        titleLabel.textColor = isSelected ? IndustrialColors.primary : IndustrialColors.onSurface
+        layer?.borderWidth = 0
+        if isSelected {
+            layer?.backgroundColor = IndustrialColors.primaryContainer.cgColor
+            iconView.contentTintColor = .white
+            titleLabel.textColor = .white
+        } else {
+            layer?.backgroundColor = NSColor.clear.cgColor
+            iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+            titleLabel.textColor = IndustrialColors.onSurface
+        }
     }
     
     override func mouseEntered(with event: NSEvent) {
@@ -954,7 +963,7 @@ final class IndustrialCheckboxView: NSView {
     private func setupLayers() {
         wantsLayer = true
         layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
 
         // Accessibility: Checkbox 标识
         setAccessibilityElement(true)
@@ -1009,7 +1018,7 @@ final class IndustrialCheckboxView: NSView {
 
         boxLayer.backgroundColor = boxColor.cgColor
         boxLayer.borderColor = borderColor.cgColor
-        boxLayer.borderWidth = 1
+        boxLayer.borderWidth = 0
         checkmarkLayer.foregroundColor = checkColor.cgColor
     }
 
@@ -1055,7 +1064,7 @@ final class IndustrialProcessRowView: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 1  // 未选中态 1px outlineVariant，选中态 2px primaryContainer
+        layer?.borderWidth = 0  // 未选中态 1px outlineVariant，选中态 2px primaryContainer
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         translatesAutoresizingMaskIntoConstraints = false
         
@@ -1107,19 +1116,15 @@ final class IndustrialProcessRowView: NSView {
     }
     
     private func updateAppearance() {
-        // 边框高亮多选：选中 = surfaceContainerHighest 背景 + 2px primaryContainer 边框
-        // 未选中 = surfaceContainerLow 背景 + 1px outlineVariant 边框
+        indicatorLayer.isHidden = true
         if isSelectedRow {
-            layer?.backgroundColor = IndustrialColors.surfaceContainerHighest.cgColor
-            layer?.borderWidth = 2
-            layer?.borderColor = IndustrialColors.primaryContainer.cgColor
-            indicatorLayer.isHidden = true
-            titleLabel.textColor = IndustrialColors.primary
+            layer?.backgroundColor = IndustrialColors.primaryContainer.cgColor
+            titleLabel.textColor = .white
+        } else if isHovering {
+            layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+            titleLabel.textColor = IndustrialColors.onSurface
         } else {
-            layer?.backgroundColor = (isHovering ? IndustrialColors.surfaceContainerHigh : IndustrialColors.surfaceContainerLow).cgColor
-            layer?.borderWidth = 1
-            layer?.borderColor = IndustrialColors.outlineVariant.cgColor
-            indicatorLayer.isHidden = true
+            layer?.backgroundColor = NSColor.clear.cgColor
             titleLabel.textColor = IndustrialColors.onSurface
         }
     }

@@ -88,7 +88,7 @@ class ControlPanelView: NSView {
     }
     
     private func setupPanelChrome() {
-        layer?.borderWidth = 1
+        layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         
         topSeparator.backgroundColor = IndustrialColors.outline.cgColor
@@ -114,7 +114,7 @@ class ControlPanelView: NSView {
         }
         statusBadge.wantsLayer = true
         statusBadge.layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-        statusBadge.layer?.borderWidth = 1
+        statusBadge.layer?.borderWidth = 0
         statusBadge.layer?.borderColor = IndustrialColors.primaryContainer.cgColor
         statusBadge.layer?.cornerRadius = IndustrialCornerRadius.xs
         statusBadge.translatesAutoresizingMaskIntoConstraints = false
@@ -189,7 +189,7 @@ class ControlPanelView: NSView {
         // 按钮底座：柔和圆角 + 内凹阴影
         buttonBaseLayer.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
         buttonBaseLayer.borderColor = IndustrialColors.outlineVariant.cgColor
-        buttonBaseLayer.borderWidth = 1
+        buttonBaseLayer.borderWidth = 0
         buttonBaseLayer.cornerRadius = IndustrialCornerRadius.md
         buttonBaseLayer.shadowColor = NSColor.black.cgColor
         buttonBaseLayer.shadowRadius = 4
@@ -224,7 +224,7 @@ class ControlPanelView: NSView {
         recordButton.layer?.shadowOpacity = 0.5
         
         // Industrial: 边框而非发光
-        recordButton.layer?.borderWidth = 2
+        recordButton.layer?.borderWidth = 0
         recordButton.layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         
         recordButton.onClick = { [weak self] in
