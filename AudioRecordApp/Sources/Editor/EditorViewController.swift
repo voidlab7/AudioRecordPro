@@ -716,6 +716,11 @@ extension EditorViewController: EditorWaveformViewDelegate {
 
     func editorWaveformViewDidChangeViewport(_ view: EditorWaveformView) {
         guard !isUpdatingFromExternalSource else { return }
+        // P0-B: 同步横向贯通的时间刻度尺 viewport
+        trackContainerView.updateRulerViewport(
+            start: view.currentVisibleStartTime,
+            duration: view.currentVisibleDuration
+        )
         syncControlsToWaveformState()
     }
 }

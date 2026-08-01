@@ -4,11 +4,17 @@ import Cocoa
 /// 垂直排列 N 条音频轨道的容器视图
 /// 每条轨道 = 轨道头（M/S按钮+名称） + 波形区域
 class TrackContainerView: NSView {
-    
+
     // MARK: - Properties
     private let scrollView = NSScrollView()
     private let stackView = NSStackView()
-    
+
+    /// 横向贯通的时间刻度尺 — 跳过左侧轨道头列（headerWidth）
+    /// P0-B: ruler 在工具栏正下方、横跨所有轨道行；
+    ///       左侧 80px 轨道头不绘制刻度（M/S 按钮所在列保持纯净）
+    private let rulerView = TimeRulerView()
+    private let rulerHeight: CGFloat = 22
+
     /// 轨道行
     private(set) var trackRows: [EditorTrackRowView] = []
     
@@ -31,7 +37,12 @@ class TrackContainerView: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainerLowest.cgColor
-        
+
+        // P0-B: 横向贯通的时间刻度尺（位于 stackView 顶部之上、轨道头列之外）
+        rulerView.translatesAutoresizingMaskIntoConstraints = false
+        rulerView.headerWidth = EditorTrackRowView.headerWidth  // 跳过轨道头列
+        addSubview(rulerView)
+
         // 简化布局：stackView 居中、水平铺满、垂直按内容撑开
         // 单轨时上下自动有 spacer 留白；多轨时子视图按 hugging 高度堆叠
         stackView.orientation = .vertical
@@ -40,17 +51,34 @@ class TrackContainerView: NSView {
         stackView.alignment = .leading
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
-        
+
         // 关键：stackView 自身不强制垂直填满
-        // top/bottom 用 >= 约束（最小边界），加 centerY 让其按内容居中
+        // top = rulerView.bottom（ruler 在轨道之上）
+        // bottom 用 <= 约束，加 centerY 让其按内容居中
         // 水平方向仍铺满到容器边缘
         NSLayoutConstraint.activate([
+            // 横向贯通时间刻度尺：贯通整个 trackContainer 宽度（含轨道头列）
+            rulerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rulerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+            rulerView.topAnchor.constraint(equalTo: topAnchor),
+            rulerView.heightAnchor.constraint(equalToConstant: rulerHeight),
+
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor),
+            stackView.topAnchor.constraint(equalTo: rulerView.bottomAnchor),
             stackView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
-            stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            stackView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: rulerHeight / 2),
         ])
+    }
+
+    // MARK: - Public API
+
+    /// 同步时间刻度尺的 viewport（外部在波形缩放/滚动时调用）
+    /// - Parameters:
+    ///   - start: 可见时间起点（秒）
+    ///   - duration: 可见时间长度（秒）
+    func updateRulerViewport(start: TimeInterval, duration: TimeInterval) {
+        rulerView.updateViewport(start: start, duration: duration)
     }
     
     // MARK: - Track Management

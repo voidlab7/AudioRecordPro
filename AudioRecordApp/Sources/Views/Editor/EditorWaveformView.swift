@@ -31,6 +31,11 @@ class EditorWaveformView: NSView {
     private(set) var visibleStartTime: TimeInterval = 0
     private(set) var visibleDuration: TimeInterval = 0
     private(set) var zoomLevel: CGFloat = 1.0
+
+    /// 当前可见时间起点（只读 getter — 供外部 ruler 同步）
+    var currentVisibleStartTime: TimeInterval { visibleStartTime }
+    /// 当前可见时间长度（只读 getter — 供外部 ruler 同步）
+    var currentVisibleDuration: TimeInterval { visibleDuration }
     
     // 选区
     private var selectionStart: TimeInterval?
@@ -347,10 +352,9 @@ class EditorWaveformView: NSView {
     }
     
     private var waveformRect: NSRect {
-        // 波形从顶部开始，底部留时间标尺（单轨 120px 时自适应）
-        let rulerH: CGFloat = min(28, bounds.height * 0.25)
-        let h = max(20, bounds.height - rulerH)
-        return NSRect(x: 0, y: 0, width: bounds.width, height: h)
+        // P0-B: ruler 由 TrackContainerView 的 TimeRulerView 横向贯通绘制，
+        // 波形区域恢复为整块 bounds，不再为 ruler 预留底部空间。
+        return bounds
     }
     
     private func timeToPixel(_ time: TimeInterval) -> CGFloat {
@@ -383,8 +387,9 @@ class EditorWaveformView: NSView {
             drawEmptyState(in: dirtyRect)
             return
         }
-        
-        drawTimeRuler(in: dirtyRect)
+
+        // P0-B: 时间刻度尺由 TrackContainerView 顶部的 TimeRulerView 横向贯通绘制
+        // （轨道头列跳过），这里不再调用 drawTimeRuler。
         drawSelectionOverlay(in: dirtyRect)
         
         if useTileMode {
@@ -669,24 +674,29 @@ class EditorWaveformView: NSView {
     private func drawPlayhead(in rect: NSRect) {
         let x = timeToPixel(playbackTime)
         guard x >= waveformRect.minX - 10, x <= waveformRect.maxX + 10 else { return }
-        
+
         // 顶部三角形手柄（参考剪映/Audio One）
+        // P0-B: ruler 已抽离到独立的 TimeRulerView，waveformRect 恢复为整块 bounds；
+        //       三角形手柄改为完全在视图内（顶点靠上沿，底边在波形内 ~8px），
+        //       不再伸出视图顶部。
         let handleSize: CGFloat = 10
         let handleY = waveformRect.maxY
         let trianglePath = NSBezierPath()
-        trianglePath.move(to: NSPoint(x: x - handleSize / 2, y: handleY + handleSize))
-        trianglePath.line(to: NSPoint(x: x + handleSize / 2, y: handleY + handleSize))
-        trianglePath.line(to: NSPoint(x: x, y: handleY + 2))
+        // 顶点朝上贴在视图顶部内侧
+        trianglePath.move(to: NSPoint(x: x, y: handleY - 1))
+        // 底边向下 handleSize-2
+        trianglePath.line(to: NSPoint(x: x - handleSize / 2, y: handleY - handleSize + 2))
+        trianglePath.line(to: NSPoint(x: x + handleSize / 2, y: handleY - handleSize + 2))
         trianglePath.close()
         IndustrialColors.waveformAccent.setFill()
         trianglePath.fill()
-        
+
         // 贯穿垂直线
         IndustrialColors.waveformAccent.setStroke()
         let playhead = NSBezierPath()
         playhead.lineWidth = 1.5
         playhead.move(to: NSPoint(x: x, y: waveformRect.minY))
-        playhead.line(to: NSPoint(x: x, y: handleY + 2))
+        playhead.line(to: NSPoint(x: x, y: handleY - handleSize + 2))
         playhead.stroke()
     }
     
