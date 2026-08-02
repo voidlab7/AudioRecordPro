@@ -1,6 +1,5 @@
 import Cocoa
 import Foundation
-import AVFoundation
 
 // BUG-FIX-2: 格式 badge 文字垂直居中
 private class FormatBadgeCell: NSTextFieldCell {
@@ -17,8 +16,6 @@ private class FormatBadgeCell: NSTextFieldCell {
     }
 }
 
-// RecordedFileInfo 已移动到 AudioRecordKit/Sources/API/Types.swift
-
 // MARK: - Delegate Protocol
 protocol RecordedFilesViewDelegate: AnyObject {
     func recordedFilesViewDidSelectFile(_ view: RecordedFilesView, file: RecordedFileInfo)
@@ -27,8 +24,8 @@ protocol RecordedFilesViewDelegate: AnyObject {
     func recordedFilesViewDidRequestEditFile(_ view: RecordedFilesView, file: RecordedFileInfo)
 }
 
-// MARK: - RecordedFilesView
-/// 已录制文件列表视图 — 完全自绘，避免 NSTableView 系统白底/蓝色选中态
+// MARK: - RecordedFilesView (V2.0: .arlock)
+/// 已录制文件列表视图 — 读取 .arlock 元数据展示
 class RecordedFilesView: NSView {
 
     // MARK: - UI Components
@@ -59,12 +56,9 @@ class RecordedFilesView: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainer.cgColor
-
         setupScrollStack()
         setupConstraints()
     }
-
-
 
     private func setupScrollStack() {
         fileStack.orientation = .vertical
@@ -86,11 +80,8 @@ class RecordedFilesView: NSView {
         ])
     }
 
-
-
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            // File list fills the entire view
             scrollView.topAnchor.constraint(equalTo: topAnchor, constant: IndustrialSpacing.sm),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IndustrialSpacing.sm),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -IndustrialSpacing.sm),
@@ -154,7 +145,6 @@ class RecordedFilesView: NSView {
                 guard let self = self else { return }
                 self.delegate?.recordedFilesViewDidRequestEditFile(self, file: file)
             }
-            // 右键菜单（仅重命名，不暴露文件路径）
             let contextMenu = NSMenu()
             let renameItem = NSMenuItem(title: "重命名…", action: #selector(handleRenameFile(_:)), keyEquivalent: "")
             renameItem.target = self
@@ -166,83 +156,68 @@ class RecordedFilesView: NSView {
             row.widthAnchor.constraint(equalTo: fileStack.widthAnchor).isActive = true
             row.heightAnchor.constraint(equalToConstant: 64).isActive = true
         }
-
     }
 
+    // MARK: - V2.0: 读取 .arlock 文件列表
+    
     private func loadRecordedFiles() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let recordingsPath = documentsPath.appendingPathComponent("AudioRecordings")
-
+        let arlockFiles = FileManagerUtils.shared.getRecordingFiles()
+        
         var files: [RecordedFileInfo] = []
-
-        do {
-            let fileURLs = try FileManager.default.contentsOfDirectory(at: recordingsPath, includingPropertiesForKeys: [.fileSizeKey, .creationDateKey])
-
-            let audioExtensions: Set<String> = ["wav", "m4a", "mp3", "aac", "caf", "aiff", "flac"]
-            for url in fileURLs {
-                // 只处理音频文件，跳过 .zip 等非音频文件
-                guard audioExtensions.contains(url.pathExtension.lowercased()) else { continue }
-                let resourceValues = try url.resourceValues(forKeys: [.fileSizeKey, .creationDateKey])
-                let fileSize = resourceValues.fileSize ?? 0
-                let creationDate = resourceValues.creationDate ?? Date()
-                let duration = getAudioFileDuration(url: url)
-
+        
+        for url in arlockFiles {
+            // 尝试读取 .arlock 元数据
+            if let metadata = try? AudioFileEncryptor.shared.decryptMetadataOnly(from: url),
+               let fileSize = FileManagerUtils.shared.getFileSize(at: url) {
+                let displayName = metadata.title.isEmpty ? url.deletingPathExtension().lastPathComponent : metadata.title
                 let fileInfo = RecordedFileInfo(
                     url: url,
-                    name: url.lastPathComponent,
-                    date: creationDate,
-                    duration: duration,
-                    size: Int64(fileSize)
+                    name: displayName,
+                    date: ISO8601DateFormatter().date(from: metadata.createdAt) ?? Date(),
+                    duration: metadata.durationSec,
+                    size: fileSize
                 )
-
                 files.append(fileInfo)
+            } else {
+                // 解密失败（文件损坏/非本设备/旧格式），跳过并记录
+                logger.warning("跳过无法读取的 .arlock: \(url.lastPathComponent)")
             }
-
-            files.sort { $0.date > $1.date }
-        } catch {
-            logger.error("加载录制文件失败: \(error.localizedDescription)")
         }
-
+        
+        // 按日期降序
+        files.sort { $0.date > $1.date }
         recordedFiles = files
     }
 
-    private func getAudioFileDuration(url: URL) -> TimeInterval {
-        do {
-            let audioFile = try AVAudioFile(forReading: url)
-            return Double(audioFile.length) / audioFile.fileFormat.sampleRate
-        } catch {
-            logger.warning("无法获取音频文件时长: \(error.localizedDescription)")
-            return 0
-        }
-    }
-
-
-    
     @objc private func handleRenameFile(_ sender: NSMenuItem) {
         guard let file = sender.representedObject as? RecordedFileInfo else { return }
         let alert = NSAlert()
         alert.messageText = "重命名录音"
-        alert.informativeText = "输入新文件名（不含扩展名）："
+        alert.informativeText = "为这条录音起个易记的名字。文件名（不含扩展名）："
         alert.addButton(withTitle: "确定")
         alert.addButton(withTitle: "取消")
-        
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        let ext = file.url.pathExtension
-        input.stringValue = file.url.deletingPathExtension().lastPathComponent
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        // V2.1: 默认值用显示名（已是「进程名_日期」格式），不再是 UUID
+        input.stringValue = file.name
         alert.accessoryView = input
         alert.window.initialFirstResponder = input
-        
+        // 全选便于直接覆盖
+        DispatchQueue.main.async {
+            input.currentEditor()?.selectedRange = NSRange(location: 0, length: input.stringValue.count)
+        }
+
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         let newName = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newName.isEmpty else { return }
-        delegate?.recordedFilesViewDidRenameFile(self, file: file, newName: "\(newName).\(ext)")
+        guard newName != file.name else { return }  // 没改就不通知
+
+        // V2.1: 真正持久化到 .arlock 元数据（delegate → MainViewController → AudioFileEncryptor.updateTitle）
+        delegate?.recordedFilesViewDidRenameFile(self, file: file, newName: newName)
     }
-    
-    // handleShowInFinder 已移除 — 文件路径不对用户暴露，导出是付费功能入口
 }
 
 // MARK: - IndustrialRecordedFileRowView
-/// 自绘录音文件行 — 工业资产列表风格，替代 NSTableView 行
 final class IndustrialRecordedFileRowView: NSView {
     var onSelect: (() -> Void)?
     var onDoubleClick: (() -> Void)?
@@ -297,7 +272,6 @@ final class IndustrialRecordedFileRowView: NSView {
         formatBadge.font = IndustrialTypography.label
         formatBadge.textColor = IndustrialColors.primary
         formatBadge.alignment = .center
-        // BUG-FIX-2: 垂直居中 — 用自定义 cell 替换默认 cell
         let badgeCell = FormatBadgeCell(textCell: "")
         badgeCell.isEditable = false
         badgeCell.isBordered = false
@@ -314,7 +288,6 @@ final class IndustrialRecordedFileRowView: NSView {
         formatBadge.translatesAutoresizingMaskIntoConstraints = false
         addSubview(formatBadge)
 
-        // 编辑按钮（hover 时出现，覆盖 formatBadge 位置）— BUG-011 fix: 统一 Industrial 风格
         editButton.bezelStyle = .inline
         editButton.isBordered = false
         editButton.image = NSImage(systemSymbolName: "pencil.line", accessibilityDescription: "编辑")
@@ -361,9 +334,7 @@ final class IndustrialRecordedFileRowView: NSView {
     }
 
     private func configure(with file: RecordedFileInfo) {
-        // 文件名：去掉扩展名，简化显示
-        let displayName = file.url.deletingPathExtension().lastPathComponent
-        // 进一步美化：将下划线和日期格式简化
+        let displayName = file.name
         let prettyName = displayName
             .replacingOccurrences(of: "系统音频_", with: "")
             .replacingOccurrences(of: "_", with: " ")
@@ -399,11 +370,8 @@ final class IndustrialRecordedFileRowView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        // 检查是否点击了编辑按钮区域
         let location = convert(event.locationInWindow, from: nil)
-        if !editButton.isHidden && editButton.frame.contains(location) {
-            return // 让编辑按钮处理
-        }
+        if !editButton.isHidden && editButton.frame.contains(location) { return }
         CATransaction.begin()
         CATransaction.setAnimationDuration(IndustrialAnimation.standard)
         layer?.transform = CATransform3DMakeTranslation(0, -1, 0)
@@ -414,9 +382,7 @@ final class IndustrialRecordedFileRowView: NSView {
         layer?.transform = CATransform3DIdentity
         guard bounds.contains(convert(event.locationInWindow, from: nil)) else { return }
         let location = convert(event.locationInWindow, from: nil)
-        if !editButton.isHidden && editButton.frame.contains(location) {
-            return // 编辑按钮已处理
-        }
+        if !editButton.isHidden && editButton.frame.contains(location) { return }
         onSelect?()
         if event.clickCount >= 2 {
             onDoubleClick?()

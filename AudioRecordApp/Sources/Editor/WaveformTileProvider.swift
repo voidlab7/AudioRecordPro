@@ -232,7 +232,7 @@ class WaveformTileProvider {
         }
         
         // Read only the segment we need (not the entire file)
-        let audioFile = try AVAudioFile(forReading: asset.url)
+        let audioFile = try AVAudioFile(forReading: asset.readURL)
         let startFrame = AVAudioFramePosition(tileStartTime * asset.sampleRate)
         let frameCount = AVAudioFrameCount(tileDuration * asset.sampleRate)
         

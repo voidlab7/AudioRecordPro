@@ -22,6 +22,7 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("AudioToolbox"),
+                .linkedFramework("IOKit"),
             ]
         ),
         .testTarget(

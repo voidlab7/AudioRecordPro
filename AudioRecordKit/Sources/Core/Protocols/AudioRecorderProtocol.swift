@@ -149,37 +149,21 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     /// 创建音频文件（支持沙盒环境）
     func createAudioFileWithSandboxSupport(format: AudioFormat, completion: @escaping (Result<URL, Error>) -> Void) {
         // 首先尝试使用默认目录
-        let defaultURL = fileManager.getRecordingFileURL(format: format.fileExtension)
+        let defaultURL = fileManager.getTempRecordingFileURL(prefix: "recording", format: format.fileExtension)
         
         do {
             try createAudioFile(at: defaultURL, format: format)
             completion(.success(defaultURL))
         } catch {
-            logger.warning("无法在默认目录创建文件，请求 Documents 目录访问权限: \(error.localizedDescription)")
-            
-            // 如果默认目录失败，请求 Documents 目录访问权限
-            fileManager.requestDocumentsAccess { [weak self] granted in
-                guard let self = self else { return }
-                
-                if granted {
-                    // 重新尝试创建文件
-                    do {
-                        try self.createAudioFile(at: defaultURL, format: format)
-                        completion(.success(defaultURL))
-                    } catch {
-                        completion(.failure(error))
-                    }
-                } else {
-                    completion(.failure(NSError(domain: "AudioRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "用户拒绝了 Documents 目录访问权限"])))
-                }
-            }
+            logger.error("无法创建临时录制文件: \(error.localizedDescription)")
+            completion(.failure(error))
         }
     }
     
     /// 创建音频文件（支持沙盒环境，使用自定义设置）
     func createAudioFileWithSandboxSupportAndSettings(settings: [String: Any], completion: @escaping (Result<URL, Error>) -> Void) {
         // 生成文件名（使用PCM格式）
-        let defaultURL = fileManager.getRecordingFileURL(recordingMode: recordingMode, format: "wav")
+        let defaultURL = fileManager.getTempRecordingFileURL(prefix: recordingMode.rawValue, format: "wav")
         let fileName = defaultURL.lastPathComponent
         
         do {
@@ -197,31 +181,8 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
             logger.info("文件格式: \(settings)")
             completion(.success(defaultURL))
         } catch {
-            logger.warning("无法在默认目录创建文件，请求 Documents 目录访问权限: \(error.localizedDescription)")
-            
-            // 如果默认目录失败，请求 Documents 目录访问权限
-            fileManager.requestDocumentsAccess { [weak self] granted in
-                guard let self = self else { return }
-                
-                if granted {
-                    // 重新尝试创建文件
-                    do {
-                        self.audioFile = try AVAudioFile(forWriting: defaultURL, settings: settings)
-                        self.outputURL = defaultURL
-                        
-                        self.onStatus?("文件创建成功: \(fileName)")
-                        self.logger.info("音频文件创建成功: \(fileName)")
-                        self.logger.info("文件格式: \(settings)")
-                        completion(.success(defaultURL))
-                    } catch {
-                        self.logger.error("重新创建文件失败: \(error.localizedDescription)")
-                        completion(.failure(error))
-                    }
-                } else {
-                    self.logger.error("Documents 目录访问权限被拒绝")
-                    completion(.failure(NSError(domain: "AudioRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "Documents 目录访问权限被拒绝"])))
-                }
-            }
+            logger.error("无法创建临时录制文件: \(error.localizedDescription)")
+            completion(.failure(error))
         }
     }
     

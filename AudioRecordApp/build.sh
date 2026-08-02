@@ -36,6 +36,11 @@ swiftc \
     -framework AVFoundation \
     -framework CoreAudio \
     -framework AudioToolbox \
+    -framework IOKit \
+    -framework CryptoKit \
+    -framework ServiceManagement \
+    -framework ScreenCaptureKit \
+    -framework Accelerate \
     $SDK_SOURCES \
     $APP_SOURCES
 

@@ -55,6 +55,10 @@ class EditorWaveformView: NSView {
     // P0-C: Clip 视觉边界
     var showClipBorders: Bool = true
     var clipColor: NSColor = IndustrialColors.waveformCoral
+
+    /// P0-C: Clip 名称（绘制在 clip 块上方，作为占位标签）
+    /// 后续接入 AudioClip 模型后，改用 `clip.name`
+    var clipName: String?
     
     // P1-D: Trim 拖柄位置（相对时间偏移）
     var clipTrimStart: TimeInterval = 0
@@ -351,10 +355,19 @@ class EditorWaveformView: NSView {
         return CGFloat(totalDuration * sampleRate / 600)
     }
     
+    /// 上下留白（用于 clip 标签 + 视觉呼吸感）
+    private let clipInsetVertical: CGFloat = 25
+
+    /// Clip 块矩形（"被吸附"的内容区）— 居中、占轨道行约 64% 高度
+    /// 轨道是 140px 容器，clip 块 = 90px，clip 块上下各 25px 留白给标签和呼吸感
     private var waveformRect: NSRect {
-        // P0-B: ruler 由 TrackContainerView 的 TimeRulerView 横向贯通绘制，
-        // 波形区域恢复为整块 bounds，不再为 ruler 预留底部空间。
-        return bounds
+        let availableHeight = max(20, bounds.height - clipInsetVertical * 2)
+        return NSRect(
+            x: 0,
+            y: clipInsetVertical,
+            width: bounds.width,
+            height: availableHeight
+        )
     }
     
     private func timeToPixel(_ time: TimeInterval) -> CGFloat {
@@ -406,7 +419,10 @@ class EditorWaveformView: NSView {
         drawSelectionHandles(in: dirtyRect)
         drawTrimHandles(in: dirtyRect)           // P1-D: Trim 拖柄
         drawFadeHandles(in: dirtyRect)           // P2-F: Fade 三角拖柄
-        
+
+        // P0-C: Clip 标签（绘制在 clip 块上方 4px 处，标识当前 clip 名称）
+        drawClipNameLabel(in: dirtyRect)
+
         // BUG-010 fix: 无选区时显示操作引导
         if selection == nil {
             drawGuideText(in: dirtyRect)
@@ -932,25 +948,73 @@ extension EditorWaveformView: WaveformTileProviderDelegate {
     }
 }
 
-// MARK: - P0-C Clip 视觉边界
+// MARK: - P0-C Clip 视觉边界（无边框，参考剪映）
 extension EditorWaveformView {
-    
-    /// 绘制 clip 边框（白色高亮区域）
+
+    /// P0-C: 无边框版 — 不画描边，仅保留扩展点（后续可画极淡背景 fill）
+    /// 剪映风格：轨道无边框、clip 无边框，靠波形本身和 chip 标签标识
     private func drawClipBorders(in rect: NSRect) {
-        let leftX = max(waveformRect.minX, timeToPixel(visibleStartTime))
-        let rightX = min(waveformRect.maxX, timeToPixel(visibleStartTime + visibleDuration))
-        let clipFrame = NSRect(
-            x: leftX,
-            y: waveformRect.minY + 2,
-            width: rightX - leftX,
-            height: waveformRect.height - 4
+        // 故意留空：移除原描边（半透明白色 stroke），参考剪映无边框风格
+    }
+
+    /// 绘制 clip 名称 chip — 位于 clip 块**内部左上角**（inset 8px）
+    /// 剪映风格：深色半透明圆角背景 + 白字，作为悬浮在波形左上角的"标签 chip"
+    /// （占位实现：当前用轨道名/文件名；后续接入 AudioClip 后改用 clip.name）
+    private func drawClipNameLabel(in rect: NSRect) {
+        guard let name = clipName, !name.isEmpty else { return }
+        guard waveformRect.width > 16, waveformRect.height > 16 else { return }
+
+        // 1) 文字属性（剪映风格：白字 + 10pt medium）
+        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        let textAttrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.white
+        ]
+
+        // 2) 截断（避免超出波形块宽度）
+        let maxWidth = waveformRect.width - 24  // 两侧各留 8px inset
+        let truncated = truncate(name: name, font: font, maxWidth: maxWidth)
+        let textSize = truncated.size(withAttributes: textAttrs)
+
+        // 3) chip 几何：clip 块左上角内 8px，圆角 4px，padding 6x3
+        let chipRect = NSRect(
+            x: waveformRect.minX + 8,
+            y: waveformRect.maxY - textSize.height - 12,  // macOS Y 向上，maxY 是顶部
+            width: textSize.width + 12,
+            height: textSize.height + 6
         )
-        
-        // Clip 外边框 — 半透明白色
-        let borderPath = NSBezierPath(roundedRect: clipFrame, xRadius: 4, yRadius: 4)
-        clipColor.withAlphaComponent(0.3).setStroke()
-        borderPath.lineWidth = 2.0
-        borderPath.stroke()
+        guard chipRect.maxX <= waveformRect.maxX - 4 else { return }  // 超出波形右边界不画
+
+        // 4) chip 背景：黑色半透明 55% 圆角
+        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 4, yRadius: 4)
+        NSColor.black.withAlphaComponent(0.55).setFill()
+        chipPath.fill()
+
+        // 5) 文字绘制（chip 内居中）
+        let textPoint = NSPoint(
+            x: chipRect.minX + 6,
+            y: chipRect.minY + 3
+        )
+        truncated.draw(at: textPoint, withAttributes: textAttrs)
+    }
+
+    /// 按 maxWidth 截断文字（添加 ellipsis）
+    private func truncate(name: String, font: NSFont, maxWidth: CGFloat) -> String {
+        let attrs: [NSAttributedString.Key: Any] = [.font: font]
+        if name.size(withAttributes: attrs).width <= maxWidth {
+            return name
+        }
+        let ellipsis = "…"
+        _ = ellipsis.size(withAttributes: attrs).width
+        var endIndex = name.endIndex
+        while endIndex > name.startIndex {
+            let candidate = String(name[name.startIndex..<endIndex]) + ellipsis
+            if candidate.size(withAttributes: attrs).width <= maxWidth {
+                return candidate
+            }
+            endIndex = name.index(before: endIndex)
+        }
+        return ellipsis
     }
 }
 

@@ -25,6 +25,9 @@ class EditorViewController {
     private let maxEditableFileSize: Int64 = 500 * 1024 * 1024
     private let maxEditableDuration: TimeInterval = 30 * 60
     private let maxEditablePCMBytes: Int64 = 1_000 * 1024 * 1024
+
+    /// V2.0: 编辑器会话（透明处理 .arlock 解密/重新加密）
+    private var editSession: FileManagerUtils.EditSession?
     
     // 预览播放
     private var previewEngine: AVAudioEngine?
@@ -134,6 +137,8 @@ class EditorViewController {
         stopPreview()
         EditorViewController.currentlyEditingURL = nil
         cleanupTempFiles()
+        // V2.0: 清理加密编辑会话（临时 .m4a 文件）
+        editSession?.cleanup()
     }
     
     // MARK: - Setup
@@ -173,11 +178,15 @@ class EditorViewController {
             navigationBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
             navBarHeightConstraint!,
 
-            // trackContainer 在 navBar 和 scrollBar 之间（嵌入模式下两者高度都为 0 → 自动填满）
-            trackContainerView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
+            // P0-B 修复：trackContainerView 高度 = intrinsic (rulerHeight + N*rowHeight)，
+            // 由其内部 hugging/compression resistance 锁死。父视图不再用 top/bottom 固定
+            // （避免在窗口高度不足时 row 被压扁），改用 centerY 让整体垂直居中于 editorView。
+            // 边界用 >= 和 <= 软约束，防止压到 navBar/scrollBar。
+            trackContainerView.centerYAnchor.constraint(equalTo: editorView.centerYAnchor),
             trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             trackContainerView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            trackContainerView.bottomAnchor.constraint(equalTo: scrollBarView.topAnchor, constant: -IndustrialSpacing.xs),
+            trackContainerView.topAnchor.constraint(greaterThanOrEqualTo: navigationBar.bottomAnchor, constant: IndustrialSpacing.md),
+            trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: scrollBarView.topAnchor, constant: -IndustrialSpacing.md),
 
             scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
             scrollBarView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor, constant: -IndustrialSpacing.md),
@@ -217,7 +226,12 @@ class EditorViewController {
             guard let self = self else { return }
             
             do {
-                let audioFile = try AVAudioFile(forReading: self.file.url)
+                // V2.0: .arlock 透明解密到临时 .m4a
+                let editSession = try FileManagerUtils.shared.prepareForEditing(url: self.file.url)
+                self.editSession = editSession
+                let playableURL = editSession.playableURL
+                
+                let audioFile = try AVAudioFile(forReading: playableURL)
                 let format = audioFile.processingFormat
                 let fileLength = audioFile.length
                 let duration = format.sampleRate > 0 ? Double(fileLength) / format.sampleRate : self.file.duration
@@ -245,7 +259,8 @@ class EditorViewController {
                         sampleRate: format.sampleRate,
                         channelCount: Int(format.channelCount),
                         fileSize: fileSize,
-                        modifiedAt: modifiedAt
+                        modifiedAt: modifiedAt,
+                        playableURL: playableURL  // V2.0: .arlock 场景下指向临时 .m4a
                     )
                     
                     // Still load full buffer for editing if within limits
@@ -293,7 +308,18 @@ class EditorViewController {
                     }
                     
                     try audioFile.read(into: buffer)
-                    
+
+                    // DEBUG V2.0: 验证 buffer 内容
+                    let readFrames = Int(buffer.frameLength)
+                    var bufMax: Float = 0
+                    if let chData = buffer.floatChannelData, readFrames > 0 {
+                        for i in 0..<min(readFrames, 1000) {
+                            let v = abs(chData[0][i])
+                            if v > bufMax { bufMax = v }
+                        }
+                    }
+                    self.logger.info("🔍 DEBUG: playableURL=\(playableURL.lastPathComponent), fileExists=\(FileManager.default.fileExists(atPath: playableURL.path)), readFrames=\(readFrames), firstFrameMax=\(bufMax)")
+
                     DispatchQueue.main.async {
                         self.audioBuffer = buffer
                         self.audioFormat = format
@@ -372,21 +398,20 @@ class EditorViewController {
     
     func save() {
         guard let buffer = audioBuffer, let format = audioFormat else { return }
-        
+
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             do {
-                // 保存前备份
-                let backupURL = self.file.url.deletingLastPathComponent().appendingPathComponent(".backup_\(self.file.url.lastPathComponent)")
-                try? FileManager.default.copyItem(at: self.file.url, to: backupURL)
-                
-                let audioFile = try AVAudioFile(forWriting: self.file.url, settings: format.settings)
-                try audioFile.write(from: buffer)
-                
-                // 清理备份
-                try? FileManager.default.removeItem(at: backupURL)
-                
+                // V2.0: .arlock 自动重新加密；标准文件直接写回
+                if let editSession = self.editSession {
+                    try FileManagerUtils.shared.finalizeEdit(session: editSession, buffer: buffer, format: format)
+                } else {
+                    // 兜底：标准音频文件
+                    let audioFile = try AVAudioFile(forWriting: self.file.url, settings: format.settings)
+                    try audioFile.write(from: buffer)
+                }
+
                 DispatchQueue.main.async {
                     self.hasUnsavedChanges = false
                     self.editHistory.clear()

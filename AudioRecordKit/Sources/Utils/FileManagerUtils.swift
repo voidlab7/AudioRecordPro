@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 import AVFoundation
 
-/// 文件管理工具类
+/// 文件管理工具类 (V2.0: 沙盒容器目录 + .arlock 加密格式)
 class FileManagerUtils {
     static let shared = FileManagerUtils()
     
@@ -10,166 +10,61 @@ class FileManagerUtils {
     private let logger = Logger.shared
     
     private init() {
-        // 尝试恢复之前保存的安全作用域书签
-        _ = restoreSecurityScopedBookmark()
+        // V2.0: 不再使用安全作用域书签（录音文件全部走沙盒容器目录）
     }
     
-    /// 获取录音文件保存目录
+    // MARK: - 录音目录 (V2.0: 沙盒容器)
+    
+    /// 获取录音文件保存目录（沙盒容器内，用户不可见）
+    /// 实际路径: ~/Library/Containers/<bundle.id>/Data/Library/Application Support/Recordings/
     func getRecordingsDirectory() -> URL {
-        // 优先使用用户自定义目录
-        if let customPath = UserDefaults.standard.string(forKey: "recordingsDirectory"),
-           !customPath.isEmpty {
-            let customURL = URL(fileURLWithPath: customPath)
-            createDirectoryIfNeeded(at: customURL)
-            return customURL
-        }
-        
-        // 默认使用 Documents 目录
-        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let recordingsDir = documentsPath.appendingPathComponent("AudioRecordings")
-        createDirectoryIfNeeded(at: recordingsDir)
-        return recordingsDir
+        let containerURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = containerURL.appendingPathComponent("Recordings", isDirectory: true)
+        createDirectoryIfNeeded(at: dir)
+        return dir
     }
     
     /// 创建目录（如果不存在）
     func createDirectoryIfNeeded(at url: URL) {
         do {
             try fileManager.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-            logger.debug("目录已创建/验证: \(url.path)")
+            logger.debug("目录已创建/验证: \(url.lastPathComponent)")
         } catch {
             logger.error("创建目录失败 \(url.path): \(error.localizedDescription)")
         }
     }
     
-    /// 生成录音文件名（旧版本，保持兼容性）
-    func generateRecordingFileName(format: String) -> String {
-        let dateFormatter = ISO8601DateFormatter()
-        let timestamp = dateFormatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
-        return "record_\(timestamp).\(format.lowercased())"
+    // MARK: - 文件名生成 (V2.0: UUID + temp)
+    
+    /// 生成录音文件 UUID（不再用模式_日期格式）
+    func generateRecordingUUID() -> UUID {
+        return UUID()
     }
     
-    /// 生成新的录音文件名（应用名称+时间日期格式）
-    func generateRecordingFileName(recordingMode: RecordingMode, appName: String? = nil, format: String) -> String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyyMMdd-HHmmss-SSS"  // Include milliseconds to avoid collision in multi-process mode
-        let timestamp = dateFormatter.string(from: Date())
-        
-        let sourceName: String
-        switch recordingMode {
-        case .microphone:
-            sourceName = "麦克风"
-        case .systemMixdown:
-            sourceName = "系统音频"
-        case .specificProcess:
-            if let appName = appName, !appName.isEmpty {
-                sourceName = appName
-            } else {
-                sourceName = "应用音频"
-            }
-        }
-        
-        // 清理文件名中的非法字符
-        let cleanSourceName = sourceName.replacingOccurrences(of: "/", with: "_")
-                                      .replacingOccurrences(of: ":", with: "_")
-                                      .replacingOccurrences(of: " ", with: "_")
-        
-        return "\(cleanSourceName)_\(timestamp).\(format.lowercased())"
-    }
-    
-    /// 获取录音文件完整路径（旧版本）
-    func getRecordingFileURL(format: String) -> URL {
+    /// 获取 .arlock 文件完整路径（加密后最终存储）
+    func getRecordingFileURL(uuid: UUID) -> URL {
         let directory = getRecordingsDirectory()
-        let filename = generateRecordingFileName(format: format)
-        return directory.appendingPathComponent(filename)
+        return directory.appendingPathComponent("\(uuid.uuidString).\(AudioCryptoConfig.fileExtension)")
     }
     
-    /// 获取录音文件完整路径（新版本）
-    func getRecordingFileURL(recordingMode: RecordingMode, appName: String? = nil, format: String) -> URL {
-        let directory = getRecordingsDirectory()
-        let filename = generateRecordingFileName(recordingMode: recordingMode, appName: appName, format: format)
-        return directory.appendingPathComponent(filename)
+    /// 获取录制中临时文件路径（录制器写原始音频，录制完成后由 MainVC 加密）
+    /// - Parameter prefix: 文件名前缀（如 "system"、"mic"、"process"）
+    /// - Parameter format: 文件扩展名（如 "m4a"、"wav"）
+    func getTempRecordingFileURL(prefix: String, format: String) -> URL {
+        let tempDir = fileManager.temporaryDirectory
+        let timestamp = Self.timestampString()
+        let fileName = "\(AudioCryptoConfig.TempFilePattern.recordingPrefix)\(prefix)_\(timestamp).\(format)"
+        return tempDir.appendingPathComponent(fileName)
     }
     
-    /// 请求 Documents 目录访问权限
-    func requestDocumentsAccess(completion: @escaping (Bool) -> Void) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.prompt = "授权访问"
-        panel.message = "请选择 Documents 目录以授权应用程序访问"
-        panel.title = "授权 Documents 目录访问"
-        
-        // 默认导航到 Documents 目录
-        if let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
-            panel.directoryURL = documentsURL
-        }
-        
-        panel.begin { response in
-            if response == .OK, let selectedURL = panel.url {
-                // 检查是否选择了 Documents 目录
-                if self.isDocumentsDirectory(selectedURL) {
-                    // 保存安全作用域书签
-                    self.saveSecurityScopedBookmark(for: selectedURL)
-                    completion(true)
-                } else {
-                    // 用户选择了其他目录，也保存书签
-                    self.saveSecurityScopedBookmark(for: selectedURL)
-                    completion(true)
-                }
-            } else {
-                completion(false)
-            }
-        }
+    /// 时间戳字符串（线程安全）
+    private static func timestampString() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        return formatter.string(from: Date())
     }
     
-    /// 检查是否为 Documents 目录
-    private func isDocumentsDirectory(_ url: URL) -> Bool {
-        guard let documentsURL = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return false
-        }
-        return url.path == documentsURL.path
-    }
-    
-    /// 保存安全作用域书签
-    private func saveSecurityScopedBookmark(for url: URL) {
-        do {
-            let bookmarkData = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
-            UserDefaults.standard.set(bookmarkData, forKey: "selectedDirectoryBookmark")
-            logger.info("已保存安全作用域书签: \(url.path)")
-        } catch {
-            logger.error("保存安全作用域书签失败: \(error.localizedDescription)")
-        }
-    }
-    
-    /// 恢复安全作用域书签
-    func restoreSecurityScopedBookmark() -> URL? {
-        guard let bookmarkData = UserDefaults.standard.data(forKey: "selectedDirectoryBookmark") else {
-            return nil
-        }
-        
-        do {
-            var isStale = false
-            let url = try URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
-            
-            if isStale {
-                logger.warning("安全作用域书签已过期，需要重新选择目录")
-                return nil
-            }
-            
-            let success = url.startAccessingSecurityScopedResource()
-            if success {
-                logger.info("已恢复安全作用域书签: \(url.path)")
-                return url
-            } else {
-                logger.error("无法访问安全作用域资源")
-                return nil
-            }
-        } catch {
-            logger.error("恢复安全作用域书签失败: \(error.localizedDescription)")
-            return nil
-        }
-    }
+    // MARK: - 文件操作
     
     /// 检查文件是否存在
     func fileExists(at url: URL) -> Bool {
@@ -182,7 +77,7 @@ class FileManagerUtils {
             let attributes = try fileManager.attributesOfItem(atPath: url.path)
             return attributes[.size] as? Int64
         } catch {
-            logger.error("获取文件大小失败 \(url.path): \(error.localizedDescription)")
+            logger.error("获取文件大小失败 \(url.lastPathComponent): \(error.localizedDescription)")
             return nil
         }
     }
@@ -197,16 +92,12 @@ class FileManagerUtils {
     
     /// 复制文件
     func copyFile(from sourceURL: URL, to destinationURL: URL) throws {
-        // 确保目标目录存在
         createDirectoryIfNeeded(at: destinationURL.deletingLastPathComponent())
-        
-        // 如果目标文件已存在，先删除
         if fileExists(at: destinationURL) {
             try fileManager.removeItem(at: destinationURL)
         }
-        
         try fileManager.copyItem(at: sourceURL, to: destinationURL)
-        logger.info("文件已从 \(sourceURL.lastPathComponent) 复制到 \(destinationURL.lastPathComponent)")
+        logger.info("文件已复制: \(sourceURL.lastPathComponent) → \(destinationURL.lastPathComponent)")
     }
     
     /// 删除文件
@@ -215,55 +106,61 @@ class FileManagerUtils {
         logger.info("文件已删除: \(url.lastPathComponent)")
     }
     
-    /// 获取录音文件列表
+    // MARK: - 录音文件列表 (V2.0: .arlock)
+    
+    /// 获取录音文件列表（只列出 .arlock 文件）
     func getRecordingFiles() -> [URL] {
         let recordingsDir = getRecordingsDirectory()
         
         do {
-            let files = try fileManager.contentsOfDirectory(at: recordingsDir, includingPropertiesForKeys: [.creationDateKey], options: [])
-            return files.filter { url in
-                let pathExtension = url.pathExtension.lowercased()
-                return ["m4a", "mp3", "wav"].contains(pathExtension)
-            }.sorted { url1, url2 in
-                // 按创建时间降序排列
-                let date1 = try? url1.resourceValues(forKeys: [.creationDateKey]).creationDate ?? Date.distantPast
-                let date2 = try? url2.resourceValues(forKeys: [.creationDateKey]).creationDate ?? Date.distantPast
-                return date1 ?? Date.distantPast > date2 ?? Date.distantPast
-            }
+            let files = try fileManager.contentsOfDirectory(
+                at: recordingsDir,
+                includingPropertiesForKeys: [.creationDateKey],
+                options: [.skipsHiddenFiles]
+            )
+            return files
+                .filter { $0.pathExtension == AudioCryptoConfig.fileExtension }
+                .sorted { url1, url2 in
+                    let date1 = (try? url1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                    let date2 = (try? url2.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+                    return date1 > date2
+                }
         } catch {
-            logger.error("获取录音文件失败: \(error.localizedDescription)")
+            logger.error("获取录音文件列表失败: \(error.localizedDescription)")
             return []
         }
     }
     
-    /// 清理临时文件
+    // MARK: - 临时文件清理
+    
+    /// 清理临时文件（播放/导出残留）
     func cleanupTempFiles() {
+        SecureDelete.cleanupLegacyTempFiles()
+    }
+    
+    /// 清理旧的音频格式临时文件（兼容旧版）
+    func cleanupLegacyTempAudioFiles() {
         let tempDir = fileManager.temporaryDirectory
-        
         do {
-            let tempFiles = try fileManager.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: [.creationDateKey], options: [])
-            let oneHourAgo = Date().addingTimeInterval(-3600) // 1小时前
-            
+            let tempFiles = try fileManager.contentsOfDirectory(at: tempDir, includingPropertiesForKeys: [.creationDateKey])
+            let oneHourAgo = Date().addingTimeInterval(-3600)
             for fileURL in tempFiles {
                 if fileURL.path.contains("record_") {
-                    if let creationDate = try fileURL.resourceValues(forKeys: [.creationDateKey]).creationDate,
+                    if let creationDate = try? fileURL.resourceValues(forKeys: [.creationDateKey]).creationDate,
                        creationDate < oneHourAgo {
-                        try fileManager.removeItem(at: fileURL)
-                        logger.info("已清理临时文件: \(fileURL.lastPathComponent)")
+                        try? fileManager.removeItem(at: fileURL)
                     }
                 }
             }
         } catch {
-            logger.error("清理临时文件失败: \(error.localizedDescription)")
+            logger.error("清理旧临时文件失败: \(error.localizedDescription)")
         }
     }
     
     // MARK: - 磁盘空间监控
     
-    /// 最小磁盘空间阈值（100MB）
     private static let minimumDiskSpaceBytes: Int64 = 100 * 1024 * 1024
     
-    /// 获取可用磁盘空间（字节）
     func getAvailableDiskSpace() -> Int64? {
         let homeURL = fileManager.homeDirectoryForCurrentUser
         guard let values = try? homeURL.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
@@ -273,13 +170,11 @@ class FileManagerUtils {
         return available
     }
     
-    /// 检查磁盘空间是否充足（> 100MB）
     func hasSufficientDiskSpace() -> Bool {
         guard let available = getAvailableDiskSpace() else { return true }
         return available > FileManagerUtils.minimumDiskSpaceBytes
     }
     
-    /// 格式化磁盘空间显示
     func formatDiskSpace(_ bytes: Int64) -> String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB, .useGB]
@@ -287,14 +182,14 @@ class FileManagerUtils {
         return formatter.string(fromByteCount: bytes)
     }
     
-    // MARK: - Crash 恢复
+    // MARK: - Crash 恢复 (V2.0: 临时文件扫描)
     
-    /// 录制中标记文件路径（用于 crash 恢复检测）
+    /// 录制中标记文件路径
     private var activeRecordingMarkerURL: URL {
-        fileManager.temporaryDirectory.appendingPathComponent(".audio_record_active")
+        fileManager.temporaryDirectory.appendingPathComponent(".audio_record_active_v2")
     }
     
-    /// 标记录制开始（写入 marker 文件）
+    /// 标记录制开始
     func markRecordingStarted(fileURL: URL) {
         do {
             try fileURL.path.write(to: activeRecordingMarkerURL, atomically: true, encoding: .utf8)
@@ -304,7 +199,7 @@ class FileManagerUtils {
         }
     }
     
-    /// 标记录制结束（删除 marker 文件）
+    /// 标记录制结束
     func markRecordingFinished() {
         if fileManager.fileExists(atPath: activeRecordingMarkerURL.path) {
             try? fileManager.removeItem(at: activeRecordingMarkerURL)
@@ -312,118 +207,137 @@ class FileManagerUtils {
         }
     }
     
-    /// 检查是否有未完成的录制（crash 恢复）
-    /// marker 文件中存储的是录制目录路径，恢复时找该目录中最近 5 分钟内创建的最新音频文件
+    /// 检查是否有未完成的临时录制文件（crash 恢复）
     func checkForUnfinishedRecording() -> URL? {
         guard fileManager.fileExists(atPath: activeRecordingMarkerURL.path) else {
             return nil
         }
         
-        do {
-            let directoryPath = try String(contentsOf: activeRecordingMarkerURL, encoding: .utf8)
-            let directoryURL = URL(fileURLWithPath: directoryPath)
+        // 清除标记
+        try? fileManager.removeItem(at: activeRecordingMarkerURL)
+        
+        let tempDir = fileManager.temporaryDirectory
+        let tempFiles = SecureDelete.findTemporaryRecordings(in: tempDir)
+        
+        return tempFiles.first
+    }
+    
+    /// 将临时录制文件恢复
+    func recoverTempRecording(from fileURL: URL) -> URL? {
+        // V2.0: 临时文件是 .caf，不需要重命名，直接返回
+        // 后续由调用方负责加密转为 .arlock
+        logger.info("发现待恢复临时录制: \(fileURL.lastPathComponent)")
+        return fileURL
+    }
+    
+    // MARK: - 编辑器辅助 (V2.0: 透明 .arlock 解密)
+    
+    /// 编辑器会话（透明处理 .arlock 加密）
+    /// 包含可播放 URL + 清理闭包
+    struct EditSession {
+        /// AVAudioFile 用于读取/写入的临时 .m4a 路径
+        let playableURL: URL
+        /// 是否是 .arlock 源（保存时需要重新加密）
+        let isArlock: Bool
+        /// .arlock 的 recording UUID（用于重新加密）
+        let recordingUUID: UUID?
+        /// 原始 .arlock URL（保存时用）
+        let originalURL: URL
+        /// 清理临时文件的闭包
+        let cleanup: () -> Void
+    }
+    
+    /// 准备编辑器：透明解密 .arlock 到临时 .m4a
+    /// - Parameter url: 文件 URL（.arlock 或标准音频）
+    /// - Returns: EditSession
+    func prepareForEditing(url: URL) throws -> EditSession {
+        if url.pathExtension.lowercased() == AudioCryptoConfig.fileExtension {
+            // .arlock: 解密到临时 .m4a
+            let (audioData, _) = try AudioFileEncryptor.shared.decrypt(from: url)
             
-            // 清除标记
-            try? fileManager.removeItem(at: activeRecordingMarkerURL)
+            let tempDir = fileManager.temporaryDirectory
+            let tempURL = tempDir.appendingPathComponent("\(AudioCryptoConfig.TempFilePattern.playbackPrefix)edit_\(UUID().uuidString).\(AudioCryptoConfig.TempFilePattern.m4aExtension)")
+            try audioData.write(to: tempURL, options: .atomic)
             
-            // 扫描目录中最近 5 分钟内创建的音频文件
-            let fiveMinutesAgo = Date().addingTimeInterval(-300)
-            let contents = try fileManager.contentsOfDirectory(
-                at: directoryURL,
-                includingPropertiesForKeys: [.creationDateKey, .fileSizeKey],
-                options: [.skipsHiddenFiles]
+            // 从 .arlock 路径提取 UUID (文件名就是 UUID)
+            let uuidString = url.deletingPathExtension().lastPathComponent
+            let recordingUUID = UUID(uuidString: uuidString)
+            
+            return EditSession(
+                playableURL: tempURL,
+                isArlock: true,
+                recordingUUID: recordingUUID,
+                originalURL: url,
+                cleanup: {
+                    SecureDelete.deleteFile(at: tempURL)
+                }
             )
-            
-            let recentAudio = contents
-                .filter { url in
-                    let ext = url.pathExtension.lowercased()
-                    return ["m4a", "wav", "mp3"].contains(ext)
-                }
-                .filter { url in
-                    guard let values = try? url.resourceValues(forKeys: [.creationDateKey]),
-                          let created = values.creationDate else { return false }
-                    return created > fiveMinutesAgo
-                }
-                .sorted { url1, url2 in
-                    let d1 = (try? url1.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
-                    let d2 = (try? url2.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
-                    return d1 > d2
-                }
-                .first
-            
-            if let latestFile = recentAudio,
-               let size = getFileSize(at: latestFile), size > 0 {
-                logger.info("发现未完成的录制文件: \(latestFile.lastPathComponent), 大小: \(formatFileSize(size))")
-                return latestFile
-            } else {
-                logger.info("未发现最近的未完成录制文件，跳过恢复")
-                return nil
-            }
-        } catch {
-            logger.error("检查未完成录制失败: \(error.localizedDescription)")
-            try? fileManager.removeItem(at: activeRecordingMarkerURL)
-            return nil
+        } else {
+            // 标准音频文件：直接使用
+            return EditSession(
+                playableURL: url,
+                isArlock: false,
+                recordingUUID: nil,
+                originalURL: url,
+                cleanup: {}
+            )
         }
     }
     
-    /// 将录制文件标记为已恢复（重命名加前缀）
-    func recoverRecording(from fileURL: URL) -> URL? {
-        let directory = fileURL.deletingLastPathComponent()
-        let recoveredName = "恢复_\(fileURL.lastPathComponent)"
-        let destinationURL = directory.appendingPathComponent(recoveredName)
+    /// 提交编辑：如果是 .arlock 源，重新加密
+    /// - Parameters:
+    ///   - session: 编辑器会话
+    ///   - buffer: 编辑后的 PCM buffer
+    ///   - format: 音频格式
+    /// - Throws: 加密失败
+    func finalizeEdit(session: EditSession, buffer: AVAudioPCMBuffer, format: AVAudioFormat) throws {
+        // 1. 把编辑后的 buffer 写到 playableURL
+        let audioFile = try AVAudioFile(forWriting: session.playableURL, settings: format.settings)
+        try audioFile.write(from: buffer)
+        
+        // 2. 如果是 .arlock 源，重新加密
+        if session.isArlock {
+            let audioData = try Data(contentsOf: session.playableURL)
+            
+            // 重新读原 .arlock 的元数据（保持元数据，title 等不变）
+            let (_, originalMetadata) = try AudioFileEncryptor.shared.decrypt(from: session.originalURL)
+            
+            // 用原 UUID 重新加密
+            let uuid = session.recordingUUID ?? generateRecordingUUID()
+            try AudioFileEncryptor.shared.encryptAndWrite(
+                audioData: audioData,
+                metadata: originalMetadata,
+                recordingUUID: uuid,
+                outputURL: session.originalURL
+            )
+        }
+    }
+    
+    // MARK: - 旧文件迁移 (V2.0)
+    
+    /// 检查旧版录音目录是否有未迁移的 .m4a/.wav 文件
+    func checkLegacyRecordings() -> [URL] {
+        let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let legacyDir = documentsPath.appendingPathComponent("AudioRecordings")
+        
+        guard fileManager.fileExists(atPath: legacyDir.path) else { return [] }
         
         do {
-            if fileManager.fileExists(atPath: destinationURL.path) {
-                try fileManager.removeItem(at: destinationURL)
+            let files = try fileManager.contentsOfDirectory(at: legacyDir, includingPropertiesForKeys: nil)
+            return files.filter { url in
+                let ext = url.pathExtension.lowercased()
+                return ["m4a", "wav", "mp3", "caf"].contains(ext)
             }
-            try fileManager.copyItem(at: fileURL, to: destinationURL)
-            logger.info("录制文件已恢复: \(recoveredName)")
-            return destinationURL
         } catch {
-            // 复制失败时，原文件仍可用，直接返回原路径
-            logger.warning("重命名恢复失败，使用原文件: \(error.localizedDescription)")
-            return fileURL
+            logger.error("检查旧版录音失败: \(error.localizedDescription)")
+            return []
         }
     }
     
-    // MARK: - File Integrity Check
-    
-    /// 检查音频文件完整性
-    /// 尝试用 AVAudioFile 打开文件，如果能读取长度则文件完整
-    func checkFileIntegrity(at url: URL) -> FileIntegrityResult {
-        guard fileManager.fileExists(atPath: url.path) else {
-            return .missing
-        }
-        
-        guard let size = getFileSize(at: url) else {
-            return .corrupted(reason: "无法读取文件大小")
-        }
-        
-        if size == 0 {
-            return .corrupted(reason: "文件大小为 0")
-        }
-        
-        // 尝试用 AVAudioFile 打开
-        do {
-            let audioFile = try AVAudioFile(forReading: url)
-            let duration = Double(audioFile.length) / audioFile.fileFormat.sampleRate
-            if duration <= 0 {
-                return .corrupted(reason: "音频时长为 0")
-            }
-            return .valid(duration: duration, size: size)
-        } catch {
-            return .corrupted(reason: error.localizedDescription)
-        }
-    }
-    
-    enum FileIntegrityResult {
-        case valid(duration: TimeInterval, size: Int64)
-        case corrupted(reason: String)
-        case missing
-        
-        var isValid: Bool {
-            if case .valid = self { return true }
-            return false
-        }
+    /// 批量迁移旧版 .m4a/.wav 到 .arlock（P2 功能，暂不实现）
+    func migrateLegacyRecording(from url: URL) -> URL? {
+        // TODO: V2.1+ 实现批量加密迁移
+        logger.info("旧版文件迁移功能将在 V2.1 实现: \(url.lastPathComponent)")
+        return nil
     }
 }

@@ -12,7 +12,10 @@ class EditorTrackRowView: NSView {
     
     // MARK: - Constants
     static let headerWidth: CGFloat = 80
-    static let rowHeight: CGFloat = 120
+    /// 轨道行高度 = 140（容器），其中 clip 块占 ~90px（居中 64%），
+    /// 上下各 25px 留白给 clip 标签和呼吸感。
+    /// 体现"轨道是容器，clip 是被吸附内容"的设计意图。
+    static let rowHeight: CGFloat = 140
     
     // MARK: - Properties
     weak var delegate: EditorTrackRowViewDelegate?
@@ -33,10 +36,12 @@ class EditorTrackRowView: NSView {
         self.trackIndex = trackIndex
         self.trackColor = trackColor
         super.init(frame: .zero)
-        
+
         trackNumberLabel.stringValue = "\(trackIndex + 1)"
         trackNameLabel.stringValue = trackName
         setupView()
+        // P0-C: 把轨道名作为占位 clip 名称（后续接入 AudioClip 后改用 clip.name）
+        waveformView.clipName = trackName
     }
     
     required init?(coder: NSCoder) {

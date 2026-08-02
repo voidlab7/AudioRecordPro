@@ -106,6 +106,25 @@
   }
   .zoom-value { font: 10px "SF Mono", ui-monospace, monospace; color: var(--on-variant); width: 34px; }
 
+  /* v1.5 溢出菜单（⋮ 更多编辑工具） */
+  .overflow-wrap { position: relative; }
+  .overflow-menu {
+    position: absolute; top: 32px; left: 0; z-index: 100; min-width: 200px;
+    background: var(--surface-bright); border-radius: 10px; padding: 4px;
+    display: none; flex-direction: column; gap: 1px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  }
+  .overflow-menu.open { display: flex; }
+  .ov-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border: none; background: transparent; border-radius: 6px; cursor: pointer;
+    color: var(--on-surface); font-size: 12px; text-align: left;
+    transition: background .12s ease-out;
+  }
+  .ov-item:hover { background: var(--surface-high); }
+  .ov-item svg { width: 15px; height: 15px; color: var(--on-variant); flex: none; }
+  .ov-meta { margin-left: auto; font-size: 10px; color: var(--text-tertiary); }
+
   /* ═══════════ 四层层次模型 ═══════════
      L0 面板底      #1B1B1F（窗口/走带/状态栏）
      L1 轨道道床    #1B1B1F（凹陷操作区）
@@ -144,10 +163,6 @@
   .track-num { font-size: 10px; font-weight: 500; color: var(--text-tertiary); }
   .track-icon { color: var(--coral); height: 16px; display: flex; align-items: center; }
   .track-icon svg { width: 15px; height: 15px; }
-  .track-name {
-    font-size: 10px; color: var(--on-surface); white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; max-width: 60px;
-  }
   .track-ms { display: flex; gap: 6px; margin-top: auto; }
   .ms-btn {
     width: 18px; height: 18px; border-radius: 6px; border: 1px solid var(--outline-variant);
@@ -159,10 +174,10 @@
   .ms-btn.m-on { background: var(--warning); border-color: var(--warning); color: #1B1B1F; }
   .ms-btn.s-on { background: var(--primary); border-color: var(--primary); color: #1B1B1F; }
 
-  /* L1 轨道背景板（通栏 #232327，板间 2px 缝隙透 L0） */
-  .track-gap { height: 2px; background: var(--surface); flex: none; }
+  /* L1 轨道背景板（v1.5：圆角卡片化，6px 圆角 + 外边距，对齐剪映） */
   .clip-lane {
-    flex: 1; position: relative; background: var(--track-plate); padding: 0;
+    flex: 1; position: relative; background: var(--track-plate);
+    border-radius: 6px; margin: 0 4px 4px 4px;
     transition: background .12s ease-out;
   }
   .clip-lane:hover { background: var(--track-plate-hover); }
@@ -181,17 +196,19 @@
   }
   .clip:hover { border-color: var(--clip-border-hover); }
   .clip.selected { border-color: var(--clip-border-selected); }
-  .clip-namerow {
-    height: 16px; display: flex; align-items: center; justify-content: space-between;
-    padding: 0 8px; position: relative; z-index: 2;
+  /* v1.5：名称改为覆盖式 chip（对齐剪映，叠在波形上，去掉独立名称行） */
+  .clip-name-chip {
+    position: absolute; top: 4px; left: 6px; z-index: 3;
+    background: rgba(27,27,31,.7); border-radius: 3px; padding: 2px 6px;
+    font-size: 10px; color: #fff; line-height: 1.3;
+    max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    pointer-events: none;
   }
-  .clip-name { font-size: 11px; color: var(--on-surface); }
-  .clip-dur { font: 10px "SF Mono", ui-monospace, monospace; color: var(--text-tertiary); }
-  .clip-wave { position: absolute; left: 0; right: 0; top: 16px; bottom: 0; }
+  .clip-wave { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
   .clip-wave svg { display: block; width: 100%; height: 100%; }
 
   .fade-handle {
-    position: absolute; top: 16px; width: 0; height: 0; z-index: 4; cursor: ew-resize;
+    position: absolute; top: 2px; width: 0; height: 0; z-index: 4; cursor: ew-resize;
     border-left: 5px solid transparent; border-right: 5px solid transparent;
     border-top: 8px solid #fff; opacity: .9;
   }
@@ -216,16 +233,15 @@
     background: rgba(255,255,255,.4); z-index: 5; pointer-events: none;
   }
 
-  /* 播放头：手柄挂 ruler 色带下缘，线体全高贯穿 */
+  /* 播放头 v1.6：白色细线 + 白色胶囊手柄（对齐剪映），挂 ruler 色带下缘，全高贯穿 */
   .playhead {
-    position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--critical);
-    z-index: 10; pointer-events: none; opacity: .9;
+    position: absolute; top: 0; bottom: 0; width: 1.5px; background: rgba(255,255,255,.92);
+    z-index: 10; pointer-events: none;
   }
   .playhead-handle {
-    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-    width: 0; height: 0; pointer-events: auto; cursor: ew-resize;
-    border-left: 6px solid transparent; border-right: 6px solid transparent;
-    border-top: 10px solid var(--critical);
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: 5px; height: 13px; border-radius: 2.5px; background: #fff;
+    pointer-events: auto; cursor: ew-resize;
   }
   .playhead-bubble {
     position: absolute; top: 26px; left: 8px;
@@ -249,10 +265,6 @@
     position: absolute; bottom: 20px; top: 26px; left: 6px; width: 8px;
     display: flex; flex-direction: column-reverse; gap: 1px;
   }
-  .db-seg { flex: 1; border-radius: 1px; background: rgba(255,255,255,.06); }
-  .db-seg.on-g { background: var(--led-green); }
-  .db-seg.on-y { background: var(--led-yellow); }
-  .db-seg.on-o { background: var(--led-orange); }
   .db-lr {
     position: absolute; bottom: 5px; left: 0; right: 0; text-align: center;
     font: 8px "SF Mono", ui-monospace, monospace; color: var(--text-tertiary);
@@ -356,8 +368,8 @@
 <body>
 
 <div class="doc-note">
-  <span><b>AudioRecord V3.1 · v1.4</b> · 编辑器全布局 · 参考剪映专业版</span>
-  <span>左侧 Sidebar 文件列表 · 轨道背景板 · 单一工具栏</span>
+  <span><b>AudioRecord V3.1 · v1.6</b> · 二轮对齐剪映 · 参考剪映专业版</span>
+  <span>白色播放头 · 轨道头极简化 · ruler 稀疏刻度 · 空板图标</span>
 </div>
 
 <div class="window">
@@ -401,9 +413,26 @@
     <div class="et-section">
       <button class="icon-btn small" title="切分 (S)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.5 8.5 20 20M8.5 15.5 20 4"/></svg></button>
       <button class="icon-btn small disabled" title="删除 (⌫)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2m1 0-1 14H8L7 6"/></svg></button>
-      <button class="icon-btn small" title="静音裁剪"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg></button>
-      <button class="icon-btn small" title="标准化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h3l2-7 4 14 3-10 2 3h4"/></svg></button>
-      <button class="icon-btn small" title="淡入淡出"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18c4-9 6-13 9-13s5 4 9 13"/></svg></button>
+      <!-- v1.5：次要编辑工具收进 ⋮ 溢出菜单（对齐剪映主区仅 split+delete） -->
+      <div class="overflow-wrap">
+        <button class="icon-btn small" id="overflowBtn" title="更多编辑工具">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </button>
+        <div class="overflow-menu" id="overflowMenu">
+          <button class="ov-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="m22 9-6 6M16 9l6 6"/></svg>
+            静音裁剪<span class="ov-meta">检测并移除静音段</span>
+          </button>
+          <button class="ov-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h3l2-7 4 14 3-10 2 3h4"/></svg>
+            标准化<span class="ov-meta">播客 -16 LUFS</span>
+          </button>
+          <button class="ov-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18c4-9 6-13 9-13s5 4 9 13"/></svg>
+            淡入淡出<span class="ov-meta">拖柄或数值输入</span>
+          </button>
+        </div>
+      </div>
     </div>
     <span class="et-sep"></span>
     <div class="et-section">
@@ -442,7 +471,6 @@
           <span class="track-colorbar"></span>
           <span class="track-num">1</span>
           <span class="track-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h2l2-6 3 12 3-16 3 14 2-4h3"/></svg></span>
-          <span class="track-name">mixed_QQM…</span>
           <span class="track-ms">
             <button class="ms-btn" id="btnM" title="Mute">M</button>
             <button class="ms-btn" id="btnS" title="Solo">S</button>
@@ -450,12 +478,9 @@
         </div>
 
         <div class="clip-lane" id="clipLane">
-          <!-- L3 Clip 卡片（white@15% 边框，悬浮道床上） -->
+          <!-- L3 Clip 卡片（white@15% 边框 + v1.5 名称 chip 覆盖） -->
           <div class="clip selected" id="clip">
-            <div class="clip-namerow">
-              <span class="clip-name">mixed_QQMusic.wav</span>
-              <span class="clip-dur">00:11.33</span>
-            </div>
+            <span class="clip-name-chip">mixed_QQMusic.wav</span>
             <div class="clip-wave" id="clipWave"></div>
             <div class="fade-handle fade-in"><span class="fade-tag">淡入 0.8s</span></div>
             <div class="fade-handle fade-out"></div>
@@ -467,23 +492,22 @@
         </div>
       </div>
 
-      <!-- 板间 2px 缝隙（透 L0） -->
-      <div class="track-gap"></div>
-
-      <!-- L1 轨道 2：空板 + 引导文案（演示多轨堆叠） -->
+      <!-- L1 轨道 2：空板 + 引导文案（板外边距自然形成缝隙，演示多轨堆叠） -->
       <div class="track-row">
         <div class="track-head">
           <span class="track-colorbar" style="background:var(--primary)"></span>
           <span class="track-num">2</span>
           <span class="track-icon" style="color:var(--primary)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h2l2-6 3 12 3-16 3 14 2-4h3"/></svg></span>
-          <span class="track-name" style="color:var(--text-tertiary)">空轨道</span>
           <span class="track-ms">
             <button class="ms-btn" title="Mute">M</button>
             <button class="ms-btn" title="Solo">S</button>
           </span>
         </div>
         <div class="clip-lane empty">
-          <span class="lane-hint">拖拽音频文件到此轨道</span>
+          <span class="lane-hint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:22px;height:22px;display:block;margin:0 auto 6px;opacity:.7"><path d="M3 12h2l2-6 3 12 3-16 3 14 2-4h3"/></svg>
+            拖拽音频文件到此轨道
+          </span>
         </div>
       </div>
 
@@ -497,7 +521,6 @@
     <!-- dB 尺 -->
     <div class="db-ruler" id="dbRuler">
       <div class="db-meter" id="dbMeter"></div>
-      <span class="db-lr">L R</span>
     </div>
   </div>
 
@@ -578,20 +601,23 @@
   const dur = 11.33, marks = [];
   for (let t = 0; t <= Math.ceil(dur); t++) {
     const x = 10 + (t / dur) * (W - 20);
-    marks.push(`<line x1="${x}" y1="14" x2="${x}" y2="24" stroke="rgba(255,255,255,.24)" stroke-width="1"/>`);
-    marks.push(`<text x="${x + 3}" y="17" fill="#6B6B70" font-size="9" font-family="SF Mono, ui-monospace, monospace">0:${String(t).padStart(2,'0')}</text>`);
+    const major = t % 2 === 0; // v1.6：稀疏标签（对齐剪映），仅偶数秒带文字
+    marks.push(`<line x1="${x}" y1="${major ? 14 : 18}" x2="${x}" y2="24" stroke="rgba(255,255,255,${major ? .24 : .12})" stroke-width="1"/>`);
+    if (major) {
+      marks.push(`<text x="${x + 3}" y="17" fill="#6B6B70" font-size="9" font-family="SF Mono, ui-monospace, monospace">0:${String(t).padStart(2,'0')}</text>`);
+    }
     if (t < dur) {
       const xm = x + (0.5 / dur) * (W - 20);
-      marks.push(`<line x1="${xm}" y1="19" x2="${xm}" y2="24" stroke="rgba(255,255,255,.12)" stroke-width="1"/>`);
+      marks.push(`<line x1="${xm}" y1="20" x2="${xm}" y2="24" stroke="rgba(255,255,255,.08)" stroke-width="1"/>`);
     }
   }
   ruler.innerHTML = `<svg width="100%" height="24">${marks.join('')}</svg>`;
 })();
 
-// ── Waveform（程序生成，珊瑚橙填充 + fade-in 渐变） ──
+// ── Waveform v1.5（双色调：实体填充 coral@55% + 亮峰包络 accent #E85050，对齐剪映"亮峰+实底"） ──
 (function () {
   const host = document.getElementById('clipWave');
-  const W = host.clientWidth || 700, H = host.clientHeight || 56;
+  const W = host.clientWidth || 700, H = host.clientHeight || 76;
   const N = Math.floor(W / 2);
   let seed = 42;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -603,42 +629,58 @@
     return Math.max(0.06, Math.min(1, music)) * fade;
   };
   const mid = H / 2;
-  let top = `M0 ${mid}`, bottom = '';
+  let top = `M0 ${mid}`, bottom = '', peaks = `M0 ${mid}`;
   for (let i = 0; i <= N; i++) {
     const x = (i / N) * W;
-    const a = env(i) * (H * 0.44);
+    const a = env(i) * (H * 0.42);
     top += ` L${x.toFixed(1)} ${(mid - a).toFixed(1)}`;
     bottom = ` L${x.toFixed(1)} ${(mid + a).toFixed(1)}` + bottom;
+    // 峰线：只画上半包络的顶部 55%（亮峰）
+    const peakA = a * 0.55 + a * 0.45 * Math.abs(Math.sin(i * 0.7));
+    peaks += ` L${x.toFixed(1)} ${(mid - peakA).toFixed(1)}`;
   }
   const d = top + bottom + ' Z';
   host.innerHTML = `
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-      <path d="${d}" fill="rgba(232,120,80,.75)" stroke="rgba(232,120,80,.95)" stroke-width="1"/>
-      <line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="rgba(255,255,255,.22)" stroke-width="1"/>
+      <path d="${d}" fill="rgba(232,120,80,.55)"/>
+      <path d="${peaks}" fill="none" stroke="rgba(232,80,80,.85)" stroke-width="1.2"/>
+      <line x1="0" y1="${mid}" x2="${W}" y2="${mid}" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
     </svg>`;
 })();
 
-// ── dB ruler ticks + meter segments ──
+// ── dB ruler v1.5：刻度 + 虚线参考线 + L/R 底部电平条（对齐剪映） ──
 (function () {
   const ruler = document.getElementById('dbRuler');
   const ticks = [['0', true], ['-6', false], ['-12', false], ['-24', false], ['-48', false]];
   const H = ruler.clientHeight || 120;
+  const W = ruler.clientWidth || 36;
   ticks.forEach(([label, zero], i) => {
+    const y = 8 + i * ((H - 56) / (ticks.length - 1));
     const el = document.createElement('div');
     el.className = 'db-tick' + (zero ? ' zero' : '');
     el.textContent = label;
-    el.style.top = `${8 + i * ((H - 42) / (ticks.length - 1))}px`;
+    el.style.top = `${y}px`;
     ruler.appendChild(el);
+    // 虚线参考线（横向贯穿尺面板）
+    const dash = document.createElement('div');
+    dash.style.cssText = `position:absolute;left:4px;right:4px;top:${y + 5}px;border-top:1px dashed rgba(255,255,255,.14);pointer-events:none;`;
+    ruler.appendChild(dash);
   });
+  // L/R 双通道电平条（底部，白色横条，对齐剪映）
   const meter = document.getElementById('dbMeter');
-  const total = 28, lit = 19;
-  for (let i = 0; i < total; i++) {
-    const seg = document.createElement('div');
-    seg.className = 'db-seg';
-    const pct = i / total;
-    if (i < lit) seg.className += pct > 0.95 ? ' on-r' : pct > 0.8 ? ' on-o' : pct > 0.6 ? ' on-y' : ' on-g';
-    meter.appendChild(seg);
-  }
+  meter.style.cssText = 'position:absolute;bottom:22px;left:6px;right:6px;height:34px;display:flex;align-items:flex-end;gap:6px;';
+  [['L', 0.68], ['R', 0.55]].forEach(([ch, lv]) => {
+    const col = document.createElement('div');
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;';
+    const bar = document.createElement('div');
+    const lit = lv > 0.6 ? 'var(--led-green)' : 'rgba(255,255,255,.85)';
+    bar.style.cssText = `width:100%;height:${Math.round(lv * 30)}px;background:${lit};border-radius:1px;`;
+    const lab = document.createElement('span');
+    lab.textContent = ch;
+    lab.style.cssText = 'font:8px "SF Mono",ui-monospace,monospace;color:var(--text-tertiary);';
+    col.appendChild(bar); col.appendChild(lab);
+    meter.appendChild(col);
+  });
 })();
 
 // ── Interactions ──
@@ -648,6 +690,16 @@ document.getElementById('btnS').addEventListener('click', function () { this.cla
 document.getElementById('zoomRange').addEventListener('input', function () {
   document.getElementById('zoomVal').textContent = this.value + '%';
 });
+
+// ── v1.5 溢出菜单（⋮） ──
+(function () {
+  const btn = document.getElementById('overflowBtn');
+  const menu = document.getElementById('overflowMenu');
+  btn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
+  document.addEventListener('click', () => menu.classList.remove('open'));
+  menu.querySelectorAll('.ov-item').forEach((it) =>
+    it.addEventListener('click', () => menu.classList.remove('open')));
+})();
 
 // ── Clip 选中态切换演示 ──
 document.getElementById('clip').addEventListener('click', function () { this.classList.toggle('selected'); });

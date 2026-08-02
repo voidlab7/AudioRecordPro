@@ -33,7 +33,10 @@ swiftc \
   -framework CoreAudio \
   -framework AudioToolbox \
   -framework IOKit \
+  -framework CryptoKit \
   -framework ServiceManagement \
+  -framework ScreenCaptureKit \
+  -framework Accelerate \
   -o "$MACOS_DIR/$APP_NAME" \
   $SDK_SOURCES \
   $APP_SOURCES

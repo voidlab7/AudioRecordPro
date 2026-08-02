@@ -1,7 +1,7 @@
 import Cocoa
 import ServiceManagement
 
-/// 设置窗口控制器 — macOS 标准偏好设置窗口（工业风格）
+/// 设置窗口控制器 (V2.0: 移除"存储位置"设置项)
 class SettingsWindowController: NSWindowController {
     
     // MARK: - Singleton
@@ -11,20 +11,18 @@ class SettingsWindowController: NSWindowController {
     struct Keys {
         static let recordingFormat = "recordingFormat"
         static let sampleRate = "sampleRate"
-        static let recordingsDirectory = "recordingsDirectory"
         static let launchAtLogin = "launchAtLogin"
     }
     
     // MARK: - UI Components
     private let formatPopup = NSPopUpButton()
     private let sampleRatePopup = NSPopUpButton()
-    private let directoryLabel = NSTextField(labelWithString: "")
     private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "开机自动启动", target: nil, action: nil)
     
     // MARK: - Initialization
     private init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 240),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -82,20 +80,12 @@ class SettingsWindowController: NSWindowController {
         sampleRatePopup.action = #selector(sampleRateChanged)
         stackView.addArrangedSubview(sampleRateRow)
         
-        // 存储位置
-        directoryLabel.textColor = NSColor.secondaryLabelColor
-        directoryLabel.font = NSFont.systemFont(ofSize: 11)
-        directoryLabel.lineBreakMode = .byTruncatingMiddle
-        directoryLabel.maximumNumberOfLines = 1
-        directoryLabel.preferredMaxLayoutWidth = 280
-        
-        let browseButton = NSButton(title: "更改…", target: self, action: #selector(browseDirectory))
-        browseButton.bezelStyle = .rounded
-        
-        let dirInner = NSStackView(views: [directoryLabel, browseButton])
-        dirInner.spacing = 8
-        let dirRow = makeRow("存储位置:", dirInner)
-        stackView.addArrangedSubview(dirRow)
+        // 安全提示：文件加密存储
+        let securityHint = makeLabel("录音文件以加密格式存储在 App 容器内，外部不可直接播放。导出时会生成标准音频文件。", size: 11)
+        securityHint.textColor = NSColor.secondaryLabelColor
+        securityHint.lineBreakMode = .byWordWrapping
+        securityHint.preferredMaxLayoutWidth = 420
+        stackView.addArrangedSubview(securityHint)
         
         // 分隔线
         let separator = NSBox()
@@ -147,20 +137,12 @@ class SettingsWindowController: NSWindowController {
     private func loadSettings() {
         let defaults = UserDefaults.standard
         
-        // 录制格式
         let format = defaults.string(forKey: Keys.recordingFormat) ?? "m4a"
         formatPopup.selectItem(at: format == "wav" ? 1 : 0)
         
-        // 采样率
         let rate = defaults.integer(forKey: Keys.sampleRate)
         sampleRatePopup.selectItem(at: rate == 44100 ? 0 : 1)
         
-        // 存储位置
-        let dir = defaults.string(forKey: Keys.recordingsDirectory)
-            ?? FileManagerUtils.shared.getRecordingsDirectory().path
-        directoryLabel.stringValue = dir
-        
-        // 开机启动
         launchAtLoginCheckbox.state = defaults.bool(forKey: Keys.launchAtLogin) ? .on : .off
     }
     
@@ -177,27 +159,10 @@ class SettingsWindowController: NSWindowController {
         NotificationCenter.default.post(name: .settingsChanged, object: nil)
     }
     
-    @objc private func browseDirectory() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.prompt = "选择"
-        panel.message = "选择录音文件保存位置"
-        
-        panel.begin { [weak self] response in
-            if response == .OK, let url = panel.url {
-                UserDefaults.standard.set(url.path, forKey: Keys.recordingsDirectory)
-                self?.directoryLabel.stringValue = url.path
-                NotificationCenter.default.post(name: .settingsChanged, object: nil)
-            }
-        }
-    }
-    
     @objc private func launchAtLoginChanged() {
         let enabled = launchAtLoginCheckbox.state == .on
         UserDefaults.standard.set(enabled, forKey: Keys.launchAtLogin)
         
-        // macOS 13+ 使用 SMAppService
         if #available(macOS 13.0, *) {
             do {
                 if enabled {

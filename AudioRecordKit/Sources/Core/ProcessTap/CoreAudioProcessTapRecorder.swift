@@ -131,7 +131,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         )
         
         // 创建音频文件
-        let fileURL = FileManagerUtils.shared.getRecordingFileURL(recordingMode: recordingMode, appName: getTargetAppName(), format: "wav")
+        let fileURL = FileManagerUtils.shared.getTempRecordingFileURL(prefix: "\(recordingMode)_\(getTargetAppName() ?? "unknown")", format: "wav")
         
         audioToolboxFileManager = AudioToolboxFileManager(audioFormat: streamFormat)
         do {
@@ -211,7 +211,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         let appName = getTargetAppName()
         
         // 生成文件名
-        let defaultURL = fileManager.getRecordingFileURL(recordingMode: recordingMode, appName: appName, format: "wav")
+        let defaultURL = fileManager.getTempRecordingFileURL(prefix: "\(recordingMode)_\(appName ?? "unknown")", format: "wav")
         let fileName = defaultURL.lastPathComponent
         
         do {

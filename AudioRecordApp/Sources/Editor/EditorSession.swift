@@ -1,4 +1,5 @@
 import AVFoundation
+import Foundation
 
 // MARK: - ViewportState
 /// 编辑器视口状态快照 — 用于文件切换时保持/恢复状态
@@ -56,7 +57,9 @@ class EditorSession {
             guard let self = self else { return }
 
             do {
-                let audioFile = try AVAudioFile(forReading: self.file.url)
+                // V2.0: .arlock 透明解密到临时 .m4a
+                let editSession = try FileManagerUtils.shared.prepareForEditing(url: self.file.url)
+                let audioFile = try AVAudioFile(forReading: editSession.playableURL)
                 let format = audioFile.processingFormat
                 let fileLength = audioFile.length
                 let frameCount = AVAudioFrameCount(fileLength)
@@ -68,10 +71,24 @@ class EditorSession {
                         self.isLoading = false
                         completion(false)
                     }
+                    editSession.cleanup()
                     return
                 }
 
                 try audioFile.read(into: buffer)
+                // 读完后才清理临时文件
+                editSession.cleanup()
+
+                // DEBUG V2.0: 验证 buffer
+                let readFrames = Int(buffer.frameLength)
+                var bufMax: Float = 0
+                if let chData = buffer.floatChannelData, readFrames > 0 {
+                    for i in 0..<min(readFrames, 1000) {
+                        let v = abs(chData[0][i])
+                        if v > bufMax { bufMax = v }
+                    }
+                }
+                Logger.shared.info("🔍 SESSION DEBUG: readFrames=\(readFrames), firstFrameMax=\(bufMax)")
 
                 DispatchQueue.main.async {
                     self.audioBuffer = buffer

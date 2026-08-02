@@ -11,7 +11,26 @@ struct AudioAsset {
     let channelCount: Int
     let fileSize: Int64
     let modifiedAt: Date
-    
+
+    /// V2.0: 实际用于读取的可播放 URL（.arlock 场景下指向解密后的临时 .m4a）
+    /// 为 nil 时回退到 url。缓存 key 仍用 url，保持稳定。
+    let playableURL: URL?
+
+    init(id: String, url: URL, duration: TimeInterval, sampleRate: Double,
+         channelCount: Int, fileSize: Int64, modifiedAt: Date, playableURL: URL? = nil) {
+        self.id = id
+        self.url = url
+        self.duration = duration
+        self.sampleRate = sampleRate
+        self.channelCount = channelCount
+        self.fileSize = fileSize
+        self.modifiedAt = modifiedAt
+        self.playableURL = playableURL
+    }
+
+    /// 实际读取音频的 URL（优先 playableURL，否则 url）
+    var readURL: URL { playableURL ?? url }
+
     /// Generate stable ID from file metadata + algorithm version.
     /// Changes in file size, modification time, or algorithm version invalidate the cache.
     static func makeID(url: URL, fileSize: Int64, modifiedAt: Date, algorithmVersion: Int) -> String {
