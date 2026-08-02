@@ -203,9 +203,15 @@ class ExportCardWindowController: NSWindowController {
         guard idx >= 0 && idx < AudioExportFormat.allCases.count else { return }
         let format = AudioExportFormat.allCases[idx]
         
-        if idx >= 2 {
-            statusLabel.stringValue = "⚠️ \(format.displayName) 需要安装 ffmpeg"
-            statusLabel.textColor = NSColor.systemOrange
+        // FLAC/OGG 仅在 ffmpeg 不可用时显示警告
+        if format == .flac || format == .ogg {
+            let hasFFmpeg = ExportService.hasFFmpeg()
+            if !hasFFmpeg {
+                statusLabel.stringValue = "⚠️ \(format.displayName) 需要 ffmpeg (brew install ffmpeg)"
+                statusLabel.textColor = NSColor.systemOrange
+            } else {
+                statusLabel.stringValue = ""
+            }
         } else {
             statusLabel.stringValue = ""
         }

@@ -16,6 +16,10 @@ class TrackContainerView: NSView {
     private let rulerView = TimeRulerView()
     private let rulerHeight: CGFloat = 22
 
+    /// 播放头/游标线 overlay — 覆盖 ruler + 所有 track 行，
+    /// x 坐标与 ruler 共享同一公式（精准卡住时间刻度）
+    private let playheadOverlay = PlayheadOverlayView()
+
     /// 轨道行
     private(set) var trackRows: [EditorTrackRowView] = []
 
@@ -69,6 +73,13 @@ class TrackContainerView: NSView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
 
+        // 播放头 overlay — 覆盖整个 trackContainer（ruler + 所有轨道），
+        // x 坐标与 ruler 共享同一公式，从 ruler 底部贯穿到 trackContainer 底部
+        playheadOverlay.translatesAutoresizingMaskIntoConstraints = false
+        playheadOverlay.headerWidth = EditorTrackRowView.headerWidth  // 与 ruler 同步
+        playheadOverlay.rulerHeight = rulerHeight
+        addSubview(playheadOverlay)
+
         // 关键：ruler 顶部固定，stackView 紧贴 ruler 下方填满底部
         // — 不再依赖 NSStackView spacer 拉伸（已知 bug：.fill 按添加顺序分配剩余空间）
         NSLayoutConstraint.activate([
@@ -83,6 +94,12 @@ class TrackContainerView: NSView {
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
             stackView.topAnchor.constraint(equalTo: rulerView.bottomAnchor),
             stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            // playhead overlay 覆盖整个 trackContainer（在 ruler 和 stackView 之上）
+            playheadOverlay.leadingAnchor.constraint(equalTo: leadingAnchor),
+            playheadOverlay.trailingAnchor.constraint(equalTo: trailingAnchor),
+            playheadOverlay.topAnchor.constraint(equalTo: topAnchor),
+            playheadOverlay.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
     }
 
@@ -94,6 +111,14 @@ class TrackContainerView: NSView {
     ///   - duration: 可见时间长度（秒）
     func updateRulerViewport(start: TimeInterval, duration: TimeInterval) {
         rulerView.updateViewport(start: start, duration: duration)
+        // playhead overlay 共享 ruler 坐标系 — 同步
+        playheadOverlay.visibleStartTime = start
+        playheadOverlay.visibleDuration = duration
+    }
+
+    /// 同步播放头位置（外部在 seek / 播放进度更新时调用）
+    func updatePlayhead(time: TimeInterval) {
+        playheadOverlay.playbackTime = time
     }
     
     // MARK: - Track Management

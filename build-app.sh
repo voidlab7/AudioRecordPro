@@ -56,18 +56,42 @@ elif [ -d "$ROOT_DIR/assets" ]; then
   rsync -a "$ROOT_DIR/assets/" "$RESOURCES_DIR/"
 fi
 
+# V2.0: 复制 ffmpeg 到 App Resources（如已安装）
+echo "🎬 检查 ffmpeg..."
+FFMPEG_SRC=""
+for candidate in /opt/homebrew/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
+  if [ -x "$candidate" ]; then FFMPEG_SRC="$candidate"; break; fi
+done
+if [ -n "$FFMPEG_SRC" ]; then
+  cp "$FFMPEG_SRC" "$RESOURCES_DIR/ffmpeg"
+  chmod +x "$RESOURCES_DIR/ffmpeg"
+  echo "   ✅ ffmpeg → App Resources"
+else
+  echo "   ⚠️  未找到 ffmpeg，FLAC/OGG 导出将不可用"
+  echo "   安装: brew install ffmpeg"
+fi
+
 echo "🔐 [5/5] 代码签名..."
 # 检查是否有 entitlements
-if [ -f "$ROOT_DIR/AudioRecordApp/Resources/AudioRecordMac.entitlements" ]; then
+ENTITLEMENTS=""
+for candidate in \
+  "$ROOT_DIR/AudioRecordApp/Resources/AudioRecordMac.entitlements" \
+  "$ROOT_DIR/AudioRecordMac.entitlements" \
+  "$ROOT_DIR/BuildResources/AudioRecordMac.entitlements"; do
+  if [ -f "$candidate" ]; then ENTITLEMENTS="$candidate"; break; fi
+done
+if [ -n "$ENTITLEMENTS" ]; then
   codesign --force --sign - \
-    --entitlements "$ROOT_DIR/AudioRecordApp/Resources/AudioRecordMac.entitlements" \
+    --entitlements "$ENTITLEMENTS" \
     "$MACOS_DIR/$APP_NAME"
   codesign --force --sign - \
-    --entitlements "$ROOT_DIR/AudioRecordApp/Resources/AudioRecordMac.entitlements" \
+    --entitlements "$ENTITLEMENTS" \
     "$APP_DIR"
+  echo "   ✅ 已签名（含 entitlements）"
 else
   codesign --force --sign - "$MACOS_DIR/$APP_NAME"
   codesign --force --sign - "$APP_DIR"
+  echo "   ✅ 已签名（无 entitlements）"
 fi
 
 echo "✅ 构建完成！"

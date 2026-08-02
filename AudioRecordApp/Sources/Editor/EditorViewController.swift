@@ -179,8 +179,7 @@ class EditorViewController {
             navBarHeightConstraint!,
 
             // P0-B 修复：trackContainerView 高度 = intrinsic (rulerHeight + N*rowHeight)，
-            // 由其内部 hugging/compression resistance 锁死。父视图不再用 top/bottom 固定
-            // （避免在窗口高度不足时 row 被压扁），改用 centerY 让整体垂直居中于 editorView。
+            // 由其内部 hugging/compression resistance 锁死。父视图用 centerY 居中。
             // 边界用 >= 和 <= 软约束，防止压到 navBar/scrollBar。
             trackContainerView.centerYAnchor.constraint(equalTo: editorView.centerYAnchor),
             trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
@@ -736,6 +735,8 @@ extension EditorViewController: EditorWaveformViewDelegate {
 
     func editorWaveformView(_ view: EditorWaveformView, didSeekTo time: TimeInterval) {
         waveformView.updatePlaybackTime(time)
+        // 同步 playhead overlay（TrackContainerView 级别，与 ruler 共享坐标系）
+        trackContainerView.updatePlayhead(time: time)
         statusBar.updateCurrentTime(time)
     }
 
@@ -801,6 +802,7 @@ extension EditorViewController {
                 let elapsed = Double(mach_absolute_time() - self.previewStartHostTime) * Double(info.numer) / Double(info.denom) / 1_000_000_000
                 let clampedTime = min(elapsed, totalDuration)
                 self.waveformView.updatePlaybackTime(clampedTime)
+                self.trackContainerView.updatePlayhead(time: clampedTime)
                 self.statusBar.updateCurrentTime(clampedTime)
             }
             
@@ -820,6 +822,7 @@ extension EditorViewController {
         isPreviewPlaying = false
         toolbar.updatePreviewState(isPlaying: false)
         waveformView.updatePlaybackTime(0)
+        trackContainerView.updatePlayhead(time: 0)
     }
 
     // MARK: - Session State Management (V2.1 文件联动)
@@ -876,6 +879,7 @@ extension EditorViewController {
         waveformView.setZoomLevel(state.zoomLevel)
         waveformView.setScrollOffset(state.scrollOffset)
         waveformView.setPlayheadPosition(state.playheadPosition)
+        trackContainerView.updatePlayhead(time: state.playheadPosition)
         isUpdatingFromExternalSource = false
         syncControlsToWaveformState()
     }

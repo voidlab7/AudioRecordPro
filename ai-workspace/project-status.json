@@ -1,8 +1,8 @@
 {
   "project_id": "audio-record",
-  "updated_at": "2026-05-29T17:07:25.580Z",
+  "updated_at": "2026-08-01T07:32:04.641Z",
   "health": "green",
-  "active_task": "task-0527-req-2-0-06-多应用同时录音",
+  "active_task": "audio-record-ui-prd-opt-20260801",
   "queue_count": 0,
   "blocked_count": 0,
   "last_completed_task": "启动默认录制准备态 UI 重构",
@@ -11,6 +11,6 @@
   "requires_human_decision": [],
   "active_phase": "01-ideation",
   "active_agent": "",
-  "phase_progress": "1/6",
-  "running_count": 2
+  "phase_progress": "0/6",
+  "running_count": 3
 }

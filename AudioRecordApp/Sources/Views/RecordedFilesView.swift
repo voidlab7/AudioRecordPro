@@ -1,7 +1,12 @@
 import Cocoa
 import Foundation
 
-// BUG-FIX-2: 格式 badge 文字垂直居中
+// MARK: - BUG-FIX-4: Flipped StackView（子类覆盖 isFlipped，让垂直栈从上往下排列）
+private class FlippedStackView: NSStackView {
+    override var isFlipped: Bool { true }
+}
+
+// MARK: - BUG-FIX-2: 格式 badge 文字垂直居中
 private class FormatBadgeCell: NSTextFieldCell {
     override func titleRect(forBounds rect: NSRect) -> NSRect {
         var titleRect = super.titleRect(forBounds: rect)
@@ -30,7 +35,7 @@ class RecordedFilesView: NSView {
 
     // MARK: - UI Components
     private let scrollView = NSScrollView()
-    private let fileStack = NSStackView()
+    private let fileStack = FlippedStackView()
 
     // MARK: - Properties
     weak var delegate: RecordedFilesViewDelegate?
@@ -62,9 +67,12 @@ class RecordedFilesView: NSView {
 
     private func setupScrollStack() {
         fileStack.orientation = .vertical
-        fileStack.spacing = IndustrialSpacing.sm
+        fileStack.distribution = .fill
+        fileStack.spacing = 0                // 紧致排列，从上往下不留空隙
         fileStack.alignment = .leading
-        fileStack.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        // 关键：FlippedStackView 覆盖 isFlipped = true，
+        // 让第一个 subview 排在顶部而不是底部
+        fileStack.edgeInsets = NSEdgeInsets(top: 2, left: 2, bottom: 2, right: 2)
         fileStack.translatesAutoresizingMaskIntoConstraints = false
 
         scrollView.documentView = fileStack

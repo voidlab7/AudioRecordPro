@@ -415,7 +415,8 @@ class EditorWaveformView: NSView {
         if showClipBorders { drawClipBorders(in: dirtyRect) }
         if splitPointTime != nil { drawClipSplitLine(in: dirtyRect) }
         drawFadeOverlay(in: dirtyRect)          // P2-F: Fade 渐变遮罩
-        drawPlayhead(in: dirtyRect)
+        // 注：playhead 抽离到 TrackContainerView 层的 PlayheadOverlayView 统一绘制，
+        //     x 坐标与 ruler 共享同一公式（精准卡住时间刻度）
         drawSelectionHandles(in: dirtyRect)
         drawTrimHandles(in: dirtyRect)           // P1-D: Trim 拖柄
         drawFadeHandles(in: dirtyRect)           // P2-F: Fade 三角拖柄
@@ -683,44 +684,15 @@ class EditorWaveformView: NSView {
         upperPath.stroke()
         lowerPath.lineWidth = 1.0
         lowerPath.stroke()
-        
+
         // 选区外遮罩已由 drawSelectionOverlay 处理，这里不重复
     }
-    
-    private func drawPlayhead(in rect: NSRect) {
-        let x = timeToPixel(playbackTime)
-        guard x >= waveformRect.minX - 10, x <= waveformRect.maxX + 10 else { return }
 
-        // 顶部三角形手柄（参考剪映/Audio One）
-        // P0-B: ruler 已抽离到独立的 TimeRulerView，waveformRect 恢复为整块 bounds；
-        //       三角形手柄改为完全在视图内（顶点靠上沿，底边在波形内 ~8px），
-        //       不再伸出视图顶部。
-        let handleSize: CGFloat = 10
-        let handleY = waveformRect.maxY
-        let trianglePath = NSBezierPath()
-        // 顶点朝上贴在视图顶部内侧
-        trianglePath.move(to: NSPoint(x: x, y: handleY - 1))
-        // 底边向下 handleSize-2
-        trianglePath.line(to: NSPoint(x: x - handleSize / 2, y: handleY - handleSize + 2))
-        trianglePath.line(to: NSPoint(x: x + handleSize / 2, y: handleY - handleSize + 2))
-        trianglePath.close()
-        IndustrialColors.waveformAccent.setFill()
-        trianglePath.fill()
-
-        // 贯穿垂直线
-        IndustrialColors.waveformAccent.setStroke()
-        let playhead = NSBezierPath()
-        playhead.lineWidth = 1.5
-        playhead.move(to: NSPoint(x: x, y: waveformRect.minY))
-        playhead.line(to: NSPoint(x: x, y: handleY - handleSize + 2))
-        playhead.stroke()
-    }
-    
     private func drawSelectionHandles(in rect: NSRect) {
         guard let sel = selection else { return }
         let handleWidth = IndustrialSpacing.editorHandleWidth
         let handleColor = IndustrialColors.editorHandle
-        
+
         for time in [sel.lowerBound, sel.upperBound] {
             let x = timeToPixel(time) - handleWidth / 2
             let handleRect = NSRect(x: x, y: waveformRect.minY + 8, width: handleWidth, height: waveformRect.height - 16)
