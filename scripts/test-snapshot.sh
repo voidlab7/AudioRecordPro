@@ -16,8 +16,15 @@ if [ ! -d "$PROJECT_FILE" ] || [ "$ROOT_DIR/project.yml" -nt "$PROJECT_FILE" ]; 
 fi
 
 echo "📸 Running AudioRecordMac snapshot tests..."
+mkdir -p "$ROOT_DIR/test_logs"
+LOG_FILE="$ROOT_DIR/test_logs/snapshot_test_$(date +%Y%m%d-%H%M%S).log"
+set +e
 xcodebuild test \
   -project "$PROJECT_FILE" \
   -scheme AudioRecordMac \
   -destination 'platform=macOS' \
-  -only-testing:AudioRecordMacSnapshotTests
+  -only-testing:AudioRecordMacSnapshotTests 2>&1 | tee "$LOG_FILE"
+EXIT_CODE=${PIPESTATUS[0]}
+set -e
+echo "📄 日志已落盘: $LOG_FILE"
+exit $EXIT_CODE

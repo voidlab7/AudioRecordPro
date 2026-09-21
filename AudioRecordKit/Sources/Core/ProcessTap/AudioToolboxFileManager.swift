@@ -55,7 +55,7 @@ class AudioToolboxFileManager {
         
         guard status == noErr, let _ = audioFileID else {
             let error = NSError(domain: "AudioToolboxFileManager", code: Int(status), userInfo: [
-                NSLocalizedDescriptionKey: "创建音频文件失败: \(status)"
+                NSLocalizedDescriptionKey: "创建音频文件失败: %@".localized(String(status))
             ])
             logger.error("❌ AudioToolboxFileManager: 创建文件失败 - \(status)")
             throw error
@@ -121,7 +121,7 @@ class AudioToolboxFileManager {
         guard status == noErr else {
             logger.error("❌ AudioToolboxFileManager: 写入数据失败 - \(status)")
             throw NSError(domain: "AudioToolboxFileManager", code: Int(status), userInfo: [
-                NSLocalizedDescriptionKey: "写入音频数据失败: \(status)"
+                NSLocalizedDescriptionKey: "写入音频数据失败: %@".localized(String(status))
             ])
         }
         

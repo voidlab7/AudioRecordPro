@@ -52,10 +52,10 @@ class MicrophoneRecorder: BaseAudioRecorder {
             levelMonitor.startMonitoring(source: .recording(engine: engine))
             
             isRunning = true
-            onStatus?("正在录制麦克风...")
+            onStatus?("正在录制麦克风...".localized)
             
         } catch {
-            let errorMsg = "录制启动失败: \(error.localizedDescription)"
+            let errorMsg = "录制启动失败: %@".localized(error.localizedDescription)
             onStatus?(errorMsg)
             logger.error("麦克风录制启动失败: \(error.localizedDescription)")
             
@@ -63,7 +63,7 @@ class MicrophoneRecorder: BaseAudioRecorder {
             if error.localizedDescription.contains("permission") || 
                error.localizedDescription.contains("权限") ||
                error.localizedDescription.contains("denied") {
-                onStatus?("需要麦克风权限才能录制，请在系统设置中允许")
+                onStatus?("需要麦克风权限才能录制，请在系统设置中允许".localized)
             }
         }
     }
@@ -156,7 +156,7 @@ class MicrophoneRecorder: BaseAudioRecorder {
         }
         audioFile = try AVAudioFile(forWriting: url, settings: audioSettings)
         outputURL = url
-        onStatus?("文件创建成功: \(url.lastPathComponent)")
+        onStatus?("文件创建成功: %@".localized(url.lastPathComponent))
         logger.info("麦克风录制文件创建成功: \(url.lastPathComponent)")
         logger.info("文件格式: \(audioFile?.processingFormat.settings ?? [:])")
     }
@@ -226,6 +226,7 @@ class MicrophoneRecorder: BaseAudioRecorder {
         
         try engine.start()
         logger.info("麦克风录制引擎启动成功")
+        callOnRecordingStarted()  // BUG-1 修复：引擎真正启动后才通知
     }
 
     private func getSafeInputFormat() -> AVAudioFormat {

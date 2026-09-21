@@ -78,15 +78,21 @@ echo "📦 Package: $SDK_DIR"
 echo "📋 命令: $CMD"
 echo "================================"
 
-# 运行测试
+# 运行测试（输出落盘 test_logs/，供 AI/模型读文件校验，不依赖终端输出）
+mkdir -p "$ROOT_DIR/test_logs"
+LOG_FILE="$ROOT_DIR/test_logs/sdk_test_$(date +%Y%m%d-%H%M%S).log"
+
 cd "$SDK_DIR"
-eval "$CMD"
-EXIT_CODE=$?
+set +e
+eval "$CMD" 2>&1 | tee "$LOG_FILE"
+EXIT_CODE=${PIPESTATUS[0]}
+set -e
 
 echo "================================"
+echo "📄 日志已落盘: $LOG_FILE"
 if [ $EXIT_CODE -eq 0 ]; then
     echo "✅ SDK 测试全部通过"
 else
-    echo "❌ SDK 测试有失败项 (exit code: $EXIT_CODE)"
+    echo "❌ SDK 测试有失败项 (exit code: $EXIT_CODE)，查看: $LOG_FILE"
 fi
 exit $EXIT_CODE

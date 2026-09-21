@@ -1,0 +1,308 @@
+/* English localization — keys are the zh-Hans source strings */
+
+/* App menu */
+"设置…" = "Settings…";
+"编辑" = "Edit";
+"录制" = "Record";
+"撤销" = "Undo";
+"重做" = "Redo";
+"开始/停止录制" = "Start/Stop Recording";
+"播放/暂停" = "Play/Pause";
+"导出 MP3" = "Export MP3";
+"删除录音" = "Delete Recording";
+"切换侧边栏" = "Toggle Sidebar";
+
+/* Window */
+"音频录制工具" = "Tapture";
+
+/* Status bar */
+"就绪" = "Ready";
+"准备录制" = "Ready to Record";
+"● 准备中" = "● Preparing";
+"● 录制中" = "● Recording";
+"● 停止中" = "● Stopping";
+"● 播放中" = "● Playing";
+"● 错误" = "● Error";
+"准备录制：%@" = "Ready to record: %@";
+"选择录制目标，点击 ● 开始" = "Select a target, then click ● to start";
+
+/* Main flow */
+"准备就绪" = "Ready";
+"麦克风权限被拒绝，将仅录制系统/应用声音" = "Microphone permission denied. Only system/app audio will be recorded.";
+"系统音频捕获权限被拒绝，请点击允许或在设置中开启" = "System audio capture permission denied. Click Allow or enable it in System Settings.";
+"未知" = "Unknown";
+"磁盘空间不足" = "Insufficient Disk Space";
+"当前可用空间仅 %@，可能无法完成录制。建议清理磁盘后再试。" = "Only %@ of free space is available. Recording may fail. Try freeing up disk space first.";
+"仍然录制" = "Record Anyway";
+"取消" = "Cancel";
+"请选择录制目标：全部系统声音或某个应用" = "Select a recording target: all system audio or a specific app";
+"准备录制…" = "Preparing to record…";
+"正在请求麦克风权限..." = "Requesting microphone permission…";
+"麦克风权限被拒绝" = "Microphone permission denied";
+"麦克风权限未确定，请重试" = "Microphone permission undetermined. Please try again.";
+"麦克风权限未确定" = "Microphone permission undetermined";
+"麦克风权限已授予" = "Microphone permission granted";
+"正在停止录制…" = "Stopping recording…";
+"正在保存…" = "Saving…";
+"录制完成: %@" = "Recording complete: %@";
+"保存失败: %@" = "Save failed: %@";
+"已保留原始录音文件" = "Original recording file kept";
+
+/* File names (user-visible artifacts) */
+"麦克风_%@" = "Mic_%@";
+"系统混音_%@" = "SystemMix_%@";
+"应用声音_%@" = "AppAudio_%@";
+"已恢复_%@" = "Recovered_%@";
+"录音_%@" = "Recording_%@";
+"恢复_%@" = "Recovered_%@";
+
+/* Playback */
+"录制中不能播放音频" = "Cannot play audio while recording";
+"请先选择要播放的文件" = "Select a file to play first";
+"已选择: %@" = "Selected: %@";
+"播放失败：文件不存在" = "Playback failed: file not found";
+"正在加载…" = "Loading…";
+"播放失败：文件不属于本设备或已损坏" = "Playback failed: this file doesn't belong to this device or is corrupted";
+"无法播放" = "Cannot Play";
+"此录音文件不属于本设备，或文件已损坏。" = "This recording doesn't belong to this device or is corrupted.";
+"播放失败: %@" = "Playback failed: %@";
+"正在播放: %@" = "Playing: %@";
+"播放完成" = "Playback finished";
+
+/* Export */
+"没有可导出的录音文件" = "No recording to export";
+"文件不存在" = "File not found";
+
+/* Recording mode */
+"特定进程录制：开始录制时会提示授权" = "App audio recording: you'll be prompted for permission when recording starts";
+"系统混音录制：开始录制时会提示授权" = "System audio recording: you'll be prompted for permission when recording starts";
+
+/* File management */
+"已删除: %@" = "Deleted: %@";
+"已重命名: %@" = "Renamed: %@";
+"重命名失败: %@" = "Rename failed: %@";
+"已开启麦克风叠加" = "Microphone overlay enabled";
+"已关闭麦克风叠加" = "Microphone overlay disabled";
+"录制目标：应用声音" = "Recording target: app audio";
+"录制目标：全部系统声音" = "Recording target: all system audio";
+
+/* Alerts */
+"确定" = "OK";
+"已打开系统偏好设置，请允许相关权限" = "System Settings opened. Please allow the required permissions.";
+"屏幕录制权限被拒绝" = "Screen recording permission denied";
+"进程列表已刷新" = "Process list refreshed";
+"录制目标已退出" = "Recording Target Exited";
+"你选中的进程已经退出，录制已自动停止。已录制的内容已保存。" = "The selected app has exited. Recording stopped automatically. Recorded content has been saved.";
+"目标进程已退出，录制已停止并保存" = "Target app exited. Recording stopped and saved.";
+"磁盘空间不足，录制已自动停止" = "Insufficient disk space. Recording stopped automatically.";
+"当前可用空间仅 %@，已保存已录制的内容。" = "Only %@ of free space remains. Recorded content has been saved.";
+"发现未保存的录音" = "Unsaved Recording Found";
+"上次录制可能因异常中断，发现未保存的临时录音文件（%@，大小 %@）。是否恢复？" = "Your last recording may have been interrupted. An unsaved temporary recording was found (%@, %@). Recover it?";
+"恢复" = "Recover";
+"丢弃" = "Discard";
+"已恢复录音" = "Recording recovered";
+"恢复失败: %@" = "Recovery failed: %@";
+
+/* Editor */
+"录制中不能进入编辑器" = "Cannot enter editor while recording";
+"编辑: %@" = "Editing: %@";
+"保存完成: %@" = "Saved: %@";
+"未知错误" = "Unknown error";
+
+/* Sidebar */
+"录制全部系统声音" = "Record All System Audio";
+"刷新" = "Refresh";
+"文件" = "Files";
+"系统音频" = "System Audio";
+"App音频" = "App Audio";
+"麦克风设备" = "Microphone";
+"系统声音" = "System Audio";
+"未检测到音频进程" = "No audio processes detected";
+"附加麦克风" = "Additional Microphone";
+"同时录入麦克风" = "Also Record Microphone";
+"混合到录制目标" = "Mix into recording target";
+"麦克风已混入" = "Microphone mixed in";
+"混合录入当前目标" = "Mix into current target";
+"麦克风" = "Microphone";
+
+/* Settings */
+"开机自动启动" = "Launch at Login";
+"设置" = "Settings";
+"录制设置" = "Recording Settings";
+"录制格式:" = "Recording Format:";
+"采样率:" = "Sample Rate:";
+"录音文件以加密格式存储在 App 容器内，外部不可直接播放。导出时会生成标准音频文件。" = "Recordings are stored encrypted inside the app container and cannot be played externally. Standard audio files are generated on export.";
+"应用设置" = "App Settings";
+
+/* Control panel */
+"待命" = "STANDBY";
+"全部系统声音" = "All System Audio";
+"已暂停" = "Paused";
+"播放中" = "Playing";
+"准备中" = "Preparing";
+"录制中" = "Recording";
+"停止中" = "Stopping";
+"回看态" = "Reviewing";
+"错误" = "Error";
+
+/* Recorded files */
+"暂无录制文件" = "No recordings yet";
+"重命名…" = "Rename…";
+"重命名录音" = "Rename Recording";
+"为这条录音起个易记的名字。文件名（不含扩展名）：" = "Give this recording a memorable name. File name (without extension):";
+"编辑" = "Edit";
+"编辑此录音" = "Edit this recording";
+
+/* Export card */
+"导出" = "Export";
+"时长: %@" = "Duration: %@";
+"源文件大小: %@" = "Source file size: %@";
+"导出录音" = "Export Recording";
+"文件名:" = "File Name:";
+"格式:" = "Format:";
+"导出至:" = "Export To:";
+"选择…" = "Choose…";
+"⚠️ %@ 需要 ffmpeg (brew install ffmpeg)" = "⚠️ %@ requires ffmpeg (brew install ffmpeg)";
+"选择导出位置" = "Choose Export Location";
+"❌ 文件名不能为空" = "❌ File name cannot be empty";
+"⚠️ 请先点击「选择…」授权导出目录" = "⚠️ Click Choose… first to grant access to the export folder";
+"文件已存在" = "File Already Exists";
+"%@ 已存在，要覆盖吗？" = "%@ already exists. Replace it?";
+"覆盖" = "Replace";
+"正在解密并转码…" = "Decrypting and transcoding…";
+"✅ 导出成功：%@" = "✅ Export complete: %@";
+"已取消" = "Canceled";
+"已取消导出" = "Export canceled";
+"不支持的导出格式: %@" = "Unsupported export format: %@";
+"无法创建 PCM buffer" = "Failed to create PCM buffer";
+"%@ 导出需要 ffmpeg。\n方式一: brew install ffmpeg\n方式二: 将 ffmpeg 二进制放入 App/Contents/Resources/" = "%@ export requires ffmpeg.\nOption 1: brew install ffmpeg\nOption 2: place the ffmpeg binary into App/Contents/Resources/";
+"不支持的 ffmpeg 格式" = "Unsupported ffmpeg format";
+"ffmpeg 转码失败: %@" = "ffmpeg transcode failed: %@";
+"转码失败: %@" = "Transcode failed: %@";
+"导出已取消" = "Export canceled";
+"采样率必须大于0" = "Sample rate must be greater than 0";
+"声道数必须在1-8之间" = "Channel count must be between 1 and 8";
+
+/* Errors (Kit layer) */
+"系统音频权限被拒绝" = "System audio permission denied";
+"音频设备未找到" = "Audio device not found";
+"录制已在进行中" = "Recording already in progress";
+"当前版本不支持: %@" = "Not supported in this version: %@";
+"未知错误: %@" = "Unknown error: %@";
+
+/* Tracks view */
+"播放" = "Playback";
+"未选择文件" = "No file selected";
+"停止" = "Stop";
+"请选择音频源" = "Select an audio source";
+"从左侧选择应用或系统声音" = "Choose an app or system audio from the left";
+"📤 混合输出为单文件" = "📤 Mixed output as a single file";
+"应用声音" = "App Audio";
+"系统混音" = "System Mix";
+"麦克风输入" = "Microphone Input";
+"未选择录制目标" = "No recording target selected";
+"录制准备区域" = "Recording ready area";
+"按空格键或点击录制按钮开始录制" = "Press Space or click the record button to start recording";
+"录制波形" = "Recording waveform";
+"正在录制音频" = "Recording audio";
+"未选择" = "Not selected";
+"静音" = "Mute";
+"取消静音" = "Unmute";
+
+/* Editor toolbar */
+"切分" = "Split";
+"裁剪" = "Trim";
+"标准化" = "Normalize";
+"淡入" = "Fade In";
+"淡出" = "Fade Out";
+
+/* Editor */
+"无法分配音频缓冲区（文件可能过大或内存不足）" = "Unable to allocate audio buffers (file may be too large or memory insufficient)";
+"无法读取音频文件: %@" = "Unable to read audio file: %@";
+"操作失败" = "Operation Failed";
+"无法执行「%@」。可能是音频信号过弱或数据异常。" = "Cannot perform %@. The audio signal may be too weak or the data is abnormal.";
+"%@ ✓ 已保存" = "%@ ✓ Saved";
+"保存失败" = "Save Failed";
+"请先创建选区" = "Create a Selection First";
+"在波形上拖拽以选择要保留的区域，然后点击裁剪。" = "Drag on the waveform to select the region to keep, then click Trim.";
+"选区过短" = "Selection Too Short";
+"裁剪选区至少需要 0.1 秒。当前选区仅 %@ 秒。" = "Trim selection must be at least 0.1 seconds. Current selection is only %@ seconds.";
+"未检测到静音段" = "No Silence Detected";
+"当前阈值 %@ dB、最小时长 %@s 下未发现静音段。" = "No silence found with threshold %@ dB and minimum duration %@s.";
+"检测到 %@ 个静音段" = "%@ silence segments detected";
+"总计 %@ 秒静音。\n阈值: %@ dB，最小时长: %@s\n\n是否删除所有静音段？" = "Total %@ seconds of silence.\nThreshold: %@ dB, minimum duration: %@s\n\nDelete all silence segments?";
+"删除全部" = "Delete All";
+"音量标准化" = "Normalize Volume";
+"选择目标响度预设：" = "Select a target loudness preset:";
+"播客 (-16 LUFS)" = "Podcast (-16 LUFS)";
+"广播 (-24 LUFS)" = "Broadcast (-24 LUFS)";
+"淡入淡出" = "Fade In/Out";
+"将对整个音频应用淡入淡出效果。\n\n淡入: 0.5s / 淡出: 1.0s / 对数曲线\n\n音频时长: %@s" = "Fade in/out will be applied to the entire audio.\n\nFade in: 0.5s / Fade out: 1.0s / Logarithmic curve\n\nAudio duration: %@s";
+"应用" = "Apply";
+"仅淡入" = "Fade In Only";
+"仅淡出" = "Fade Out Only";
+"淡入 %@s" = "Fade in %@s";
+"淡出 %@s" = "Fade out %@s";
+"有未保存的编辑" = "Unsaved Edits";
+"当前编辑尚未保存，是否保存后退出？" = "You have unsaved edits. Save before exiting?";
+"保存" = "Save";
+"放弃" = "Discard";
+"录音过大，已跳过编辑器加载，避免应用无响应" = "Recording is too large. Editor loading skipped to keep the app responsive";
+"加载失败" = "Load Failed";
+"标准化: %@ (%@ LUFS)" = "Normalize: %@ (%@ LUFS)";
+"播客" = "Podcast";
+"广播" = "Broadcast";
+"自定义" = "Custom";
+"裁剪: 保留 %@s ~ %@s" = "Trim: keep %@s ~ %@s";
+"静音裁剪: 删除 %@ 个静音段" = "Silence trim: delete %@ silence segments";
+"无法分配音频缓冲区" = "Unable to allocate audio buffers";
+"总时长 %@" = "Total duration %@";
+"单声道" = "Mono";
+"立体声" = "Stereo";
+"%@ · %@ · 编辑 %@/%@" = "%@ · %@ · Edits %@/%@";
+"无法读取音频数据" = "Unable to read audio data";
+"加载波形..." = "Loading waveform…";
+"选择文件进入编辑" = "Select a file to edit";
+"↔ 在波形上拖拽创建选区，然后使用工具栏操作" = "↔ Drag on the waveform to create a selection, then use the toolbar";
+"时间位置" = "Time position";
+"位置 %@%%" = "Position %@%%";
+"缩小" = "Zoom Out";
+"缩放级别" = "Zoom level";
+"放大" = "Zoom In";
+"适应全部" = "Fit All";
+"适应全部 (⌘0)" = "Fit All (⌘0)";
+"缩放 %@x" = "Zoom %@x";
+
+/* Kit layer — onStatus / NSError (surfaced to UI) */
+"录制已停止" = "Recording stopped";
+"文件创建成功: %@" = "File created: %@";
+"正在录制 (系统音频 + 麦克风混音)..." = "Recording (system audio + microphone mix)…";
+"音频设备已切换，录制继续中" = "Audio device changed. Recording continues";
+"正在录制麦克风..." = "Recording microphone…";
+"需要麦克风权限才能录制，请在系统设置中允许" = "Microphone permission is required to record. Please allow it in System Settings";
+"录制启动失败: %@" = "Failed to start recording: %@";
+"创建音频文件失败: %@" = "Failed to create audio file: %@";
+"写入音频数据失败: %@" = "Failed to write audio data: %@";
+"Tap UUID未设置" = "Tap UUID not set";
+"所有指定的PID都无法找到对应的进程对象" = "No process objects found for the specified PIDs";
+"音频格式未设置" = "Audio format not set";
+"创建 Process Tap 失败" = "Failed to create Process Tap";
+"读取 Tap 格式失败" = "Failed to read Tap format";
+"创建聚合设备失败" = "Failed to create aggregate device";
+"启动 IO 回调失败" = "Failed to start IO callback";
+"未找到目标进程" = "Target process not found";
+
+/* Permission guide */
+"已授权" = "Granted";
+"已拒绝" = "Denied";
+"未确定" = "Not Determined";
+"受限制" = "Restricted";
+"麦克风权限设置：\n1. 打开 系统偏好设置 > 安全性与隐私 > 隐私\n2. 选择左侧的「麦克风」\n3. 勾选「音频录制工具」应用" = "Microphone permission setup:\n1. Open System Settings > Privacy & Security > Privacy\n2. Select \"Microphone\" on the left\n3. Check the \"Tapture\" app";
+"系统音频捕获权限设置：\n1. 当系统弹出「允许录制系统音频」对话框时，点击「允许」\n2. 如被拒绝，可重启应用再次触发或在'隐私'中重置权限" = "System audio capture permission setup:\n1. When the system shows the \"Allow system audio recording\" dialog, click \"Allow\"\n2. If denied, restart the app to trigger it again or reset the permission in Privacy";
+"切分 @ %@s" = "Split @ %@s";
+"点击 ● 开始录制" = "Click ● to start recording";
+"不支持的缓冲区数量: %@" = "Unsupported buffer count: %@";
+"输入数据为空" = "Input data is empty";
+"不支持的音频格式" = "Unsupported audio format";
+"数据转换失败: %@" = "Data conversion failed: %@";
+"录制时间过短或内容为空，已取消保存" = "Recording too short or empty, save cancelled";

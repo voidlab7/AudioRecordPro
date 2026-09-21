@@ -26,7 +26,8 @@ class MainViewController: NSViewController {
     private var currentPlaybackFile: RecordedFileInfo?
     private var playbackPlayer: AVAudioPlayer?
     private var isPlaybackPaused = false
-    private var currentRecordingMode: RecordingMode = .microphone
+    // 初始值与侧边栏默认保持一致（SidebarView 默认 selectedPIDs=[] → 系统混音）
+    private var currentRecordingMode: RecordingMode = .systemMixdown
     private let userDefaults = UserDefaults.standard
     private let recordingModeKey = "lastRecordingMode"
     private var currentFormat: AudioFormat = .m4a
@@ -54,9 +55,18 @@ class MainViewController: NSViewController {
     // 磁盘空间监控
     private var diskMonitorTimer: Timer?
     
+    // BUG-1 修复：录制期间峰值电平最大值（用于静音/无效录音拦截）
+    private var maxPeakDuringRecording: Float = 0
+    
+    // LOOP-05: UI 测试 mock 模式（XCUITest 以 --ui-testing 启动参数拉起）
+    private let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
+    
     // MARK: - Lifecycle
     override func loadView() {
-        mainWindowView = MainWindowView()
+        // 初始 frame 必须与窗口 contentRect 一致（1200x750），否则设置
+        // contentViewController 时 AppKit 会把窗口缩小到 view 的 frame（0x0），
+        // 被 minSize 钳制后表现为「启动时窗口先小后大」的跳变。
+        mainWindowView = MainWindowView(frame: NSRect(x: 0, y: 0, width: 1200, height: 750))
         mainWindowView.delegate = self
         view = mainWindowView
     }
@@ -95,14 +105,28 @@ class MainViewController: NSViewController {
         }
         
         audioRecorderController.onPeakLevel = { [weak self] peakLevel in
-            DispatchQueue.main.async { self?.mainWindowView.updatePeakLevel(peakLevel) }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.mainWindowView.updatePeakLevel(peakLevel)
+                if self.isRecording && peakLevel > self.maxPeakDuringRecording {
+                    self.maxPeakDuringRecording = peakLevel
+                }
+            }
+        }
+        
+        // BUG-1 修复：录制态由管线真正启动回调驱动
+        audioRecorderController.onRecordingStarted = { [weak self] in
+            DispatchQueue.main.async {
+                guard let self = self, self.isRecording else { return }
+                self.logger.info("🎙️ 管线确认启动，进入录制态")
+                self.mainWindowView.updateRecordingState(.recording)
+            }
         }
         
         audioRecorderController.onStatus = { [weak self] status in
             DispatchQueue.main.async {
                 self?.mainWindowView.updateStatus(status)
-                if status.contains("失败") || status.contains("错误") || status.contains("权限") ||
-                   status.contains("denied") || status.contains("permission") {
+                if status.containsStatusFailure() {
                     self?.handleRecordingFailure()
                 }
             }
@@ -133,7 +157,7 @@ class MainViewController: NSViewController {
         
         mainWindowView.updateMode(currentRecordingMode)
         mainWindowView.updateRecordingState(.idle)
-        mainWindowView.updateStatus("准备就绪")
+        mainWindowView.updateStatus("准备就绪".localized)
         
         startProcessRefreshTimer()
         setupProcessExitMonitoring()
@@ -174,12 +198,12 @@ class MainViewController: NSViewController {
         guard isRecording else { return }
         switch type {
         case .microphone:
-            if case .denied = status, currentRecordingMode == .microphone {
-                mainWindowView.updateStatus("麦克风权限被拒绝，请切换到系统音频模式")
+            if case .denied = status, shouldMixAudio {
+                mainWindowView.updateStatus("麦克风权限被拒绝，将仅录制系统/应用声音".localized)
             }
         case .systemAudioCapture:
             if case .denied = status {
-                mainWindowView.updateStatus("系统音频捕获权限被拒绝，请点击允许或在设置中开启")
+                mainWindowView.updateStatus("系统音频捕获权限被拒绝，请点击允许或在设置中开启".localized)
             }
         }
     }
@@ -188,14 +212,30 @@ class MainViewController: NSViewController {
     private func startRecording() {
         guard !isRecording else { return }
         
+        // LOOP-05: UI 测试模式——模拟录制状态机，不启动真实管线（mock PID 无真实音频）
+        if isUITesting {
+            logger.info("🧪 UI 测试模式：模拟启动录制")
+            isRecording = true
+            recordingStartTime = Date()
+            maxPeakDuringRecording = 0
+            mainWindowView.updateRecordingState(.preparing)
+            mainWindowView.updateStatus("准备录制…".localized)
+            startTimer()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self = self, self.isRecording else { return }
+                self.mainWindowView.updateRecordingState(.recording)
+            }
+            return
+        }
+        
         if !fileManager.hasSufficientDiskSpace() {
-            let available = fileManager.getAvailableDiskSpace().map { fileManager.formatDiskSpace($0) } ?? "未知"
+            let available = fileManager.getAvailableDiskSpace().map { fileManager.formatDiskSpace($0) } ?? "未知".localized
             let alert = NSAlert()
-            alert.messageText = "磁盘空间不足"
-            alert.informativeText = "当前可用空间仅 \(available)，可能无法完成录制。建议清理磁盘后再试。"
+            alert.messageText = "磁盘空间不足".localized
+            alert.informativeText = "当前可用空间仅 %@，可能无法完成录制。建议清理磁盘后再试。".localized(available)
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "仍然录制")
-            alert.addButton(withTitle: "取消")
+            alert.addButton(withTitle: "仍然录制".localized)
+            alert.addButton(withTitle: "取消".localized)
             if alert.runModal() == .alertSecondButtonReturn { return }
         }
         
@@ -206,7 +246,7 @@ class MainViewController: NSViewController {
         let wantSpecificProcess = !selectedPIDs.isEmpty
         
         guard wantSystemMixdown || wantSpecificProcess else {
-            mainWindowView.updateStatus("请选择录制目标：全部系统声音或某个应用")
+            mainWindowView.updateStatus("请选择录制目标：全部系统声音或某个应用".localized)
             return
         }
         
@@ -229,8 +269,19 @@ class MainViewController: NSViewController {
             
             self.isRecording = true
             self.recordingStartTime = Date()
+            self.maxPeakDuringRecording = 0
+            UXEventLog.shared.action("start_recording", detail: [
+                "mode": self.actualRecordingMode.rawValue,
+                "format": self.currentFormat.rawValue,
+                "mix_mic": self.shouldMixAudio,
+                "target_pid": self.selectedPIDs.first.map { Int($0) } ?? 0,
+            ])
+            UXEventLog.shared.module("Recording", "start", detail: [
+                "mode": self.actualRecordingMode.rawValue,
+                "format": self.currentFormat.rawValue,
+            ])
             self.mainWindowView.updateRecordingState(.preparing)
-            self.mainWindowView.updateStatus("准备录制…")
+            self.mainWindowView.updateStatus("准备录制…".localized)
             self.startTimer()
             self.preventSleep()
             self.startDiskMonitor()
@@ -244,10 +295,8 @@ class MainViewController: NSViewController {
             
             // V2.0: 标记录制目录（用于 crash 恢复扫描 temp 目录）
             self.fileManager.markRecordingStarted(fileURL: self.fileManager.getRecordingsDirectory())
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                if self.isRecording { self.mainWindowView.updateRecordingState(.recording) }
-            }
+            // BUG-1 修复：删除 0.3s 定时器假装进入 recording 的逻辑。
+            // 录制态由 audioRecorderController.onRecordingStarted（管线真正启动）驱动。
         }
     }
     
@@ -258,18 +307,18 @@ class MainViewController: NSViewController {
         let needMicPermission = wantMic || mixAudio
         
         if needMicPermission {
-            mainWindowView.updateStatus("正在请求麦克风权限...")
+            mainWindowView.updateStatus("正在请求麦克风权限...".localized)
             PermissionManager.shared.requestMicrophonePermission { [weak self] status in
                 DispatchQueue.main.async {
                     switch status {
                     case .granted: completion(true)
                     case .denied, .restricted:
                         if !wantSystem && !wantProcess {
-                            self?.mainWindowView.updateStatus("麦克风权限被拒绝")
+                            self?.mainWindowView.updateStatus("麦克风权限被拒绝".localized)
                             completion(false)
                         } else { completion(true) }
                     case .notDetermined:
-                        self?.mainWindowView.updateStatus("麦克风权限未确定，请重试")
+                        self?.mainWindowView.updateStatus("麦克风权限未确定，请重试".localized)
                         completion(false)
                     }
                 }
@@ -282,11 +331,31 @@ class MainViewController: NSViewController {
     }
     
     private func stopRecording() {
-        guard isRecording else { return }
+        // BUG-1 修复：停止按钮无条件可达——只要点过录制（recordingStartTime 非空）就允许停止，
+        // 不受 isRecording 拦截（防状态不一致时 UI 停在录制态但停止按钮失灵）
+        guard recordingStartTime != nil else { return }
+        
+        // LOOP-05: UI 测试模式——模拟停止，不触碰真实管线
+        if isUITesting {
+            logger.info("🧪 UI 测试模式：模拟停止录制")
+            isRecording = false
+            recordingStartTime = nil
+            stopTimer()
+            stopDiskMonitor()
+            allowSleep()
+            fileManager.markRecordingFinished()
+            mainWindowView.updateRecordingState(.idle)
+            mainWindowView.updateStatus("准备就绪".localized)
+            return
+        }
+        
         logger.info("停止录制")
+        let elapsed = recordingStartTime.map { Date().timeIntervalSince($0) } ?? 0
+        UXEventLog.shared.action("stop_recording", detail: ["elapsed_sec": elapsed])
+        UXEventLog.shared.module("Recording", "stop", elapsedMs: elapsed * 1000, detail: ["duration_sec": elapsed])
         isRecording = false
         mainWindowView.updateRecordingState(.stopping)
-        mainWindowView.updateStatus("正在停止录制…")
+        mainWindowView.updateStatus("正在停止录制…".localized)
         stopTimer()
         stopDiskMonitor()
         allowSleep()
@@ -296,11 +365,31 @@ class MainViewController: NSViewController {
     // MARK: - Recording Complete + Encryption Pipeline (V2.0)
     
     private func handleRecordingComplete(_ recording: AudioRecording) {
+        let peak = maxPeakDuringRecording
+        maxPeakDuringRecording = 0
+        
+        // BUG-1 修复：0 秒/静音录音在落盘前拦截（不进入加密管线）
+        if recording.duration < 1.0 || peak < 0.01 {
+            logger.warning("拦截无效录音: 时长=\(recording.duration)s, 峰值电平=\(peak)")
+            fileManager.markRecordingFinished()
+            SecureDelete.deleteFile(at: recording.fileURL)
+            mainWindowView.updateRecordingState(.idle)
+            mainWindowView.updateStatus("录制时间过短或内容为空，已取消保存".localized)
+            return
+        }
+        
         mainWindowView.updateRecordingState(.idle)
-        mainWindowView.updateStatus("正在保存…")
+        mainWindowView.updateStatus("正在保存…".localized)
         fileManager.markRecordingFinished()
         
         logger.info("录制完成: \(recording.fileName), 时长: \(recording.formattedDuration)")
+        UXEventLog.shared.module("Recording", "captured", detail: [
+            "file": recording.fileName,
+            "duration_sec": recording.duration,
+            "channels": recording.channels,
+            "sample_rate": recording.sampleRate,
+            "mode": recording.recordingMode,
+        ])
         
         // V2.0: 加密管线（异步执行，避免阻塞 UI）
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -363,7 +452,7 @@ class MainViewController: NSViewController {
                 self.lastRecordedFile = fileInfo
                 self.selectedPlaybackFile = fileInfo
                 self.mainWindowView.addRecordedFile(fileInfo)
-                self.mainWindowView.updateStatus("录制完成: \(displayTitle)")
+                self.mainWindowView.updateStatus("录制完成: %@".localized(displayTitle))
 
                 // 进入编辑器
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -372,15 +461,22 @@ class MainViewController: NSViewController {
             }
 
             logger.info("加密保存完成: \(arlockURL.lastPathComponent), title=\(displayTitle)")
+            UXEventLog.shared.module("Encrypt", "write", ok: true, detail: ["title": displayTitle, "uuid": recordingUUID])
+            UXEventLog.shared.artifact("arlock_created", path: arlockURL.path, detail: [
+                "title": displayTitle,
+                "duration_sec": metadata.durationSec,
+                "codec": metadata.audioCodec,
+            ])
 
         } catch {
             logger.error("加密保存失败: \(error.localizedDescription)")
+            UXEventLog.shared.module("Encrypt", "write", ok: false, detail: ["error": error.localizedDescription])
             DispatchQueue.main.async { [weak self] in
-                self?.mainWindowView.updateStatus("保存失败: \(error.localizedDescription)")
+                self?.mainWindowView.updateStatus("保存失败: %@".localized(error.localizedDescription))
 
                 // 保留原始 M4A 文件作为兜底
                 if FileManager.default.fileExists(atPath: recording.fileURL.path) {
-                    self?.mainWindowView.updateStatus("已保留原始录音文件")
+                    self?.mainWindowView.updateStatus("已保留原始录音文件".localized)
                 }
             }
         }
@@ -406,12 +502,12 @@ class MainViewController: NSViewController {
             return "\(sourceApp)_\(timestamp)"
         }
         switch sourceType {
-        case "microphone":         return "麦克风_\(timestamp)"
+        case "microphone":         return "麦克风_%@".localized(timestamp)
         case "systemMixdown",
-             "systemAudio":        return "系统混音_\(timestamp)"
-        case "specificProcess":    return "应用声音_\(timestamp)"
-        case "recovered":          return "已恢复_\(timestamp)"
-        default:                   return "录音_\(timestamp)"
+             "systemAudio":        return "系统混音_%@".localized(timestamp)
+        case "specificProcess":    return "应用声音_%@".localized(timestamp)
+        case "recovered":          return "已恢复_%@".localized(timestamp)
+        default:                   return "录音_%@".localized(timestamp)
         }
     }
 
@@ -438,6 +534,7 @@ class MainViewController: NSViewController {
     }
     
     private func handleRecordingFailure() {
+        UXEventLog.shared.module("Recording", "fail", ok: false)
         isRecording = false; recordingStartTime = nil
         stopTimer(); stopDiskMonitor(); allowSleep()
         fileManager.markRecordingFinished()
@@ -458,7 +555,7 @@ class MainViewController: NSViewController {
     
     private func playRecording() {
         guard !isRecording else {
-            mainWindowView.updateStatus("录制中不能播放音频"); return
+            mainWindowView.updateStatus("录制中不能播放音频".localized); return
         }
         
         if let player = playbackPlayer, currentPlaybackFile?.url == selectedPlaybackFile?.url {
@@ -467,30 +564,31 @@ class MainViewController: NSViewController {
         }
         
         guard let file = selectedPlaybackFile else {
-            mainWindowView.updateStatus("请先选择要播放的文件"); return
+            mainWindowView.updateStatus("请先选择要播放的文件".localized); return
         }
         
         startPlayback(file: file)
     }
     
     private func selectPlaybackFile(_ file: RecordedFileInfo) {
+        UXEventLog.shared.action("select_file", detail: ["file": file.name, "duration_sec": file.duration, "size": file.size])
         if currentPlaybackFile?.url != file.url { stopPlayback(resetDisplay: false) }
         selectedPlaybackFile = file
         playbackDuration = file.duration
-        mainWindowView.updateStatus("已选择: \(file.name)")
+        mainWindowView.updateStatus("已选择: %@".localized(file.name))
         mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: 0, duration: file.duration, isPlaying: false, isPaused: false)
     }
     
     /// V2.0: 播放 — 解密 .arlock → 临时 .m4a → AVAudioPlayer
     private func startPlayback(file: RecordedFileInfo) {
         guard fileManager.fileExists(at: file.url) else {
-            mainWindowView.updateStatus("播放失败：文件不存在"); return
+            mainWindowView.updateStatus("播放失败：文件不存在".localized); return
         }
         
         stopPlayback(resetDisplay: false)
         
         // V2.0: 异步解密（长录音可能耗时）
-        mainWindowView.updateStatus("正在加载…")
+        mainWindowView.updateStatus("正在加载…".localized)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
@@ -517,13 +615,13 @@ class MainViewController: NSViewController {
                     if let cryptoErr = error as? CryptoError {
                         switch cryptoErr {
                         case .decryptionFailed:
-                            self?.mainWindowView.updateStatus("播放失败：文件不属于本设备或已损坏")
-                            self?.showAlert(title: "无法播放", message: "此录音文件不属于本设备，或文件已损坏。")
+                            self?.mainWindowView.updateStatus("播放失败：文件不属于本设备或已损坏".localized)
+                            self?.showAlert(title: "无法播放".localized, message: "此录音文件不属于本设备，或文件已损坏。".localized)
                         default:
-                            self?.mainWindowView.updateStatus("播放失败: \(error.localizedDescription)")
+                            self?.mainWindowView.updateStatus("播放失败: %@".localized(error.localizedDescription))
                         }
                     } else {
-                        self?.mainWindowView.updateStatus("播放失败: \(error.localizedDescription)")
+                        self?.mainWindowView.updateStatus("播放失败: %@".localized(error.localizedDescription))
                     }
                 }
             }
@@ -544,13 +642,15 @@ class MainViewController: NSViewController {
             isPlaybackPaused = false
             
             player.play()
+            UXEventLog.shared.module("Playback", "start", ok: true, detail: ["file": file.name, "duration_sec": playbackDuration])
             mainWindowView.updateRecordingState(.playing)
-            mainWindowView.updateStatus("正在播放: \(file.name)")
+            mainWindowView.updateStatus("正在播放: %@".localized(file.name))
             mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: player.currentTime, duration: playbackDuration, isPlaying: true, isPaused: false)
             startPlaybackTimer()
             logger.info("播放启动: \(file.name)")
         } catch {
-            mainWindowView.updateStatus("播放失败: \(error.localizedDescription)")
+            UXEventLog.shared.module("Playback", "start", ok: false, detail: ["file": file.name, "error": error.localizedDescription])
+            mainWindowView.updateStatus("播放失败: %@".localized(error.localizedDescription))
             logger.error("播放失败: \(error.localizedDescription)")
             finishPlayback(resetProgress: true)
         }
@@ -558,6 +658,7 @@ class MainViewController: NSViewController {
     
     private func pausePlayback() {
         guard let player = playbackPlayer, player.isPlaying else { return }
+        UXEventLog.shared.action("pause_playback")
         player.pause(); isPlaybackPaused = true
         stopPlaybackTimer()
         mainWindowView.updateRecordingState(.playing)
@@ -566,6 +667,7 @@ class MainViewController: NSViewController {
     
     private func resumePlayback() {
         guard let player = playbackPlayer, let file = currentPlaybackFile else { return }
+        UXEventLog.shared.action("resume_playback")
         player.play(); isPlaybackPaused = false
         mainWindowView.updateRecordingState(.playing)
         mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: player.currentTime, duration: playbackDuration, isPlaying: true, isPaused: false)
@@ -617,6 +719,7 @@ class MainViewController: NSViewController {
     }
     
     private func finishPlayback(resetProgress: Bool = false) {
+        UXEventLog.shared.module("Playback", "finish", ok: true, detail: ["file": (currentPlaybackFile ?? selectedPlaybackFile)?.name ?? ""])
         let finishedFile = currentPlaybackFile ?? selectedPlaybackFile
         stopPlaybackTimer()
         playbackPlayer?.stop(); playbackPlayer = nil
@@ -626,7 +729,7 @@ class MainViewController: NSViewController {
         if let file = finishedFile {
             mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: resetProgress ? 0 : playbackDuration, duration: playbackDuration, isPlaying: false, isPaused: false)
         }
-        mainWindowView.updateStatus("播放完成")
+        mainWindowView.updateStatus("播放完成".localized)
     }
     
     private func formatTransportTime(_ time: TimeInterval) -> String {
@@ -644,17 +747,26 @@ class MainViewController: NSViewController {
     private func saveRecordingMode(_ mode: RecordingMode) {
         userDefaults.set(mode.rawValue, forKey: recordingModeKey)
     }
+
+    /// 实际录制主目标（真相来源 = 侧边栏选择）。
+    /// 侧边栏 selectedPIDs 空 = 系统混音；非空 = 特定进程。
+    /// 麦克风是「叠加」选项（shouldMixAudio / 麦克风面板），不作为主目标——
+    /// 这正是 BUG 根因：`currentRecordingMode` 是旧版切换按钮的僵尸状态，与侧边栏脱节。
+    private var actualRecordingMode: RecordingMode {
+        return selectedPIDs.isEmpty ? .systemMixdown : .specificProcess
+    }
     
     // MARK: - File Management
     
     /// V2.0: 导出（通过导出卡片）
     private func exportRecording() {
         guard let fileURL = selectedPlaybackFile?.url ?? lastRecordedFile?.url else {
-            mainWindowView.updateStatus("没有可导出的录音文件"); return
+            mainWindowView.updateStatus("没有可导出的录音文件".localized); return
         }
         guard fileManager.fileExists(at: fileURL) else {
-            mainWindowView.updateStatus("文件不存在"); return
+            mainWindowView.updateStatus("文件不存在".localized); return
         }
+        UXEventLog.shared.action("export_card_opened", detail: ["file": fileURL.lastPathComponent])
         showExportCard(for: fileURL)
     }
     
@@ -686,6 +798,7 @@ class MainViewController: NSViewController {
         case .specificProcess: currentRecordingMode = .systemMixdown
         case .systemMixdown: currentRecordingMode = .microphone
         }
+        UXEventLog.shared.state("recording_mode_changed", detail: ["mode": currentRecordingMode.rawValue])
         ensureAudioControllerInitialized()
         audioRecorderController?.setRecordingMode(currentRecordingMode)
         mainWindowView.updateMode(currentRecordingMode)
@@ -694,19 +807,19 @@ class MainViewController: NSViewController {
         case .microphone:
             checkMicrophonePermissionOnModeSwitch()
         case .specificProcess:
-            mainWindowView.updateStatus("特定进程录制：开始录制时会提示授权")
+            mainWindowView.updateStatus("特定进程录制：开始录制时会提示授权".localized)
             if let pid = selectedPIDs.first { audioRecorderController?.setCoreAudioTargetPID(pid) }
         case .systemMixdown:
-            mainWindowView.updateStatus("系统混音录制：开始录制时会提示授权")
+            mainWindowView.updateStatus("系统混音录制：开始录制时会提示授权".localized)
         }
     }
     
     private func checkMicrophonePermissionOnModeSwitch() {
         let permissions = PermissionManager.shared.checkAllPermissions()
         switch permissions.microphone {
-        case .granted: mainWindowView.updateStatus("麦克风权限已授予")
-        case .denied, .restricted: mainWindowView.updateStatus("麦克风权限被拒绝")
-        case .notDetermined: mainWindowView.updateStatus("麦克风权限未确定")
+        case .granted: mainWindowView.updateStatus("麦克风权限已授予".localized)
+        case .denied, .restricted: mainWindowView.updateStatus("麦克风权限被拒绝".localized)
+        case .notDetermined: mainWindowView.updateStatus("麦克风权限未确定".localized)
         }
     }
     
@@ -734,12 +847,14 @@ class MainViewController: NSViewController {
     
     func deleteCurrentFileFromMenu() {
         guard let file = selectedPlaybackFile else { return }
+        UXEventLog.shared.action("delete_file", detail: ["file": file.name])
         if playbackPlayer != nil { stopPlayback() }
         // V2.0: 安全删除 .arlock
         SecureDelete.deleteFile(at: file.url)
+        UXEventLog.shared.artifact("file_deleted", path: file.url.path, detail: ["name": file.name])
         selectedPlaybackFile = nil
         loadRecordedFilesOnStartup()
-        mainWindowView.updateStatus("已删除: \(file.name)")
+        mainWindowView.updateStatus("已删除: %@".localized(file.name))
     }
     
     // MARK: - Settings Sync
@@ -757,7 +872,7 @@ class MainViewController: NSViewController {
     // MARK: - Permission
     private func openSystemPreferences() {
         PermissionManager.shared.openSystemPreferences()
-        mainWindowView.updateStatus("已打开系统偏好设置，请允许相关权限")
+        mainWindowView.updateStatus("已打开系统偏好设置，请允许相关权限".localized)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in self?.checkAudioPermissions() }
     }
     
@@ -765,12 +880,12 @@ class MainViewController: NSViewController {
         let permissions = PermissionManager.shared.checkAllPermissions()
         switch permissions.microphone {
         case .granted: logger.info("麦克风权限已授予")
-        case .denied: mainWindowView.updateStatus("麦克风权限被拒绝")
+        case .denied: mainWindowView.updateStatus("麦克风权限被拒绝".localized)
         default: break
         }
         switch permissions.systemAudioCapture {
         case .granted: logger.info("屏幕录制权限已授予")
-        case .denied: mainWindowView.updateStatus("屏幕录制权限被拒绝")
+        case .denied: mainWindowView.updateStatus("屏幕录制权限被拒绝".localized)
         default: break
         }
     }
@@ -805,6 +920,7 @@ class MainViewController: NSViewController {
 
             DispatchQueue.main.async {
                 self.logger.info("已加载 \(files.count) 个录音文件")
+                UXEventLog.shared.module("FileList", "load", ok: true, detail: ["count": files.count])
                 self.mainWindowView.loadRecordedFiles(files)
             }
         }
@@ -839,6 +955,11 @@ class MainViewController: NSViewController {
     
     // MARK: - Process Management
     func loadAvailableProcesses() {
+        // LOOP-05: UI 测试模式注入 mock 进程
+        if isUITesting {
+            deliverMockProcesses()
+            return
+        }
         ensureAudioControllerInitialized()
         let processes: [AudioProcessInfo]
         if #available(macOS 14.4, *) {
@@ -850,7 +971,26 @@ class MainViewController: NSViewController {
         mainWindowView.updateTracksDisplay()
     }
     
+    /// LOOP-05: 交付 mock 进程列表（--ui-testing 模式，1001-1006 对齐 XCUITest 期望）
+    private func deliverMockProcesses() {
+        let mockNames = ["Chrome", "Safari", "Music", "Zoom", "Teams", "Slack"]
+        let mocks = mockNames.enumerated().map { idx, name in
+            AudioProcessInfo(pid: pid_t(1001 + idx), name: name)
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.availableProcesses = mocks
+            self.mainWindowView.updateProcessList(mocks)
+            self.mainWindowView.updateTracksDisplay()
+        }
+    }
+    
     private func refreshProcessList() {
+        // LOOP-05: UI 测试模式注入 mock 进程（1001-1006），不依赖真实系统进程
+        if isUITesting {
+            deliverMockProcesses()
+            return
+        }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             if #available(macOS 14.4, *) {
@@ -858,7 +998,7 @@ class MainViewController: NSViewController {
                     let coreRecorder = CoreAudioProcessTapRecorder(mode: .systemMixdown)
                     let processes = coreRecorder.getAvailableAudioProcesses()
                     self.mainWindowView.updateProcessList(processes)
-                    self.mainWindowView.updateStatus("进程列表已刷新")
+                    self.mainWindowView.updateStatus("进程列表已刷新".localized)
                 }
             }
         }
@@ -869,7 +1009,7 @@ class MainViewController: NSViewController {
         alert.alertStyle = .warning
         alert.messageText = title
         alert.informativeText = message
-        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: "确定".localized)
         alert.runModal()
     }
 }
@@ -888,7 +1028,7 @@ extension MainViewController: MainWindowViewDelegate {
         } else if let editorFile = currentEditor?.file {
             showExportCard(for: editorFile.url)
         } else {
-            mainWindowView.updateStatus("没有可导出的录音文件")
+            mainWindowView.updateStatus("没有可导出的录音文件".localized)
         }
     }
     
@@ -905,14 +1045,23 @@ extension MainViewController: MainWindowViewDelegate {
     }
     
     func mainWindowViewDidSelectProcesses(_ view: MainWindowView, pids: [pid_t]) {
+        UXEventLog.shared.action("select_record_target", detail: ["pids": pids.map { Int($0) }])
         selectedPIDs = pids
         // V2.1: 同步填充 selectedProcesses（修复 BUG：之前字段永远为空）
         // 用 PID 集合匹配当前 availableProcesses 拿到完整 name，用于文件名兜底
         let pidSet = Set(pids)
         selectedProcesses = Set(availableProcesses.filter { pidSet.contains($0.pid) })
         ensureAudioControllerInitialized()
+        // 同步录制模式状态：让 currentRecordingMode 与侧边栏真相保持一致（修复状态机脱节）
+        let mode: RecordingMode = pids.isEmpty ? .systemMixdown : .specificProcess
+        if currentRecordingMode != mode {
+            currentRecordingMode = mode
+            saveRecordingMode(mode)
+            audioRecorderController?.setRecordingMode(mode)
+            mainWindowView.updateMode(mode)
+        }
         audioRecorderController?.setCoreAudioTargetPID(pids.first)
-        mainWindowView.updateStatus(pids.first != nil ? "录制目标：应用声音" : "录制目标：全部系统声音")
+        mainWindowView.updateStatus(pids.first != nil ? "录制目标：应用声音".localized : "录制目标：全部系统声音".localized)
     }
     
     func mainWindowViewDidRequestProcessRefresh(_ view: MainWindowView) { refreshProcessList() }
@@ -928,25 +1077,28 @@ extension MainViewController: MainWindowViewDelegate {
             do {
                 try AudioFileEncryptor.shared.updateTitle(in: file.url, newTitle: newName)
                 self.logger.info("已重命名: \(file.url.lastPathComponent) → \(newName)")
+                UXEventLog.shared.module("File", "rename", ok: true, detail: ["old": file.name, "new": newName])
                 DispatchQueue.main.async {
-                    self.mainWindowView.updateStatus("已重命名: \(newName)")
+                    self.mainWindowView.updateStatus("已重命名: %@".localized(newName))
                     self.loadRecordedFilesOnStartup()
                 }
             } catch {
                 self.logger.error("重命名失败: \(error.localizedDescription)")
+                UXEventLog.shared.module("File", "rename", ok: false, detail: ["error": error.localizedDescription])
                 DispatchQueue.main.async {
-                    self.mainWindowView.updateStatus("重命名失败: \(error.localizedDescription)")
+                    self.mainWindowView.updateStatus("重命名失败: %@".localized(error.localizedDescription))
                 }
             }
         }
     }
     
     func mainWindowViewDidChangeMixAudio(_ view: MainWindowView, enabled: Bool) {
+        UXEventLog.shared.action("mix_audio_toggle", detail: ["enabled": enabled])
         shouldMixAudio = enabled
         if enabled {
-            mainWindowView.updateStatus("已开启麦克风叠加")
+            mainWindowView.updateStatus("已开启麦克风叠加".localized)
             PermissionManager.shared.requestMicrophonePermission { _ in }
-        } else { mainWindowView.updateStatus("已关闭麦克风叠加") }
+        } else { mainWindowView.updateStatus("已关闭麦克风叠加".localized) }
     }
     
     func mainWindowViewDidSeekToProgress(_ view: MainWindowView, progress: Double) {
@@ -1014,13 +1166,14 @@ extension MainViewController {
         let stillAlive = selectedPIDs.allSatisfy { pid in availableProcesses.contains { $0.pid == pid } }
         if !stillAlive {
             logger.warning("录制目标进程已退出，自动停止录制")
+            UXEventLog.shared.module("Recording", "autostop", detail: ["reason": "target_process_exited"])
             stopRecording()
             DispatchQueue.main.async {
                 let alert = NSAlert()
-                alert.messageText = "录制目标已退出"
-                alert.informativeText = "你选中的进程已经退出，录制已自动停止。已录制的内容已保存。"
+                alert.messageText = "录制目标已退出".localized
+                alert.informativeText = "你选中的进程已经退出，录制已自动停止。已录制的内容已保存。".localized
                 alert.alertStyle = .informational
-                alert.addButton(withTitle: "确定")
+                alert.addButton(withTitle: "确定".localized)
                 alert.runModal()
             }
         }
@@ -1038,7 +1191,7 @@ extension MainViewController {
             if self.selectedPIDs.contains(app.processIdentifier) {
                 self.logger.warning("录制目标进程已退出")
                 self.stopRecording()
-                self.mainWindowView.updateStatus("目标进程已退出，录制已停止并保存")
+                self.mainWindowView.updateStatus("目标进程已退出，录制已停止并保存".localized)
             }
         }
     }
@@ -1079,14 +1232,14 @@ extension MainViewController {
     private func checkDiskSpaceDuringRecording() {
         guard isRecording else { stopDiskMonitor(); return }
         if !fileManager.hasSufficientDiskSpace() {
-            let available = fileManager.getAvailableDiskSpace().map { fileManager.formatDiskSpace($0) } ?? "未知"
+            let available = fileManager.getAvailableDiskSpace().map { fileManager.formatDiskSpace($0) } ?? "未知".localized
             stopRecording()
             DispatchQueue.main.async {
                 let alert = NSAlert()
-                alert.messageText = "磁盘空间不足，录制已自动停止"
-                alert.informativeText = "当前可用空间仅 \(available)，已保存已录制的内容。"
+                alert.messageText = "磁盘空间不足，录制已自动停止".localized
+                alert.informativeText = "当前可用空间仅 %@，已保存已录制的内容。".localized(available)
                 alert.alertStyle = .critical
-                alert.addButton(withTitle: "确定")
+                alert.addButton(withTitle: "确定".localized)
                 alert.runModal()
             }
         }
@@ -1099,14 +1252,14 @@ extension MainViewController {
         guard let unfinishedURL = fileManager.checkForUnfinishedRecording() else { return }
         
         let fileName = unfinishedURL.lastPathComponent
-        let fileSize = fileManager.getFileSize(at: unfinishedURL).map { fileManager.formatFileSize($0) } ?? "未知"
+        let fileSize = fileManager.getFileSize(at: unfinishedURL).map { fileManager.formatFileSize($0) } ?? "未知".localized
         
         let alert = NSAlert()
-        alert.messageText = "发现未保存的录音"
-        alert.informativeText = "上次录制可能因异常中断，发现未保存的临时录音文件（\(fileName)，大小 \(fileSize)）。是否恢复？"
+        alert.messageText = "发现未保存的录音".localized
+        alert.informativeText = "上次录制可能因异常中断，发现未保存的临时录音文件（%@，大小 %@）。是否恢复？".localized(fileName, fileSize)
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "恢复")
-        alert.addButton(withTitle: "丢弃")
+        alert.addButton(withTitle: "恢复".localized)
+        alert.addButton(withTitle: "丢弃".localized)
         
         if alert.runModal() == .alertFirstButtonReturn {
             // V2.0: 恢复 = 加密转为 .arlock
@@ -1118,7 +1271,7 @@ extension MainViewController {
                     
                     // 简单元数据（恢复场景，信息有限）
                     let metadata = ArlockMetadata(
-                        title: "恢复_\(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .short))",
+                        title: "恢复_%@".localized(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .short)),
                         durationSec: 0,
                         sampleRate: 44100,
                         channels: 2,
@@ -1137,12 +1290,15 @@ extension MainViewController {
                     
                     DispatchQueue.main.async {
                         self.logger.info("录制文件已恢复: \(arlockURL.lastPathComponent)")
-                        self.mainWindowView.updateStatus("已恢复录音")
+                        UXEventLog.shared.module("Recovery", "restore", ok: true)
+                        UXEventLog.shared.artifact("recovered_arlock_created", path: arlockURL.path)
+                        self.mainWindowView.updateStatus("已恢复录音".localized)
                         self.loadRecordedFilesOnStartup()
                     }
                 } catch {
                     DispatchQueue.main.async {
-                        self.mainWindowView.updateStatus("恢复失败: \(error.localizedDescription)")
+                        UXEventLog.shared.module("Recovery", "restore", ok: false, detail: ["error": error.localizedDescription])
+                        self.mainWindowView.updateStatus("恢复失败: %@".localized(error.localizedDescription))
                     }
                 }
             }
@@ -1169,8 +1325,9 @@ extension MainViewController {
     private var sessionManager: EditorSessionManager { EditorSessionManager.shared }
     
     func enterEditor(file: RecordedFileInfo) {
-        guard !isRecording else { mainWindowView.updateStatus("录制中不能进入编辑器"); return }
+        guard !isRecording else { mainWindowView.updateStatus("录制中不能进入编辑器".localized); return }
         if let current = currentEditor, current.file.url == file.url { return }
+        UXEventLog.shared.action("enter_editor", detail: ["file": file.name, "duration_sec": file.duration])
         if playbackPlayer != nil { stopPlayback() }
         saveCurrentEditorState()
         let session = sessionManager.session(for: file)
@@ -1183,12 +1340,15 @@ extension MainViewController {
         } else {
             mainWindowView.showEditor(editor.editorView)
         }
-        mainWindowView.updateStatus("编辑: \(file.name)")
+        mainWindowView.updateStatus("编辑: %@".localized(file.name))
+        // UI 状态已切换：记录状态 + 视图树快照（验证编辑器视图真实挂载）
+        UXEventLog.shared.state("editor_shown", detail: ["file": file.name], snapshotWindow: true)
     }
     
     func exitEditor() {
         saveCurrentEditorState(); currentEditor = nil
-        mainWindowView.hideEditor(); mainWindowView.updateStatus("准备就绪")
+        mainWindowView.hideEditor(); mainWindowView.updateStatus("准备就绪".localized)
+        UXEventLog.shared.state("editor_hidden", snapshotWindow: true)
     }
     
     private func saveCurrentEditorState() {
@@ -1203,7 +1363,8 @@ extension MainViewController {
 // MARK: - EditorViewControllerDelegate
 extension MainViewController: EditorViewControllerDelegate {
     func editorDidSave(_ editor: EditorViewController, file: RecordedFileInfo) {
-        mainWindowView.updateStatus("保存完成: \(file.name)")
+        UXEventLog.shared.module("Editor", "save", ok: true, detail: ["file": file.name])
+        mainWindowView.updateStatus("保存完成: %@".localized(file.name))
         loadRecordedFilesOnStartup()
     }
     func editorDidCancel(_ editor: EditorViewController) { exitEditor() }
@@ -1216,7 +1377,7 @@ extension MainViewController: AVAudioPlayerDelegate {
     }
     func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         DispatchQueue.main.async { [weak self] in
-            self?.mainWindowView.updateStatus("播放失败: \(error?.localizedDescription ?? "未知错误")")
+            self?.mainWindowView.updateStatus("播放失败: %@".localized(error?.localizedDescription ?? "未知错误".localized))
             self?.finishPlayback(resetProgress: true)
         }
     }

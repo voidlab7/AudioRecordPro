@@ -419,13 +419,13 @@ enum AudioDataConversionError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupportedBufferCount(let count):
-            return "不支持的缓冲区数量: \(count)"
+            return "不支持的缓冲区数量: %@".localized(String(count))
         case .emptyInputData:
-            return "输入数据为空"
+            return "输入数据为空".localized
         case .unsupportedFormat:
-            return "不支持的音频格式"
+            return "不支持的音频格式".localized
         case .conversionFailed(let reason):
-            return "数据转换失败: \(reason)"
+            return "数据转换失败: %@".localized(reason)
         }
     }
 }
@@ -449,7 +449,7 @@ struct AudioFileInfo {
     }
     
     var formattedChannels: String {
-        return channels == 1 ? "单声道" : "立体声"
+        return channels == 1 ? "单声道".localized : "立体声".localized
     }
 }
 

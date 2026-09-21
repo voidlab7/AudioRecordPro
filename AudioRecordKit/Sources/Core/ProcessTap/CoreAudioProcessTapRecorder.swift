@@ -229,7 +229,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             self.audioToolboxFileManager = audioToolboxManager
             self.outputURL = defaultURL
             
-            onStatus?("文件创建成功: \(fileName)")
+            onStatus?("文件创建成功: %@".localized(fileName))
             logger.info("✅ AudioToolbox 音频文件创建成功: \(fileName)")
             
             // 继续录制流程
@@ -271,6 +271,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
                 self.levelMonitor.startMonitoring(source: .simulated)
                 self.isRunning = true
                 self.installDeviceChangeListener()  // REQ-1.0-01: Monitor device changes
+                self.callOnRecordingStarted()  // BUG-1 修复：管线真正启动后才通知（勿用定时器假装）
                 self.callOnStatus(statusMessage)
             } else {
                 self.logger.error("❌ \(statusMessage)")
@@ -317,7 +318,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             Task { @MainActor in
                 self.logger.info("🔌 REQ-1.0-01: Audio output device changed during recording")
                 self.logger.info("🔌 Process Tap + Aggregate Device architecture handles device switching automatically")
-                self.callOnStatus("音频设备已切换，录制继续中")
+                self.callOnStatus("音频设备已切换，录制继续中".localized)
             }
         }
         
@@ -623,7 +624,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             }
             
             if processObjectIDs.isEmpty {
-                throw NSError(domain: "CoreAudioProcessTapRecorder", code: -2, userInfo: [NSLocalizedDescriptionKey: "所有指定的PID都无法找到对应的进程对象"])
+                throw NSError(domain: "CoreAudioProcessTapRecorder", code: -2, userInfo: [NSLocalizedDescriptionKey: "所有指定的PID都无法找到对应的进程对象".localized])
             }
         } else {
             // 未指定PID，使用系统混音

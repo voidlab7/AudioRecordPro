@@ -14,6 +14,7 @@ protocol AudioRecorderProtocol: AnyObject {
     var onLevel: ((Float) -> Void)? { get set }
     var onPeakLevel: ((Float) -> Void)? { get set }
     var onStatus: ((String) -> Void)? { get set }
+    var onRecordingStarted: (() -> Void)? { get set }
     var onRecordingComplete: ((AudioRecording) -> Void)? { get set }
     var onPlaybackComplete: (() -> Void)? { get set }
     
@@ -56,6 +57,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     var onLevel: ((Float) -> Void)?
     var onPeakLevel: ((Float) -> Void)?
     var onStatus: ((String) -> Void)?
+    var onRecordingStarted: (() -> Void)?
     var onRecordingComplete: ((AudioRecording) -> Void)?
     var onPlaybackComplete: (() -> Void)?
     
@@ -73,6 +75,11 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     @MainActor
     func callOnRecordingComplete(_ recording: AudioRecording) {
         onRecordingComplete?(recording)
+    }
+    
+    @MainActor
+    func callOnRecordingStarted() {
+        onRecordingStarted?()
     }
     
     @MainActor
@@ -126,7 +133,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
         }
         
         logger.info("录制已成功停止")
-        onStatus?("录制已停止")
+        onStatus?("录制已停止".localized)
     }
     
     // MARK: - Configuration
@@ -141,7 +148,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
         audioFile = try AVAudioFile(forWriting: url, settings: settings)
         outputURL = url
         
-        onStatus?("文件创建成功: \(url.lastPathComponent)")
+        onStatus?("文件创建成功: %@".localized(url.lastPathComponent))
         logger.info("音频文件创建成功: \(url.lastPathComponent)")
         logger.info("文件格式: \(audioFile?.processingFormat.settings ?? [:])")
     }
@@ -176,7 +183,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
             audioFile = try AVAudioFile(forWriting: defaultURL, settings: standardSettings)
             outputURL = defaultURL
             
-            onStatus?("文件创建成功: \(fileName)")
+            onStatus?("文件创建成功: %@".localized(fileName))
             logger.info("音频文件创建成功: \(fileName)")
             logger.info("文件格式: \(settings)")
             completion(.success(defaultURL))
