@@ -35,12 +35,12 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     private let targetHeader = NSTextField()
     private let appsHeader = NSTextField()
     private let systemTargetRow = IndustrialAudioTargetRowView(
-        title: "录制全部系统声音",
+        title: "录制全部系统声音".localized,
         subtitle: "",
         systemSymbolName: "speaker.wave.3.fill"
     )
     private let micHeader = NSTextField()
-    private let refreshButton = IndustrialButtonView(title: "刷新", icon: "arrow.clockwise")
+    private let refreshButton = IndustrialButtonView(title: "刷新".localized, icon: "arrow.clockwise")
     private let appsScroll = NSScrollView()
     private let appsStack = NSStackView()
     private let microphonePanel = IndustrialMicrophoneRowView()
@@ -150,7 +150,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         // 创建Tab
         let audioRecorderTab = TabItem(
             id: "audioRecorder",
-            title: "录制",
+            title: "录制".localized,
             icon: "waveform",
             view: audioRecorderTabView
         )
@@ -175,7 +175,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         // 创建Tab
         let recordedFilesTab = TabItem(
             id: "recordedFiles",
-            title: "文件",
+            title: "文件".localized,
             icon: "folder",
             view: recordedFilesTabView
         )
@@ -193,9 +193,9 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             textField.translatesAutoresizingMaskIntoConstraints = false
         }
         
-        styleHeader(targetHeader, "系统音频")
-        styleHeader(appsHeader, "App音频")
-        styleHeader(micHeader, "麦克风设备")
+        styleHeader(targetHeader, "系统音频".localized)
+        styleHeader(appsHeader, "App音频".localized)
+        styleHeader(micHeader, "麦克风设备".localized)
     }
     
     private func setupTargetControls() {
@@ -322,6 +322,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     // MARK: - TabContainerViewDelegate
     func tabContainerViewDidSelectTab(_ view: TabContainerView, tabId: String) {
         logger.info("侧边栏切换到Tab: \(tabId)")
+        UXEventLog.shared.state("tab_changed", detail: ["tab": tabId])
         if tabId == "audioRecorder" {
             // 切到录制 Tab → 通知 delegate 回到录制态
             delegate?.sidebarViewDidChangeSourceSelection(self)
@@ -379,11 +380,11 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     /// Phase 0: 1选返回名字，多选返回"A, B +N"格式
     func getSelectedProcessName() -> String? {
         if isSystemAudioSourceSelected() {
-            return "系统声音"
+            return "系统声音".localized
         }
         let names = selectedSources.filter { $0.pid != nil }.map { $0.displayName }
         switch names.count {
-        case 0: return "系统声音"
+        case 0: return "系统声音".localized
         case 1: return names[0]
         case 2: return "\(names[0]), \(names[1])"
         default: return "\(names[0]), \(names[1]) +\(names.count - 2)"
@@ -406,7 +407,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
 
         if availableProcesses.isEmpty {
-            let emptyLabel = NSTextField(labelWithString: "未检测到音频进程")
+            let emptyLabel = NSTextField(labelWithString: "未检测到音频进程".localized)
             emptyLabel.font = IndustrialTypography.label
             emptyLabel.textColor = IndustrialColors.textTertiary
             emptyLabel.alignment = .center
@@ -769,9 +770,9 @@ final class IndustrialMicrophonePanelView: NSView {
     var onChange: ((Bool) -> Void)?
     var isMicrophoneIncluded: Bool { microphoneToggle.state == .on }
     
-    private let titleLabel = NSTextField(labelWithString: "附加麦克风")
-    private let microphoneToggle = IndustrialToggleView(title: "同时录入麦克风")
-    private let hintLabel = NSTextField(labelWithString: "混合到录制目标")
+    private let titleLabel = NSTextField(labelWithString: "附加麦克风".localized)
+    private let microphoneToggle = IndustrialToggleView(title: "同时录入麦克风".localized)
+    private let hintLabel = NSTextField(labelWithString: "混合到录制目标".localized)
     private let meterLabel = NSTextField(labelWithString: "▂▃▅▆▇")
     
     override init(frame frameRect: NSRect) {
@@ -839,7 +840,7 @@ final class IndustrialMicrophonePanelView: NSView {
         let enabled = microphoneToggle.state == .on
         layer?.backgroundColor = (enabled ? IndustrialColors.primaryContainer.withAlphaComponent(0.2) : NSColor.clear).cgColor
         meterLabel.alphaValue = enabled ? 1.0 : 0.35
-        hintLabel.stringValue = enabled ? "麦克风已混入" : "混合到录制目标"
+        hintLabel.stringValue = enabled ? "麦克风已混入".localized : "混合到录制目标".localized
     }
 }
 
@@ -850,8 +851,8 @@ final class IndustrialMicrophoneRowView: NSView {
     var isSelected: Bool = false { didSet { updateAppearance() } }
     
     private let iconView = NSImageView()
-    private let titleLabel = NSTextField(labelWithString: "同时录入麦克风")
-    private let subtitleLabel = NSTextField(labelWithString: "混合录入当前目标")
+    private let titleLabel = NSTextField(labelWithString: "同时录入麦克风".localized)
+    private let subtitleLabel = NSTextField(labelWithString: "混合录入当前目标".localized)
     
     override init(frame frameRect: NSRect) {
         super.init(frame: .zero)
@@ -872,7 +873,7 @@ final class IndustrialMicrophoneRowView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         
         // 麦克风图标
-        if let image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "麦克风") {
+        if let image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "麦克风".localized) {
             iconView.image = image
         }
         iconView.contentTintColor = IndustrialColors.onSurfaceVariant

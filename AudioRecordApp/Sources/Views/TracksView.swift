@@ -18,18 +18,18 @@ class TracksView: NSView {
     private let tracksStack = NSStackView()
     private let mixOutputLabel = NSTextField(labelWithString: "")
     private let playbackPanel = NSView()
-    private let playbackTitleLabel = NSTextField(labelWithString: "播放")
-    private let playbackFileLabel = NSTextField(labelWithString: "未选择文件")
+    private let playbackTitleLabel = NSTextField(labelWithString: "播放".localized)
+    private let playbackFileLabel = NSTextField(labelWithString: "未选择文件".localized)
     private let playbackTimeLabel = NSTextField(labelWithString: "00:00 / 00:00")
     private let playbackProgress = NSProgressIndicator()
-    private let playbackToggleButton = IndustrialButtonView(title: "播放/暂停", icon: "playpause.fill")
-    private let playbackStopButton = IndustrialButtonView(title: "停止", icon: "stop.fill")
+    private let playbackToggleButton = IndustrialButtonView(title: "播放/暂停".localized, icon: "playpause.fill")
+    private let playbackStopButton = IndustrialButtonView(title: "停止".localized, icon: "stop.fill")
     
     // MARK: - Empty State
     private let emptyStateContainer = NSView()
     private let emptyStateIcon = NSTextField(labelWithString: "◁")
-    private let emptyStateLabel = NSTextField(labelWithString: "请选择音频源")
-    private let emptyStateHint = NSTextField(labelWithString: "从左侧选择应用或系统声音")
+    private let emptyStateLabel = NSTextField(labelWithString: "请选择音频源".localized)
+    private let emptyStateHint = NSTextField(labelWithString: "从左侧选择应用或系统声音".localized)
     
     // MARK: - Properties
     weak var delegate: TracksViewDelegate?
@@ -105,8 +105,9 @@ class TracksView: NSView {
             .foregroundColor: IndustrialColors.onSurfaceVariant.withAlphaComponent(0.6),
             .kern: 1.2
         ]
-        emptyStateLabel.attributedStringValue = NSAttributedString(string: "请选择音频源", attributes: labelAttrs)
+        emptyStateLabel.attributedStringValue = NSAttributedString(string: "请选择音频源".localized, attributes: labelAttrs)
         emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateLabel.setAccessibilityIdentifier("EmptyStateLabel")  // i18n: UITests 按 identifier 定位
         emptyStateContainer.addSubview(emptyStateLabel)
         
         // 辅助提示
@@ -117,6 +118,7 @@ class TracksView: NSView {
         emptyStateHint.backgroundColor = .clear
         emptyStateHint.alignment = .center
         emptyStateHint.translatesAutoresizingMaskIntoConstraints = false
+        emptyStateHint.setAccessibilityIdentifier("EmptyStateHint")  // i18n: UITests 按 identifier 定位
         emptyStateContainer.addSubview(emptyStateHint)
         
         NSLayoutConstraint.activate([
@@ -137,7 +139,7 @@ class TracksView: NSView {
     }
     
     private func setupMixOutputLabel() {
-        mixOutputLabel.stringValue = "📤 混合输出为单文件"
+        mixOutputLabel.stringValue = "📤 混合输出为单文件".localized
         mixOutputLabel.isBordered = false
         mixOutputLabel.isEditable = false
         mixOutputLabel.backgroundColor = .clear
@@ -263,7 +265,7 @@ class TracksView: NSView {
         guard let fileName = fileName else {
             playbackPanel.isHidden = true
             playbackProgress.doubleValue = 0
-            playbackFileLabel.stringValue = "未选择文件"
+            playbackFileLabel.stringValue = "未选择文件".localized
             playbackTimeLabel.stringValue = "00:00 / 00:00"
             playbackToggleButton.isEnabled = false
             playbackStopButton.isEnabled = false
@@ -271,7 +273,7 @@ class TracksView: NSView {
         }
 
         playbackPanel.isHidden = false
-        playbackTitleLabel.stringValue = isPaused ? "已暂停" : (isPlaying ? "播放中" : "就绪")
+        playbackTitleLabel.stringValue = isPaused ? "已暂停".localized : (isPlaying ? "播放中".localized : "就绪".localized)
         playbackFileLabel.stringValue = fileName
         playbackTimeLabel.stringValue = "\(formatPlaybackTime(currentTime)) / \(formatPlaybackTime(duration))"
         playbackProgress.doubleValue = duration > 0 ? min(1.0, max(0.0, currentTime / duration)) : 0
@@ -507,7 +509,7 @@ extension TracksView {
                 icon: "📱",
                 title: process.name,
                 isActive: true,
-                sourceType: "应用声音"
+                sourceType: "应用声音".localized
             ))
         }
         
@@ -515,9 +517,9 @@ extension TracksView {
         if tracks.isEmpty, systemSelected {
             tracks.append(TrackInfo(
                 icon: "speaker.wave.2.fill",
-                title: "全部系统声音",
+                title: "全部系统声音".localized,
                 isActive: true,
-                sourceType: "系统混音"
+                sourceType: "系统混音".localized
             ))
         }
         
@@ -525,9 +527,9 @@ extension TracksView {
         if microphoneSelected {
             tracks.append(TrackInfo(
                 icon: "mic.fill",
-                title: "麦克风输入",
+                title: "麦克风输入".localized,
                 isActive: true,
-                sourceType: "麦克风输入"
+                sourceType: "麦克风输入".localized
             ))
         }
         

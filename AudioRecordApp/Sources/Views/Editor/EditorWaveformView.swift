@@ -164,7 +164,7 @@ class EditorWaveformView: NSView {
         self.totalDuration = Double(totalFrames) / sampleRate
 
         guard let channelData = buffer.floatChannelData, totalFrames > 0 else {
-            loadError = "无法读取音频数据"
+            loadError = "无法读取音频数据".localized
             isLoading = false
             needsDisplay = true
             return
@@ -435,7 +435,7 @@ class EditorWaveformView: NSView {
             .font: IndustrialTypography.body,
             .foregroundColor: IndustrialColors.textTertiary
         ]
-        let text = "加载波形..."
+        let text = "加载波形...".localized
         let size = text.size(withAttributes: attrs)
         text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2), withAttributes: attrs)
     }
@@ -454,7 +454,7 @@ class EditorWaveformView: NSView {
             .font: IndustrialTypography.body,
             .foregroundColor: IndustrialColors.textTertiary
         ]
-        let text = "选择文件进入编辑"
+        let text = "选择文件进入编辑".localized
         let size = text.size(withAttributes: attrs)
         text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2), withAttributes: attrs)
     }
@@ -464,7 +464,7 @@ class EditorWaveformView: NSView {
             .font: IndustrialTypography.monoDB,
             .foregroundColor: IndustrialColors.textTertiary.withAlphaComponent(0.5)
         ]
-        let text = "↔ 在波形上拖拽创建选区，然后使用工具栏操作"
+        let text = "↔ 在波形上拖拽创建选区，然后使用工具栏操作".localized
         let size = text.size(withAttributes: attrs)
         // 显示在波形区底部
         let y = waveformRect.minY + 4

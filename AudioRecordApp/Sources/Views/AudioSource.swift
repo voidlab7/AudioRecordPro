@@ -15,8 +15,8 @@ struct AudioSource: Hashable {
     /// 显示名称
     var displayName: String {
         switch kind {
-        case .system:     return "全部系统声音"
-        case .microphone: return "麦克风"
+        case .system:     return "全部系统声音".localized
+        case .microphone: return "麦克风".localized
         case .process(_, let name, _): return name
         }
     }

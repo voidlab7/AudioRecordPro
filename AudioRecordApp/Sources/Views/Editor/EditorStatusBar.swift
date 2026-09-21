@@ -87,10 +87,10 @@ class EditorStatusBar: NSView {
     // MARK: - Public Methods
     
     func update(duration: TimeInterval, sampleRate: Double, channels: Int, editSteps: Int, maxSteps: Int) {
-        durationLabel.stringValue = "总时长 \(formatTime(duration))"
+        durationLabel.stringValue = "总时长 %@".localized(formatTime(duration))
         let sampleRateStr = "\(Int(sampleRate / 1000))kHz"
-        let channelStr = channels == 1 ? "单声道" : "立体声"
-        infoLabel.stringValue = "\(sampleRateStr) · \(channelStr) · 编辑 \(editSteps)/\(maxSteps)"
+        let channelStr = channels == 1 ? "单声道".localized : "立体声".localized
+        infoLabel.stringValue = "%@ · %@ · 编辑 %@/%@".localized(sampleRateStr, channelStr, editSteps, maxSteps)
     }
     
     /// 更新当前播放/游标时间

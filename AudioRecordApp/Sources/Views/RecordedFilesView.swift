@@ -125,7 +125,7 @@ class RecordedFilesView: NSView {
         }
 
         if recordedFiles.isEmpty {
-            let emptyLabel = NSTextField(labelWithString: "暂无录制文件")
+            let emptyLabel = NSTextField(labelWithString: "暂无录制文件".localized)
             emptyLabel.font = IndustrialTypography.label
             emptyLabel.textColor = IndustrialColors.textTertiary
             emptyLabel.alignment = .center
@@ -154,7 +154,7 @@ class RecordedFilesView: NSView {
                 self.delegate?.recordedFilesViewDidRequestEditFile(self, file: file)
             }
             let contextMenu = NSMenu()
-            let renameItem = NSMenuItem(title: "重命名…", action: #selector(handleRenameFile(_:)), keyEquivalent: "")
+            let renameItem = NSMenuItem(title: "重命名…".localized, action: #selector(handleRenameFile(_:)), keyEquivalent: "")
             renameItem.target = self
             renameItem.representedObject = file
             contextMenu.addItem(renameItem)
@@ -200,10 +200,10 @@ class RecordedFilesView: NSView {
     @objc private func handleRenameFile(_ sender: NSMenuItem) {
         guard let file = sender.representedObject as? RecordedFileInfo else { return }
         let alert = NSAlert()
-        alert.messageText = "重命名录音"
-        alert.informativeText = "为这条录音起个易记的名字。文件名（不含扩展名）："
-        alert.addButton(withTitle: "确定")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = "重命名录音".localized
+        alert.informativeText = "为这条录音起个易记的名字。文件名（不含扩展名）：".localized
+        alert.addButton(withTitle: "确定".localized)
+        alert.addButton(withTitle: "取消".localized)
 
         let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         // V2.1: 默认值用显示名（已是「进程名_日期」格式），不再是 UUID
@@ -298,7 +298,7 @@ final class IndustrialRecordedFileRowView: NSView {
 
         editButton.bezelStyle = .inline
         editButton.isBordered = false
-        editButton.image = NSImage(systemSymbolName: "pencil.line", accessibilityDescription: "编辑")
+        editButton.image = NSImage(systemSymbolName: "pencil.line", accessibilityDescription: "编辑".localized)
         editButton.contentTintColor = IndustrialColors.primary
         editButton.target = self
         editButton.action = #selector(editButtonClicked)
@@ -308,7 +308,7 @@ final class IndustrialRecordedFileRowView: NSView {
         editButton.layer?.cornerRadius = IndustrialCornerRadius.xs
         editButton.layer?.borderWidth = 1
         editButton.layer?.borderColor = IndustrialColors.primaryContainer.cgColor
-        editButton.toolTip = "编辑此录音"
+        editButton.toolTip = "编辑此录音".localized
         editButton.translatesAutoresizingMaskIntoConstraints = false
         addSubview(editButton)
 
@@ -344,7 +344,8 @@ final class IndustrialRecordedFileRowView: NSView {
     private func configure(with file: RecordedFileInfo) {
         let displayName = file.name
         let prettyName = displayName
-            .replacingOccurrences(of: "系统音频_", with: "")
+            .replacingOccurrences(of: "系统混音_", with: "")
+            .replacingOccurrences(of: "SystemMix_", with: "")
             .replacingOccurrences(of: "_", with: " ")
         nameLabel.stringValue = prettyName.isEmpty ? displayName : prettyName
         metaLabel.stringValue = "\(file.formattedDuration)  ·  \(file.formattedSize)"

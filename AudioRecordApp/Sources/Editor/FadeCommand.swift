@@ -49,8 +49,8 @@ class FadeCommand: EditCommand {
         self.fadeOutFrames = AVAudioFrameCount(fadeOut * sampleRate)
         
         var parts: [String] = []
-        if fadeIn > 0 { parts.append("淡入 \(String(format: "%.1f", fadeIn))s") }
-        if fadeOut > 0 { parts.append("淡出 \(String(format: "%.1f", fadeOut))s") }
+        if fadeIn > 0 { parts.append("淡入 %@s".localized(String(format: "%.1f", fadeIn))) }
+        if fadeOut > 0 { parts.append("淡出 %@s".localized(String(format: "%.1f", fadeOut))) }
         self.description = parts.joined(separator: " + ") + " (\(curve.rawValue))"
     }
     

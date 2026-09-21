@@ -32,9 +32,9 @@ class ControlPanelView: NSView {
     // MARK: - UI Components
     private let headerLabel = NSTextField(labelWithString: "")  // 清空多余标题
     private let statusBadge: NSTextField = {
-        let field = NSTextField(labelWithString: "待命")
+        let field = NSTextField(labelWithString: "待命".localized)
         // 替换 cell 为垂直居中版本
-        let cell = VerticalCenteredTextFieldCell(textCell: "待命")
+        let cell = VerticalCenteredTextFieldCell(textCell: "待命".localized)
         cell.isEditable = false
         cell.isBordered = false
         cell.drawsBackground = false
@@ -57,7 +57,7 @@ class ControlPanelView: NSView {
     // MARK: - Properties
     weak var delegate: ControlPanelViewDelegate?
     private var currentRecordingState: RecordingState = .idle
-    private var currentTargetDescription: String = "全部系统声音"
+    private var currentTargetDescription: String = "全部系统声音".localized
     private var buttonWidthConstraint: NSLayoutConstraint?
     private var buttonHeightConstraint: NSLayoutConstraint?
     private let normalButtonSize: CGFloat = 48
@@ -339,7 +339,7 @@ class ControlPanelView: NSView {
 
     func updatePlaybackPaused(_ isPaused: Bool) {
         guard currentRecordingState == .playing else { return }
-        statusBadge.stringValue = isPaused ? "已暂停" : "播放中"
+        statusBadge.stringValue = isPaused ? "已暂停".localized : "播放中".localized
         readoutLabel.stringValue = ""
         playButton.setSymbol(isPaused ? "▶" : "Ⅱ")
         stopButton.isEnabled = true
@@ -359,7 +359,7 @@ class ControlPanelView: NSView {
         
         switch state {
         case .idle:
-            statusBadge.stringValue = "准备就绪"
+            statusBadge.stringValue = "准备就绪".localized
             statusBadge.textColor = IndustrialColors.primary
             statusBadge.layer?.borderColor = IndustrialColors.primaryContainer.cgColor
             readoutLabel.stringValue = ""
@@ -380,7 +380,7 @@ class ControlPanelView: NSView {
             
         case .preparing:
             stopIdleBreathAnimation()
-            statusBadge.stringValue = "准备中"
+            statusBadge.stringValue = "准备中".localized
             statusBadge.textColor = IndustrialColors.statusWarning
             statusBadge.layer?.borderColor = IndustrialColors.statusWarning.cgColor
             readoutLabel.stringValue = ""
@@ -397,7 +397,7 @@ class ControlPanelView: NSView {
             setRecordButtonSize(normalButtonSize, animated: false)
             
         case .recording:
-            statusBadge.stringValue = "录制中"
+            statusBadge.stringValue = "录制中".localized
             statusBadge.textColor = IndustrialColors.statusDanger
             statusBadge.layer?.borderColor = IndustrialColors.statusDanger.cgColor
             readoutLabel.stringValue = ""
@@ -415,7 +415,7 @@ class ControlPanelView: NSView {
             setRecordButtonSize(recordingButtonSize, animated: true)
             
         case .stopping:
-            statusBadge.stringValue = "停止中"
+            statusBadge.stringValue = "停止中".localized
             statusBadge.textColor = IndustrialColors.statusWarning
             statusBadge.layer?.borderColor = IndustrialColors.statusWarning.cgColor
             readoutLabel.stringValue = ""
@@ -429,7 +429,7 @@ class ControlPanelView: NSView {
             setRecordButtonSize(recordingButtonSize, animated: false)
             
         case .playing:
-            statusBadge.stringValue = "回看态"
+            statusBadge.stringValue = "回看态".localized
             statusBadge.textColor = IndustrialColors.primary
             statusBadge.layer?.borderColor = IndustrialColors.primaryContainer.cgColor
             readoutLabel.stringValue = ""
@@ -445,7 +445,7 @@ class ControlPanelView: NSView {
             setRecordButtonSize(normalButtonSize, animated: true)
             
         case .error:
-            statusBadge.stringValue = "错误"
+            statusBadge.stringValue = "错误".localized
             statusBadge.textColor = IndustrialColors.statusDanger
             statusBadge.layer?.borderColor = IndustrialColors.statusDanger.cgColor
             readoutLabel.stringValue = ""

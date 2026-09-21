@@ -30,7 +30,7 @@ class TrimCommand: EditCommand {
         
         let trimmedStart = String(format: "%.1f", startTime)
         let trimmedEnd = String(format: "%.1f", endTime)
-        self.description = "裁剪: 保留 \(trimmedStart)s ~ \(trimmedEnd)s"
+        self.description = "裁剪: 保留 %@s ~ %@s".localized(trimmedStart, trimmedEnd)
     }
     
     func execute(on buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {

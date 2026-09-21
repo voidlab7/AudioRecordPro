@@ -76,7 +76,7 @@ class HorizontalScrollBarView: NSView {
         alphaValue = 0  // 初始隐藏
 
         setAccessibilityRole(.scrollBar)
-        setAccessibilityLabel("时间位置")
+        setAccessibilityLabel("时间位置".localized)
     }
 
     // MARK: - Drawing
@@ -182,6 +182,6 @@ class HorizontalScrollBarView: NSView {
     // MARK: - Accessibility
 
     override func accessibilityValue() -> Any? {
-        return "位置 \(Int(scrollPosition * 100))%"
+        return "位置 %@%%".localized(Int(scrollPosition * 100))
     }
 }

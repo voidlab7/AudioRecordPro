@@ -179,12 +179,12 @@ class EditorViewController {
             navBarHeightConstraint!,
 
             // P0-B 修复：trackContainerView 高度 = intrinsic (rulerHeight + N*rowHeight)，
-            // 由其内部 hugging/compression resistance 锁死。父视图用 centerY 居中。
-            // 边界用 >= 和 <= 软约束，防止压到 navBar/scrollBar。
-            trackContainerView.centerYAnchor.constraint(equalTo: editorView.centerYAnchor),
+            // 由其内部 hugging/compression resistance 锁死。
+            // 位置：top 锚到 navigationBar.bottom（剪映风格 — 刻度尺在卡片顶部），
+            // 剩余空白留在底部。
+            trackContainerView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
             trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             trackContainerView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            trackContainerView.topAnchor.constraint(greaterThanOrEqualTo: navigationBar.bottomAnchor, constant: IndustrialSpacing.md),
             trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: scrollBarView.topAnchor, constant: -IndustrialSpacing.md),
 
             scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
@@ -297,7 +297,7 @@ class EditorViewController {
                     guard frameCount > 0,
                           let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
                         DispatchQueue.main.async {
-                            self.waveformView.loadError = "无法分配音频缓冲区（文件可能过大或内存不足）"
+                            self.waveformView.loadError = "无法分配音频缓冲区（文件可能过大或内存不足）".localized
                             self.waveformView.isLoading = false
                             self.waveformView.needsDisplay = true
                             EditorViewController.currentlyEditingURL = nil
@@ -331,7 +331,7 @@ class EditorViewController {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.waveformView.loadError = "无法读取音频文件: \(error.localizedDescription)"
+                    self.waveformView.loadError = "无法读取音频文件: %@".localized(error.localizedDescription)
                     self.waveformView.isLoading = false
                     self.waveformView.needsDisplay = true
                     EditorViewController.currentlyEditingURL = nil
@@ -359,10 +359,10 @@ class EditorViewController {
         } else {
             // BUG-008 fix: 操作失败时提示用户
             let alert = NSAlert()
-            alert.messageText = "操作失败"
-            alert.informativeText = "无法执行「\(command.description)」。可能是音频信号过弱或数据异常。"
+            alert.messageText = "操作失败".localized
+            alert.informativeText = "无法执行「%@」。可能是音频信号过弱或数据异常。".localized(command.description)
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "确定")
+            alert.addButton(withTitle: "确定".localized)
             alert.runModal()
         }
     }
@@ -415,7 +415,7 @@ class EditorViewController {
                     self.hasUnsavedChanges = false
                     self.editHistory.clear()
                     self.updateUndoRedoState()
-                    self.navigationBar.setFileName("\(self.file.name) ✓ 已保存")
+                    self.navigationBar.setFileName("%@ ✓ 已保存".localized(self.file.name))
                     self.logger.info("保存完成: \(self.file.name)")
                     self.delegate?.editorDidSave(self, file: self.file)
                     // BUG-004 fix: 2 秒后恢复文件名显示
@@ -428,10 +428,10 @@ class EditorViewController {
                 DispatchQueue.main.async {
                     self.logger.error("保存失败: \(error.localizedDescription)")
                     let alert = NSAlert()
-                    alert.messageText = "保存失败"
+                    alert.messageText = "保存失败".localized
                     alert.informativeText = error.localizedDescription
                     alert.alertStyle = .critical
-                    alert.addButton(withTitle: "确定")
+                    alert.addButton(withTitle: "确定".localized)
                     alert.runModal()
                 }
             }
@@ -446,10 +446,10 @@ class EditorViewController {
         guard let selection = waveformView.selection else {
             // BUG-002 fix: 无选区时提示用户
             let alert = NSAlert()
-            alert.messageText = "请先创建选区"
-            alert.informativeText = "在波形上拖拽以选择要保留的区域，然后点击裁剪。"
+            alert.messageText = "请先创建选区".localized
+            alert.informativeText = "在波形上拖拽以选择要保留的区域，然后点击裁剪。".localized
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "确定")
+            alert.addButton(withTitle: "确定".localized)
             alert.runModal()
             return
         }
@@ -460,10 +460,10 @@ class EditorViewController {
         let selectionDuration = selection.upperBound - selection.lowerBound
         if selectionDuration < 0.1 {
             let alert = NSAlert()
-            alert.messageText = "选区过短"
-            alert.informativeText = "裁剪选区至少需要 0.1 秒。当前选区仅 \(String(format: "%.2f", selectionDuration)) 秒。"
+            alert.messageText = "选区过短".localized
+            alert.informativeText = "裁剪选区至少需要 0.1 秒。当前选区仅 %@ 秒。".localized(String(format: "%.2f", selectionDuration))
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "确定")
+            alert.addButton(withTitle: "确定".localized)
             alert.runModal()
             return
         }
@@ -501,10 +501,10 @@ class EditorViewController {
         
         if segments.isEmpty {
             let alert = NSAlert()
-            alert.messageText = "未检测到静音段"
-            alert.informativeText = "当前阈值 \(Int(params.thresholdDB)) dB、最小时长 \(String(format: "%.1f", params.minDuration))s 下未发现静音段。"
+            alert.messageText = "未检测到静音段".localized
+            alert.informativeText = "当前阈值 %@ dB、最小时长 %@s 下未发现静音段。".localized(Int(params.thresholdDB), String(format: "%.1f", params.minDuration))
             alert.alertStyle = .informational
-            alert.addButton(withTitle: "确定")
+            alert.addButton(withTitle: "确定".localized)
             alert.runModal()
             return
         }
@@ -513,11 +513,11 @@ class EditorViewController {
         let totalSilence = segments.reduce(0) { $0 + $1.duration }
         
         let alert = NSAlert()
-        alert.messageText = "检测到 \(segments.count) 个静音段"
-        alert.informativeText = "总计 \(String(format: "%.1f", totalSilence)) 秒静音。\n阈值: \(Int(params.thresholdDB)) dB，最小时长: \(String(format: "%.1f", params.minDuration))s\n\n是否删除所有静音段？"
+        alert.messageText = "检测到 %@ 个静音段".localized(segments.count)
+        alert.informativeText = "总计 %@ 秒静音。\n阈值: %@ dB，最小时长: %@s\n\n是否删除所有静音段？".localized(String(format: "%.1f", totalSilence), Int(params.thresholdDB), String(format: "%.1f", params.minDuration))
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "删除全部")
-        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: "删除全部".localized)
+        alert.addButton(withTitle: "取消".localized)
         
         let response = alert.runModal()
         guard response == .alertFirstButtonReturn else { return }
@@ -536,13 +536,13 @@ class EditorViewController {
         guard let format = audioFormat else { return }
         
         let alert = NSAlert()
-        alert.messageText = "音量标准化"
-        alert.informativeText = "选择目标响度预设："
+        alert.messageText = "音量标准化".localized
+        alert.informativeText = "选择目标响度预设：".localized
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "播客 (-16 LUFS)")
-        alert.addButton(withTitle: "YouTube (-14 LUFS)")
-        alert.addButton(withTitle: "广播 (-24 LUFS)")
-        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: "播客 (-16 LUFS)".localized)
+        alert.addButton(withTitle: "YouTube (-14 LUFS)".localized)
+        alert.addButton(withTitle: "广播 (-24 LUFS)".localized)
+        alert.addButton(withTitle: "取消".localized)
         
         let response = alert.runModal()
         
@@ -573,13 +573,13 @@ class EditorViewController {
         let totalDuration = Double(buffer.frameLength) / format.sampleRate
         
         let alert = NSAlert()
-        alert.messageText = "淡入淡出"
-        alert.informativeText = "将对整个音频应用淡入淡出效果。\n\n淡入: 0.5s / 淡出: 1.0s / 对数曲线\n\n音频时长: \(String(format: "%.1f", totalDuration))s"
+        alert.messageText = "淡入淡出".localized
+        alert.informativeText = "将对整个音频应用淡入淡出效果。\n\n淡入: 0.5s / 淡出: 1.0s / 对数曲线\n\n音频时长: %@s".localized(String(format: "%.1f", totalDuration))
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "应用")
-        alert.addButton(withTitle: "仅淡入")
-        alert.addButton(withTitle: "仅淡出")
-        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: "应用".localized)
+        alert.addButton(withTitle: "仅淡入".localized)
+        alert.addButton(withTitle: "仅淡出".localized)
+        alert.addButton(withTitle: "取消".localized)
         
         let response = alert.runModal()
         
@@ -604,8 +604,8 @@ class EditorViewController {
         executeCommand(command)
         
         var desc: [String] = []
-        if fadeIn > 0 { desc.append("淡入 \(String(format: "%.1f", fadeIn))s") }
-        if fadeOut > 0 { desc.append("淡出 \(String(format: "%.1f", fadeOut))s") }
+        if fadeIn > 0 { desc.append("淡入 %@s".localized(String(format: "%.1f", fadeIn))) }
+        if fadeOut > 0 { desc.append("淡出 %@s".localized(String(format: "%.1f", fadeOut))) }
         logger.info("淡入淡出完成: \(desc.joined(separator: " + "))")
     }
     
@@ -614,11 +614,11 @@ class EditorViewController {
     func requestExit() {
         if hasUnsavedChanges {
             let alert = NSAlert()
-            alert.messageText = "有未保存的编辑"
-            alert.informativeText = "当前编辑尚未保存，是否保存后退出？"
-            alert.addButton(withTitle: "保存")
-            alert.addButton(withTitle: "放弃")
-            alert.addButton(withTitle: "取消")
+            alert.messageText = "有未保存的编辑".localized
+            alert.informativeText = "当前编辑尚未保存，是否保存后退出？".localized
+            alert.addButton(withTitle: "保存".localized)
+            alert.addButton(withTitle: "放弃".localized)
+            alert.addButton(withTitle: "取消".localized)
             
             let response = alert.runModal()
             switch response {
@@ -664,7 +664,7 @@ class EditorViewController {
         audioBuffer = nil
         audioFormat = nil
         waveformView.isLoading = false
-        waveformView.loadError = "录音过大，已跳过编辑器加载，避免应用无响应"
+        waveformView.loadError = "录音过大，已跳过编辑器加载，避免应用无响应".localized
         waveformView.needsDisplay = true
         navigationBar.setAllToolsEnabled(false)
         statusBar.update(
@@ -850,7 +850,7 @@ extension EditorViewController {
                 self.restoreViewportState(session.viewportState)
                 self.logger.info("编辑器 session 加载完成: \(self.file.name)")
             } else {
-                self.waveformView.loadError = session.loadError ?? "加载失败"
+                self.waveformView.loadError = session.loadError ?? "加载失败".localized
                 self.waveformView.isLoading = false
                 self.waveformView.needsDisplay = true
                 EditorViewController.currentlyEditingURL = nil

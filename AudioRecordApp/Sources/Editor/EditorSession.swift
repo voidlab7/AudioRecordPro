@@ -67,7 +67,7 @@ class EditorSession {
                 guard frameCount > 0,
                       let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
                     DispatchQueue.main.async {
-                        self.loadError = "无法分配音频缓冲区"
+                        self.loadError = "无法分配音频缓冲区".localized
                         self.isLoading = false
                         completion(false)
                     }
@@ -100,7 +100,7 @@ class EditorSession {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.loadError = "无法读取音频文件: \(error.localizedDescription)"
+                    self.loadError = "无法读取音频文件: %@".localized(error.localizedDescription)
                     self.isLoading = false
                     completion(false)
                 }

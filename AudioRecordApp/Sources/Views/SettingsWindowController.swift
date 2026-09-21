@@ -17,7 +17,7 @@ class SettingsWindowController: NSWindowController {
     // MARK: - UI Components
     private let formatPopup = NSPopUpButton()
     private let sampleRatePopup = NSPopUpButton()
-    private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "开机自动启动", target: nil, action: nil)
+    private let launchAtLoginCheckbox = NSButton(checkboxWithTitle: "开机自动启动".localized, target: nil, action: nil)
     
     // MARK: - Initialization
     private init() {
@@ -27,7 +27,7 @@ class SettingsWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "设置"
+        window.title = "设置".localized
         window.isReleasedWhenClosed = false
         window.center()
         window.appearance = NSAppearance(named: .darkAqua)
@@ -63,25 +63,25 @@ class SettingsWindowController: NSWindowController {
         ])
         
         // 标题
-        let titleLabel = makeLabel("录制设置", size: 16, bold: true)
+        let titleLabel = makeLabel("录制设置".localized, size: 16, bold: true)
         stackView.addArrangedSubview(titleLabel)
         
         // 录制格式
-        let formatRow = makeRow("录制格式:", formatPopup)
+        let formatRow = makeRow("录制格式:".localized, formatPopup)
         formatPopup.addItems(withTitles: ["M4A (AAC)", "WAV (PCM)"])
         formatPopup.target = self
         formatPopup.action = #selector(formatChanged)
         stackView.addArrangedSubview(formatRow)
         
         // 采样率
-        let sampleRateRow = makeRow("采样率:", sampleRatePopup)
+        let sampleRateRow = makeRow("采样率:".localized, sampleRatePopup)
         sampleRatePopup.addItems(withTitles: ["44100 Hz", "48000 Hz"])
         sampleRatePopup.target = self
         sampleRatePopup.action = #selector(sampleRateChanged)
         stackView.addArrangedSubview(sampleRateRow)
         
         // 安全提示：文件加密存储
-        let securityHint = makeLabel("录音文件以加密格式存储在 App 容器内，外部不可直接播放。导出时会生成标准音频文件。", size: 11)
+        let securityHint = makeLabel("录音文件以加密格式存储在 App 容器内，外部不可直接播放。导出时会生成标准音频文件。".localized, size: 11)
         securityHint.textColor = NSColor.secondaryLabelColor
         securityHint.lineBreakMode = .byWordWrapping
         securityHint.preferredMaxLayoutWidth = 420
@@ -95,7 +95,7 @@ class SettingsWindowController: NSWindowController {
         stackView.addArrangedSubview(separator)
         
         // 应用设置标题
-        let appTitleLabel = makeLabel("应用设置", size: 16, bold: true)
+        let appTitleLabel = makeLabel("应用设置".localized, size: 16, bold: true)
         stackView.addArrangedSubview(appTitleLabel)
         
         // 开机启动

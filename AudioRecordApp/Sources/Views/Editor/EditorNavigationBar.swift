@@ -23,7 +23,7 @@ class EditorNavigationBar: NSView {
     private let redoButton = IndustrialCompactIconButton(symbol: "↪")
     private let separatorView2 = NSView()
     private var toolButtons: [EditorToolType: IndustrialCompactIconButton] = [:]
-    private let saveButton = IndustrialButtonView(title: "保存", icon: nil)
+    private let saveButton = IndustrialButtonView(title: "保存".localized, icon: nil)
     private let bottomSeparator = CALayer()
     
     // MARK: - Properties

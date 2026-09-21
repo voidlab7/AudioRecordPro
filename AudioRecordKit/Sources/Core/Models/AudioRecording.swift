@@ -53,9 +53,9 @@ public struct AudioRecording: Codable, Identifiable, Sendable {
     public var recordingModeDisplayName: String {
         switch recordingMode {
         case "microphone":
-            return "麦克风"
+            return "麦克风".localized
         case "systemAudio":
-            return "系统声音"
+            return "系统声音".localized
         default:
             return recordingMode
         }
@@ -88,11 +88,11 @@ struct RecordingSettings {
         var errors: [String] = []
         
         if sampleRate <= 0 {
-            errors.append("采样率必须大于0")
+            errors.append("采样率必须大于0".localized)
         }
         
         if channels <= 0 || channels > 8 {
-            errors.append("声道数必须在1-8之间")
+            errors.append("声道数必须在1-8之间".localized)
         }
         
         return errors

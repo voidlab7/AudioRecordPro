@@ -10,7 +10,7 @@ class StatusBarView: NSView {
     
     // 各信息段
     private let statusIndicator = NSView()  // 状态圆点
-    private let statusLabel = NSTextField(labelWithString: "就绪")
+    private let statusLabel = NSTextField(labelWithString: "就绪".localized)
     private let deviceLabel = NSTextField(labelWithString: "—")
     private let sampleRateLabel = NSTextField(labelWithString: "48kHz")
     private let bitDepthLabel = NSTextField(labelWithString: "32-bit")
@@ -19,7 +19,7 @@ class StatusBarView: NSView {
     private let diskLabel = NSTextField(labelWithString: "")
     
     // MARK: - Properties
-    private var currentStatus: String = "就绪"
+    private var currentStatus: String = "就绪".localized
     
     // MARK: - Initialization
     override init(frame frameRect: NSRect) {
@@ -155,12 +155,20 @@ class StatusBarView: NSView {
     func updateStatus(_ status: String) {
         currentStatus = status
         // 映射旧状态到新显示（兼容旧调用点）
+        // BUGFIX(2026-09-20): 原来用 contains("录") 单字匹配，导致 idle 态的
+        // 「录制目标：全部系统声音」「准备录制…」也被显示成「● 录制中」。
+        // i18n: 关键词需中英双语——status 传入的是已本地化的显示文案，
+        // 英文环境为 "Recording…" 等，必须同时匹配英文关键词。
         let uppercased = status.uppercased()
-        if uppercased.contains("录") || uppercased.contains("RECORD") {
+        if uppercased.contains("录制中") || uppercased.contains("正在录制") || uppercased.contains("RECORDING") {
             updateRecordingState(.recording)
+        } else if uppercased.contains("停止录制") || uppercased.contains("正在停止")
+                    || uppercased.contains("STOPPING") || uppercased.contains("STOPPED") {
+            updateRecordingState(.stopping)
         } else if uppercased.contains("播放") || uppercased.contains("PLAY") {
             updateRecordingState(.playing)
-        } else if uppercased.contains("错误") || uppercased.contains("ERROR") || uppercased.contains("FAULT") {
+        } else if uppercased.contains("错误") || uppercased.contains("ERROR") || uppercased.contains("FAULT")
+                    || uppercased.contains("失败") || uppercased.contains("FAIL") {
             updateRecordingState(.error)
         } else {
             updateRecordingState(.idle)
@@ -172,22 +180,22 @@ class StatusBarView: NSView {
     func updateRecordingState(_ state: RecordingState) {
         switch state {
         case .idle:
-            statusLabel.stringValue = "准备录制"
+            statusLabel.stringValue = "准备录制".localized
             statusIndicator.layer?.backgroundColor = IndustrialColors.statusSuccess.cgColor
         case .preparing:
-            statusLabel.stringValue = "● 准备中"
+            statusLabel.stringValue = "● 准备中".localized
             statusIndicator.layer?.backgroundColor = IndustrialColors.statusWarning.cgColor
         case .recording:
-            statusLabel.stringValue = "● 录制中"
+            statusLabel.stringValue = "● 录制中".localized
             statusIndicator.layer?.backgroundColor = IndustrialColors.statusCritical.cgColor
         case .stopping:
-            statusLabel.stringValue = "● 停止中"
+            statusLabel.stringValue = "● 停止中".localized
             statusIndicator.layer?.backgroundColor = IndustrialColors.statusWarning.cgColor
         case .playing:
-            statusLabel.stringValue = "● 播放中"
+            statusLabel.stringValue = "● 播放中".localized
             statusIndicator.layer?.backgroundColor = IndustrialColors.primary.cgColor
         case .error:
-            statusLabel.stringValue = "● 错误"
+            statusLabel.stringValue = "● 错误".localized
             statusIndicator.layer?.backgroundColor = IndustrialColors.statusDanger.cgColor
         }
     }
@@ -200,9 +208,9 @@ class StatusBarView: NSView {
     /// - Parameter targetName: 当前录制目标名称
     func updateIdleGuide(targetName: String?) {
         if let name = targetName, !name.isEmpty {
-            statusLabel.stringValue = "准备录制：\(name)"
+            statusLabel.stringValue = "准备录制：%@".localized(name)
         } else {
-            statusLabel.stringValue = "选择录制目标，点击 ● 开始"
+            statusLabel.stringValue = "选择录制目标，点击 ● 开始".localized
         }
         statusIndicator.layer?.backgroundColor = IndustrialColors.statusSuccess.cgColor
     }

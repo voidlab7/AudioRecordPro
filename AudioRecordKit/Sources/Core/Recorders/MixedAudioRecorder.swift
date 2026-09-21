@@ -88,7 +88,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
                 try await startSystemAudioCapture()
                 
                 isRunning = true
-                onStatus?("正在录制 (系统音频 + 麦克风混音)...")
+                onStatus?("正在录制 (系统音频 + 麦克风混音)...".localized)
                 logger.info("✅ 融合录音启动成功")
                 
             } catch {
@@ -145,7 +145,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
     private func createOutputFile() throws {
         guard let format = commonFormat else {
             throw NSError(domain: "MixedAudioRecorder", code: -1, 
-                         userInfo: [NSLocalizedDescriptionKey: "音频格式未设置"])
+                         userInfo: [NSLocalizedDescriptionKey: "音频格式未设置".localized])
         }
         
         // 生成文件名：mixed_system+mic_timestamp.wav
@@ -181,13 +181,13 @@ class MixedAudioRecorder: BaseAudioRecorder {
         guard let tapManager = processTapManager,
               tapManager.createProcessTap(for: processObjectIDs) else {
             throw NSError(domain: "MixedAudioRecorder", code: -2,
-                         userInfo: [NSLocalizedDescriptionKey: "创建 Process Tap 失败"])
+                         userInfo: [NSLocalizedDescriptionKey: "创建 Process Tap 失败".localized])
         }
         
         // 读取 Tap 格式
         guard tapManager.readTapStreamFormat() else {
             throw NSError(domain: "MixedAudioRecorder", code: -3,
-                         userInfo: [NSLocalizedDescriptionKey: "读取 Tap 格式失败"])
+                         userInfo: [NSLocalizedDescriptionKey: "读取 Tap 格式失败".localized])
         }
         
         // 创建聚合设备
@@ -196,7 +196,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
               let tapUUID = tapManager.uuid,
               aggManager.createAggregateDeviceBindingTap(tapUUID: tapUUID) else {
             throw NSError(domain: "MixedAudioRecorder", code: -4,
-                         userInfo: [NSLocalizedDescriptionKey: "创建聚合设备失败"])
+                         userInfo: [NSLocalizedDescriptionKey: "创建聚合设备失败".localized])
         }
         
         // 创建音频回调处理器
@@ -225,7 +225,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
         let (callback, clientData) = systemAudioCallback!.createAudioCallback()
         guard aggManager.setupIOProcAndStart(callback: callback, clientData: clientData) else {
             throw NSError(domain: "MixedAudioRecorder", code: -5,
-                         userInfo: [NSLocalizedDescriptionKey: "启动 IO 回调失败"])
+                         userInfo: [NSLocalizedDescriptionKey: "启动 IO 回调失败".localized])
         }
         
         logger.info("✅ 系统音频捕获已启动")
@@ -524,7 +524,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
                 processObjectIDs.append(objectID)
             } else {
                 throw NSError(domain: "MixedAudioRecorder", code: -6,
-                             userInfo: [NSLocalizedDescriptionKey: "未找到目标进程"])
+                             userInfo: [NSLocalizedDescriptionKey: "未找到目标进程".localized])
             }
         } else {
             // 使用系统混音

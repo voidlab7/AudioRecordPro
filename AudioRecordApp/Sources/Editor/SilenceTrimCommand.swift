@@ -38,7 +38,7 @@ class SilenceTrimCommand: EditCommand {
         let selected = segments.filter { $0.isSelected }
         self.segments = selected
         self.sampleRate = sampleRate
-        self.description = "静音裁剪: 删除 \(selected.count) 个静音段"
+        self.description = "静音裁剪: 删除 %@ 个静音段".localized(selected.count)
     }
     
     // MARK: - Static Detection

@@ -37,7 +37,7 @@ class NormalizeCommand: EditCommand {
         self.targetLUFS = customLUFS ?? preset.targetLUFS
         self.truePeakLimit = -1.0  // -1 dBTP
         self.sampleRate = sampleRate
-        self.description = "标准化: \(preset.rawValue) (\(String(format: "%.0f", customLUFS ?? preset.targetLUFS)) LUFS)"
+        self.description = "标准化: %@ (%@ LUFS)".localized(preset.rawValue.localized, String(format: "%.0f", customLUFS ?? preset.targetLUFS))
     }
     
     func execute(on buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {

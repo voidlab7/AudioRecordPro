@@ -29,12 +29,12 @@ class EditToolbarView: NSView {
     
     // MARK: - UI Components
     private let stackView = NSStackView()
-    private let splitButton = EditToolbarButton(title: "切分", symbol: "scissors.badge.ellipsis")
-    private let trimButton = EditToolbarButton(title: "裁剪", symbol: "scissors")
-    private let silenceButton = EditToolbarButton(title: "静音", symbol: "speaker.slash")
-    private let normalizeButton = EditToolbarButton(title: "标准化", symbol: "waveform.badge.magnifyingglass")
-    private let fadeInButton = EditToolbarButton(title: "淡入", symbol: "arrow.up.right")
-    private let fadeOutButton = EditToolbarButton(title: "淡出", symbol: "arrow.down.right")
+    private let splitButton = EditToolbarButton(title: "切分".localized, symbol: "scissors.badge.ellipsis")
+    private let trimButton = EditToolbarButton(title: "裁剪".localized, symbol: "scissors")
+    private let silenceButton = EditToolbarButton(title: "静音".localized, symbol: "speaker.slash")
+    private let normalizeButton = EditToolbarButton(title: "标准化".localized, symbol: "waveform.badge.magnifyingglass")
+    private let fadeInButton = EditToolbarButton(title: "淡入".localized, symbol: "arrow.up.right")
+    private let fadeOutButton = EditToolbarButton(title: "淡出".localized, symbol: "arrow.down.right")
     private let separator = NSView()
     
     // MARK: - Initialization

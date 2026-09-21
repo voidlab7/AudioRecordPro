@@ -133,7 +133,7 @@ class SwiftProcessTapManager {
             guard let tapUUID = self.tapUUID else {
                 logger.error("❌ SwiftProcessTapManager: Tap UUID未设置")
                 cleanup()
-                throw NSError(domain: NSOSStatusErrorDomain, code: -1, userInfo: [NSLocalizedDescriptionKey: "Tap UUID未设置"])
+                throw NSError(domain: NSOSStatusErrorDomain, code: -1, userInfo: [NSLocalizedDescriptionKey: "Tap UUID未设置".localized])
             }
             let tapUID = tapUUID.uuidString as CFString
             logger.info("✅ SwiftProcessTapManager: 使用Tap UID: \(tapUID)")

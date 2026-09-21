@@ -57,35 +57,16 @@ get_window_id() {
 take_screenshot() {
     local name="$1"
     local filepath="$OUTPUT_DIR/${name}.png"
-    
-    # Method 1: Try to capture the frontmost window
-    screencapture -w "$filepath" 2>/dev/null
-    
-    # Method 2: If window capture fails, try full screen capture
-    if [ ! -f "$filepath" ] || [ ! -s "$filepath" ]; then
-        screencapture "$filepath" 2>/dev/null
+
+    # 只截 App 窗口本体（-l 窗口ID + -o 无阴影），不抢前台、不截全屏
+    local wid
+    wid=$(osascript -e 'tell application "AudioRecordMac" to id of window 1' 2>/dev/null || echo "")
+    if [ -n "$wid" ]; then
+        screencapture -x -o -l "$wid" "$filepath" 2>/dev/null
+    else
+        screencapture -x "$filepath" 2>/dev/null
     fi
-    
-    # Method 3: If still no screenshot, try to find and capture specific app window
-    if [ ! -f "$filepath" ] || [ ! -s "$filepath" ]; then
-        local wid
-        wid=$(osascript -e "
-            tell application \"System Events\"
-                try
-                    tell process \"audio_record_mac\"
-                        return id of front window
-                    end tell
-                on error
-                    return \"\"
-                end try
-            end tell
-        " 2>/dev/null || echo "")
-        
-        if [ -n "$wid" ]; then
-            screencapture -l "$wid" "$filepath" 2>/dev/null
-        fi
-    fi
-    
+
     if [ -f "$filepath" ] && [ -s "$filepath" ]; then
         log_ok "Screenshot: $name.png"
         echo "$filepath"

@@ -82,7 +82,7 @@ class TrackPanelView: NSView {
         
         // 空状态
         if tracks.isEmpty {
-            let emptyRow = TrackRowView(track: TrackInfo(icon: "speaker.wave.2.fill", title: "未选择", isActive: false, sourceType: ""), index: 0)
+            let emptyRow = TrackRowView(track: TrackInfo(icon: "speaker.wave.2.fill", title: "未选择".localized, isActive: false, sourceType: ""), index: 0)
             emptyRow.translatesAutoresizingMaskIntoConstraints = false
             tracksStack.addArrangedSubview(emptyRow)
             NSLayoutConstraint.activate([
@@ -181,7 +181,7 @@ private class TrackRowView: NSView {
         ])
         
         // Mute 按钮（喇叭图标）
-        if let muteImg = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "静音") {
+        if let muteImg = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "静音".localized) {
             muteButton.image = muteImg
             muteButton.imageScaling = .scaleProportionallyDown
         }
@@ -223,12 +223,12 @@ private class TrackRowView: NSView {
     @objc private func muteClicked() {
         isMuted.toggle()
         if isMuted {
-            if let img = NSImage(systemSymbolName: "speaker.slash.fill", accessibilityDescription: "取消静音") {
+            if let img = NSImage(systemSymbolName: "speaker.slash.fill", accessibilityDescription: "取消静音".localized) {
                 muteButton.image = img
             }
             muteButton.contentTintColor = IndustrialColors.statusWarning
         } else {
-            if let img = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "静音") {
+            if let img = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: "静音".localized) {
                 muteButton.image = img
             }
             muteButton.contentTintColor = IndustrialColors.onSurfaceVariant

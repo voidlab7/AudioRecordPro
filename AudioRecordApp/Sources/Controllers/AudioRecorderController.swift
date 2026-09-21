@@ -83,6 +83,13 @@ class AudioRecorderController: NSObject {
         }
     }
     
+    /// 管线真正启动（ProcessTap 5 步完成 / 麦克风引擎启动）回调
+    var onRecordingStarted: (() -> Void)? {
+        didSet {
+            activeRecorders.values.forEach { $0.onRecordingStarted = onRecordingStarted }
+        }
+    }
+    
     // 保持向后兼容
     var onRecordingComplete: ((AudioRecording) -> Void)?
     
@@ -471,6 +478,12 @@ class AudioRecorderController: NSObject {
         
         recorder.onStatus = { [weak self] status in
             self?.onStatus?(status)
+        }
+        
+        recorder.onRecordingStarted = { [weak self] in
+            guard let self = self else { return }
+            self.logger.info("录制器 \(sourceType.rawValue) 管线已真正启动")
+            self.onRecordingStarted?()
         }
         
         recorder.onRecordingComplete = { [weak self] recording in

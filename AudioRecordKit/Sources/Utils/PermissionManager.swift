@@ -197,13 +197,13 @@ class PermissionManager {
     func getPermissionStatusDescription(_ status: PermissionStatus) -> String {
         switch status {
         case .granted:
-            return "已授权"
+            return "已授权".localized
         case .denied:
-            return "已拒绝"
+            return "已拒绝".localized
         case .notDetermined:
-            return "未确定"
+            return "未确定".localized
         case .restricted:
-            return "受限制"
+            return "受限制".localized
         }
     }
     
@@ -214,14 +214,14 @@ class PermissionManager {
             return """
             麦克风权限设置：
             1. 打开 系统偏好设置 > 安全性与隐私 > 隐私
-            2. 选择左侧的"麦克风"
-            3. 勾选"音频录制工具"应用
-            """
+            2. 选择左侧的「麦克风」
+            3. 勾选「音频录制工具」应用
+            """.localized
         case .systemAudioCapture:
             return """
             系统音频捕获权限设置：
-            1. 当系统弹出"允许录制系统音频"对话框时，点击"允许"
+            1. 当系统弹出「允许录制系统音频」对话框时，点击「允许」
             2. 如被拒绝，可重启应用再次触发或在'隐私'中重置权限
-            """
+            """.localized
         }
     }}

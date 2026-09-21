@@ -7,7 +7,7 @@ class SplitAudioClipCommand: EditCommand {
 
     init(time: TimeInterval) {
         self.time = time
-        self.description = "切分 @ \(String(format: "%.2f", time))s"
+        self.description = "切分 @ %@s".localized(String(format: "%.2f", time))
     }
 
     func execute(on buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {

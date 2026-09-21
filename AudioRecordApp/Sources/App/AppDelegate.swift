@@ -46,6 +46,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 清理旧日志文件，从0开始记录
         clearLogFiles()
         
+        // UX 事件流：结构化记录 输入→动作→状态→产物（放 clearLogFiles 之后，避免刚建会话被清）
+        UXEventLog.shared.startSession()
+        UXEventLog.shared.installGlobalInputMonitor()
+        
         // 输出日志目录信息
         let logDir = logger.getLogDirectoryURL()
         let logFile = logger.getLogFileURL()
@@ -122,7 +126,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let appMenu = NSApp.mainMenu?.items.first?.submenu {
             // 在「退出」之前插入「设置…」
             let settingsItem = NSMenuItem(
-                title: "设置…",
+                title: "设置…".localized,
                 action: #selector(openSettings),
                 keyEquivalent: ","
             )
@@ -144,28 +148,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let mainMenu = NSApp.mainMenu else { return }
         
         // 创建 "编辑" 菜单（Undo/Redo — REQ-1.1-06）
-        let editMenu = NSMenu(title: "编辑")
-        let editMenuItem = NSMenuItem(title: "编辑", action: nil, keyEquivalent: "")
+        let editMenu = NSMenu(title: "编辑".localized)
+        let editMenuItem = NSMenuItem(title: "编辑".localized, action: nil, keyEquivalent: "")
         editMenuItem.submenu = editMenu
         
-        let undoItem = NSMenuItem(title: "撤销", action: #selector(editorUndo), keyEquivalent: "z")
+        let undoItem = NSMenuItem(title: "撤销".localized, action: #selector(editorUndo), keyEquivalent: "z")
         undoItem.keyEquivalentModifierMask = .command
         editMenu.addItem(undoItem)
         
-        let redoItem = NSMenuItem(title: "重做", action: #selector(editorRedo), keyEquivalent: "z")
+        let redoItem = NSMenuItem(title: "重做".localized, action: #selector(editorRedo), keyEquivalent: "z")
         redoItem.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(redoItem)
         
         mainMenu.addItem(editMenuItem)
         
         // 创建 "录制" 菜单
-        let recordMenu = NSMenu(title: "录制")
-        let recordMenuItem = NSMenuItem(title: "录制", action: nil, keyEquivalent: "")
+        let recordMenu = NSMenu(title: "录制".localized)
+        let recordMenuItem = NSMenuItem(title: "录制".localized, action: nil, keyEquivalent: "")
         recordMenuItem.submenu = recordMenu
         
         // Cmd+R — 开始/停止录制
         let toggleRecordItem = NSMenuItem(
-            title: "开始/停止录制",
+            title: "开始/停止录制".localized,
             action: #selector(toggleRecording),
             keyEquivalent: "r"
         )
@@ -174,7 +178,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Space — 播放/暂停
         let togglePlayItem = NSMenuItem(
-            title: "播放/暂停",
+            title: "播放/暂停".localized,
             action: #selector(togglePlayback),
             keyEquivalent: " "
         )
@@ -183,7 +187,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Cmd+E — 导出
         let exportItem = NSMenuItem(
-            title: "导出 MP3",
+            title: "导出 MP3".localized,
             action: #selector(exportCurrentFile),
             keyEquivalent: "e"
         )
@@ -194,7 +198,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Cmd+Backspace — 删除
         let deleteItem = NSMenuItem(
-            title: "删除录音",
+            title: "删除录音".localized,
             action: #selector(deleteCurrentFile),
             keyEquivalent: "\u{8}" // backspace
         )
@@ -205,7 +209,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Cmd+\ — 切换侧边栏
         let toggleSidebarItem = NSMenuItem(
-            title: "切换侧边栏",
+            title: "切换侧边栏".localized,
             action: #selector(toggleSidebar),
             keyEquivalent: "\\"
         )
@@ -216,30 +220,37 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func toggleSidebar() {
+        UXEventLog.shared.action("menu_toggle_sidebar", detail: ["source": "menu"])
         mainViewController?.toggleSidebarFromMenu()
     }
     
     @objc private func editorUndo() {
+        UXEventLog.shared.action("menu_editor_undo", detail: ["source": "menu"])
         mainViewController?.editorUndoFromMenu()
     }
     
     @objc private func editorRedo() {
+        UXEventLog.shared.action("menu_editor_redo", detail: ["source": "menu"])
         mainViewController?.editorRedoFromMenu()
     }
     
     @objc private func toggleRecording() {
+        UXEventLog.shared.action("menu_toggle_recording", detail: ["source": "menu"])
         mainViewController?.toggleRecordingFromMenu()
     }
     
     @objc private func togglePlayback() {
+        UXEventLog.shared.action("menu_toggle_playback", detail: ["source": "menu"])
         mainViewController?.togglePlaybackFromMenu()
     }
     
     @objc private func exportCurrentFile() {
+        UXEventLog.shared.action("menu_export_file", detail: ["source": "menu"])
         mainViewController?.exportCurrentFileFromMenu()
     }
     
     @objc private func deleteCurrentFile() {
+        UXEventLog.shared.action("menu_delete_file", detail: ["source": "menu"])
         mainViewController?.deleteCurrentFileFromMenu()
     }
     
@@ -253,6 +264,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationWillTerminate(_ notification: Notification) {
         logger.info("应用程序即将退出")
+        UXEventLog.shared.shutdown()
         
         // 清理资源
         cleanup()
@@ -277,7 +289,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("createMainWindow: NSWindow 已实例化，isVisible=\(window.isVisible)")
         
         // 设置窗口属性
-        window.title = "音频录制工具"
+        window.title = "音频录制工具".localized
         window.isRestorable = false
         
         // 强制暗色外观 — 工业风格设计需要暗色系统 UI（标题栏、分割线、滚动条）
@@ -333,7 +345,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
         logger.info("createMainWindow: first front -> visible=\(window.isVisible) key=\(String(describing: NSApp.keyWindow)) count=\(NSApp.windows.count)")
         
-        logger.info("主窗口已创建，大小: \(windowSize)")
+        logger.info("主窗口已创建，实际 frame: \(NSStringFromRect(window.frame))")
         logger.info("窗口是否可见: \(window.isVisible)")
         logger.info("窗口层级: \(window.level.rawValue)")
 

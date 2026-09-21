@@ -32,7 +32,7 @@ class TitleBarView: NSView {
     }()
     
     private let exportButton: NSButton = {
-        let btn = NSButton(title: "导出", target: nil, action: nil)
+        let btn = NSButton(title: "导出".localized, target: nil, action: nil)
         btn.bezelStyle = .rounded
         btn.controlSize = .small
         btn.font = NSFont.systemFont(ofSize: 11, weight: .medium)
@@ -92,7 +92,7 @@ class TitleBarView: NSView {
     /// - Parameter names: 选中音源名称数组（有序）
     func updateTargetNames(_ names: [String]) {
         if names.isEmpty {
-            targetLabel.stringValue = "未选择录制目标"
+            targetLabel.stringValue = "未选择录制目标".localized
         } else if names.count == 1 {
             targetLabel.stringValue = names[0]
         } else {

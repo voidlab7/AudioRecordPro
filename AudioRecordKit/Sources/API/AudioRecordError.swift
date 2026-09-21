@@ -12,17 +12,17 @@ public enum AudioRecordError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .microphonePermissionDenied:
-            return "麦克风权限被拒绝"
+            return "麦克风权限被拒绝".localized
         case .systemAudioPermissionDenied:
-            return "系统音频权限被拒绝"
+            return "系统音频权限被拒绝".localized
         case .deviceNotFound:
-            return "音频设备未找到"
+            return "音频设备未找到".localized
         case .alreadyRecording:
-            return "录制已在进行中"
+            return "录制已在进行中".localized
         case .notSupported(let feature):
-            return "当前版本不支持: \(feature)"
+            return "当前版本不支持: %@".localized(feature)
         case .unknown(let error):
-            return "未知错误: \(error.localizedDescription)"
+            return "未知错误: %@".localized(error.localizedDescription)
         }
     }
 }

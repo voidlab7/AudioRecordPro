@@ -374,14 +374,14 @@ class WaveformView: NSView {
             height: iconSize
         )
         
-        if let symbolImage = NSImage(systemSymbolName: "waveform.circle", accessibilityDescription: "录制") {
+        if let symbolImage = NSImage(systemSymbolName: "waveform.circle", accessibilityDescription: "录制".localized) {
             let config = NSImage.SymbolConfiguration(pointSize: 38, weight: .ultraLight)
             let configured = symbolImage.withSymbolConfiguration(config) ?? symbolImage
             configured.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 0.35)
         }
         
         // Draw guide text below icon
-        let guideText = "点击 ● 开始录制"
+        let guideText = "点击 ● 开始录制".localized
         let textAttributes: [NSAttributedString.Key: Any] = [
             .font: IndustrialTypography.body,
             .foregroundColor: IndustrialColors.textTertiary

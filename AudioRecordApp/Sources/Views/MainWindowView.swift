@@ -108,8 +108,8 @@ class MainWindowView: NSView {
         waveformView.setAccessibilityRole(.group)
         waveformView.setAccessibilityElement(true)
         // REQ-2.0-02: idle 态 accessibility
-        waveformView.setAccessibilityLabel("录制准备区域")
-        waveformView.setAccessibilityHelp("按空格键或点击录制按钮开始录制")
+        waveformView.setAccessibilityLabel("录制准备区域".localized)
+        waveformView.setAccessibilityHelp("按空格键或点击录制按钮开始录制".localized)
 
         levelMeterCardView.setAccessibilityIdentifier("LevelMeter")
         levelMeterCardView.setAccessibilityRole(.group)
@@ -360,23 +360,23 @@ class MainWindowView: NSView {
                 title: process.name,
                 isActive: true,
                 appIcon: appIcon,
-                sourceType: "应用声音"
+                sourceType: "应用声音".localized
             ))
         } else if sidebarView.isSystemAudioSourceSelected() {
             tracks.append(TrackInfo(
                 icon: "speaker.wave.2.fill",
-                title: "系统声音",
+                title: "系统声音".localized,
                 isActive: true,
-                sourceType: "系统混音"
+                sourceType: "系统混音".localized
             ))
         }
         
         if sidebarView.isMicrophoneSourceSelected() {
             tracks.append(TrackInfo(
                 icon: "mic.fill",
-                title: "麦克风",
+                title: "麦克风".localized,
                 isActive: true,
-                sourceType: "麦克风输入"
+                sourceType: "麦克风输入".localized
             ))
         }
         
@@ -389,11 +389,11 @@ class MainWindowView: NSView {
             titleBarView.updateTargetDescription(process.name)
             controlPanelView.updateTargetDescription(process.name)
         } else if sidebarView.isSystemAudioSourceSelected() {
-            titleBarView.updateTargetDescription("系统声音")
-            controlPanelView.updateTargetDescription("全部系统声音")
+            titleBarView.updateTargetDescription("系统声音".localized)
+            controlPanelView.updateTargetDescription("全部系统声音".localized)
         } else {
-            titleBarView.updateTargetDescription("未选择录制目标")
-            controlPanelView.updateTargetDescription("未选择录制目标")
+            titleBarView.updateTargetDescription("未选择录制目标".localized)
+            controlPanelView.updateTargetDescription("未选择录制目标".localized)
         }
     }
     
@@ -458,8 +458,8 @@ class MainWindowView: NSView {
             titleBarView.setExportEnabled(false)
             // REQ-2.0-02: idle 态引导文案 + accessibility
             statusBarView.updateIdleGuide(targetName: sidebarView.getSelectedProcessName())
-            waveformView.setAccessibilityLabel("录制准备区域")
-            waveformView.setAccessibilityHelp("按空格键或点击录制按钮开始录制")
+            waveformView.setAccessibilityLabel("录制准备区域".localized)
+            waveformView.setAccessibilityHelp("按空格键或点击录制按钮开始录制".localized)
 
         case .recording:
             // 录制进行态：隐藏编辑能力，显示实时波形
@@ -469,8 +469,8 @@ class MainWindowView: NSView {
             trackPanelWidthConstraint.constant = 0
             titleBarView.setExportEnabled(false)
             // REQ-2.0-02: 更新 accessibility
-            waveformView.setAccessibilityLabel("录制波形")
-            waveformView.setAccessibilityHelp("正在录制音频")
+            waveformView.setAccessibilityLabel("录制波形".localized)
+            waveformView.setAccessibilityHelp("正在录制音频".localized)
 
         case .editing:
             // 编辑态：进入 EditorViewController（REQ-2.0-05）
@@ -555,6 +555,16 @@ class MainWindowView: NSView {
         
         // Restore to idle mode (disable export button)
         switchToMode(.idle)
+        
+        // BUGFIX(2026-09-20): 回到录制区必须是干净的准备态。
+        // 之前 waveformView 保留上一次录音的波形（stopRecording 有意不清数据，
+        // 等 loadWaveform 替换，但 loadFileWaveform 从未被控制器调用），
+        // 导致从编辑器切回录制区时右侧波形仍是旧音频。
+        waveformView.reset()
+        levelMeterCardView.reset()
+        lastCompletedFile = nil
+        // 可观测性：供回放断言「切回录制区后状态已重置」
+        UXEventLog.shared.state("record_area_reset", detail: ["from": "editor"])
         
         currentEditorView?.removeFromSuperview()
         currentEditorView = nil

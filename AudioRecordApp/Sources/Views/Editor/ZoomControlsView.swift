@@ -67,7 +67,7 @@ class ZoomControlsView: NSView {
         layer?.addSublayer(separatorLayer)
 
         // 缩小按钮
-        configureIconButton(zoomOutButton, symbolName: "minus.magnifyingglass", accessibilityLabel: "缩小")
+        configureIconButton(zoomOutButton, symbolName: "minus.magnifyingglass", accessibilityLabel: "缩小".localized)
         zoomOutButton.target = self
         zoomOutButton.action = #selector(handleZoomOut)
         addSubview(zoomOutButton)
@@ -81,20 +81,20 @@ class ZoomControlsView: NSView {
         zoomSlider.action = #selector(handleSliderChange)
         zoomSlider.isContinuous = true
         zoomSlider.controlSize = .small
-        zoomSlider.setAccessibilityLabel("缩放级别")
+        zoomSlider.setAccessibilityLabel("缩放级别".localized)
         addSubview(zoomSlider)
 
         // 放大按钮
-        configureIconButton(zoomInButton, symbolName: "plus.magnifyingglass", accessibilityLabel: "放大")
+        configureIconButton(zoomInButton, symbolName: "plus.magnifyingglass", accessibilityLabel: "放大".localized)
         zoomInButton.target = self
         zoomInButton.action = #selector(handleZoomIn)
         addSubview(zoomInButton)
 
         // Fit All 按钮
-        configureIconButton(fitAllButton, symbolName: "arrow.left.and.right.square", accessibilityLabel: "适应全部")
+        configureIconButton(fitAllButton, symbolName: "arrow.left.and.right.square", accessibilityLabel: "适应全部".localized)
         fitAllButton.target = self
         fitAllButton.action = #selector(handleFitAll)
-        fitAllButton.toolTip = "适应全部 (⌘0)"
+        fitAllButton.toolTip = "适应全部 (⌘0)".localized
         addSubview(fitAllButton)
 
         setupConstraints()
@@ -212,7 +212,7 @@ class ZoomControlsView: NSView {
     private func updateSliderPosition() {
         let position = zoomLevelToSliderPosition(zoomLevel)
         zoomSlider.doubleValue = Double(position)
-        zoomSlider.setAccessibilityValue("缩放 \(Int(zoomLevel))x")
+        zoomSlider.setAccessibilityValue("缩放 %@x".localized(Int(zoomLevel)))
     }
 
     private func updateButtonAppearance() {
