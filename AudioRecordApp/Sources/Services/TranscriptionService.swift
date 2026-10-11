@@ -106,12 +106,14 @@ final class LiveTranscriptionCoordinator {
     // MARK: - 生命周期
 
     /// 预热会话（点开始录制时调用；资产就绪前的 buffer 由 AsyncStream 缓冲，不丢）
+    /// locale 跟随文稿面板的语言偏好（FEAT-001 S2.5：录英文演讲等场景）
     func start() {
         guard session == nil, !isFinishing else { return }
         collectedTranscript = nil
+        let preferred = TranscriptPanelView.preferredLocaleID
         Task {
             do {
-                let newSession = try await AppleSpeechEngine.LiveTranscriptionSession.start(localeID: nil)
+                let newSession = try await AppleSpeechEngine.LiveTranscriptionSession.start(localeID: preferred)
                 newSession.onUpdate = { [weak self] update in
                     DispatchQueue.main.async {
                         self?.onLiveText?(update.finalized, update.volatileText)

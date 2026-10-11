@@ -43,6 +43,11 @@ class EditorViewController {
     private let scrollBarView = HorizontalScrollBarView()
     private let toolbar = EditorToolbar()
     private let statusBar = EditorStatusBar()
+    /// FEAT-001 S2: 转写文稿抽屉（toolbar 与 statusBar 之间，默认收起）
+    private let transcriptPanel = TranscriptPanelView()
+    private var transcriptPanelHeightConstraint: NSLayoutConstraint?
+    private var isTranscriptVisible = false
+    private var isTranscribing = false
     
     /// P0-B: 多轨道容器（替代原来的单个 waveformView）
     private let trackContainerView = TrackContainerView()
@@ -156,11 +161,13 @@ class EditorViewController {
         scrollBarView.translatesAutoresizingMaskIntoConstraints = false
         toolbar.translatesAutoresizingMaskIntoConstraints = false
         statusBar.translatesAutoresizingMaskIntoConstraints = false
+        transcriptPanel.translatesAutoresizingMaskIntoConstraints = false
 
         editorView.addSubview(navigationBar)
         editorView.addSubview(trackContainerView)
         editorView.addSubview(scrollBarView)
         editorView.addSubview(toolbar)
+        editorView.addSubview(transcriptPanel)
         editorView.addSubview(statusBar)
 
         // P0-B: 默认创建第一轨
@@ -168,6 +175,9 @@ class EditorViewController {
         trackContainerView.tracks = [defaultTrack]
 
         scrollBarHeightConstraint = scrollBarView.heightAnchor.constraint(equalToConstant: 0)
+
+        // FEAT-001 S2: 文稿抽屉高度（0 = 收起）
+        transcriptPanelHeightConstraint = transcriptPanel.heightAnchor.constraint(equalToConstant: 0)
 
         // P0-A: 存储约束引用（嵌入模式下将高度压为 0）
         navBarHeightConstraint = navigationBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorNavBarHeight)
@@ -196,8 +206,14 @@ class EditorViewController {
 
             toolbar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             toolbar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            toolbar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            toolbar.bottomAnchor.constraint(equalTo: transcriptPanel.topAnchor),
             toolbarHeightConstraint!,
+
+            // FEAT-001 S2: 文稿抽屉夹在 toolbar 与 statusBar 之间
+            transcriptPanel.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
+            transcriptPanel.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
+            transcriptPanel.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            transcriptPanelHeightConstraint!,
 
             statusBar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
@@ -214,6 +230,7 @@ class EditorViewController {
         toolbar.delegate = self
         toolbar.zoomControls.delegate = self
         scrollBarView.delegate = self
+        transcriptPanel.delegate = self
     }
     
     // MARK: - Audio Loading
@@ -773,6 +790,82 @@ extension EditorViewController: EditorToolbarDelegate {
     func editorToolbarDidTapPreviewStop(_ toolbar: EditorToolbar) {
         stopPreview()
     }
+
+    /// FEAT-001 S2: 切换文稿抽屉（180pt 展开 / 0 收起）
+    func editorToolbarDidToggleTranscript(_ toolbar: EditorToolbar) {
+        isTranscriptVisible.toggle()
+        transcriptPanelHeightConstraint?.animator().constant = isTranscriptVisible ? 180 : 0
+        toolbar.updateTranscriptToggle(isOn: isTranscriptVisible)
+        UXEventLog.shared.action("transcript_toggle", detail: ["visible": isTranscriptVisible])
+    }
+}
+
+// MARK: - Transcript Panel（FEAT-001 S2）
+extension EditorViewController: TranscriptPanelDelegate {
+
+    /// 加载当前文件的转写文稿（有则展示，无则空态）
+    private func loadTranscriptForCurrentFile() {
+        if let transcript = TranscriptionService.shared.loadTranscript(for: file.url) {
+            transcriptPanel.show(transcript: transcript)
+        } else {
+            transcriptPanel.setEmptyState()
+        }
+    }
+
+    func transcriptPanelDidTapTranscribe(_ panel: TranscriptPanelView) {
+        guard !isTranscribing else { return }
+        isTranscribing = true
+        transcriptPanel.setTranscribing(true)
+        UXEventLog.shared.action("transcribe_manual", detail: ["file": file.name])
+        let url = file.url
+        Task {
+            do {
+                let transcript = try await TranscriptionService.shared.transcribeRecording(
+                    at: url,
+                    localeID: TranscriptPanelView.preferredLocaleID
+                )
+                await MainActor.run {
+                    self.isTranscribing = false
+                    self.transcriptPanel.setTranscribing(false)
+                    self.transcriptPanel.show(transcript: transcript)
+                    self.transcriptPanel.showStatus("转写完成: %d 字".localized(transcript.fullText.count))
+                    UXEventLog.shared.module("Editor", "transcribe_done", ok: true, detail: ["chars": transcript.fullText.count, "file": self.file.name])
+                }
+            } catch {
+                await MainActor.run {
+                    self.isTranscribing = false
+                    self.transcriptPanel.setTranscribing(false)
+                    self.transcriptPanel.showStatus("转写失败: %@".localized(error.localizedDescription))
+                    UXEventLog.shared.module("Editor", "transcribe_done", ok: false, detail: ["error": error.localizedDescription])
+                }
+            }
+        }
+    }
+
+    func transcriptPanelDidTapExport(_ panel: TranscriptPanelView) {
+        guard let transcript = TranscriptionService.shared.loadTranscript(for: file.url) else { return }
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .utf8PlainText]
+        let baseName = file.name.replacingOccurrences(of: ".", with: "_")
+        savePanel.nameFieldStringValue = "\(baseName).md"
+        savePanel.begin { [weak self] response in
+            guard response == .OK, let target = savePanel.url else { return }
+            let md = TranscriptPanelView.markdown(for: transcript, fileName: self?.file.name ?? baseName)
+            do {
+                try md.write(to: target, atomically: true, encoding: .utf8)
+                // 硬验证：读回确认内容非空且含全文
+                let readBack = try String(contentsOf: target, encoding: .utf8)
+                let ok = readBack.contains(transcript.fullText.prefix(20))
+                UXEventLog.shared.module("Editor", "transcript_export", ok: ok, detail: ["path": target.lastPathComponent, "bytes": readBack.utf8.count])
+                // 反馈显示在文稿面板内（嵌入模式 statusBar 隐藏不可见——S2 老板报障点）
+                self?.transcriptPanel.showStatus(ok ? "已导出: %@".localized(target.lastPathComponent) : "导出校验失败".localized)
+                self?.logger.info("文稿导出成功: \(target.path) (\(readBack.utf8.count) bytes)")
+            } catch {
+                UXEventLog.shared.module("Editor", "transcript_export", ok: false, detail: ["error": error.localizedDescription])
+                self?.transcriptPanel.showStatus("导出失败: %@".localized(error.localizedDescription))
+            }
+        }
+    }
 }
 
 // MARK: - Preview Playback
@@ -898,6 +991,7 @@ extension EditorViewController {
                 self.navigationBar.setToolEnabled(.trim, enabled: false)
                 self.updateStatusBar()
                 self.restoreViewportState(session.viewportState)
+                self.loadTranscriptForCurrentFile()
                 self.logger.info("编辑器 session 加载完成: \(self.file.name)")
             } else {
                 self.waveformView.loadError = session.loadError ?? "加载失败".localized

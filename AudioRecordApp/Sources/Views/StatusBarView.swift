@@ -17,6 +17,8 @@ class StatusBarView: NSView {
     private let formatLabel = NSTextField(labelWithString: "")
     private let cpuLabel = NSTextField(labelWithString: "")
     private let diskLabel = NSTextField(labelWithString: "")
+    /// FEAT-001 S2.5: 转写语言选择（录制前可设，与文稿面板同源 UserDefaults）
+    private let localePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     
     // MARK: - Properties
     private var currentStatus: String = "就绪".localized
@@ -99,11 +101,35 @@ class StatusBarView: NSView {
         stackView.addArrangedSubview(sampleRateLabel)
         stackView.addArrangedSubview(makeSeparator())
         stackView.addArrangedSubview(formatLabel)
-        
+
+        // 转写语言（FEAT-001 S2.5：录制前可选，实时出字与事后转写共用）
+        localePopup.addItems(withTitles: ["文: 自动".localized, "English", "中文"])
+        localePopup.controlSize = .small
+        localePopup.font = NSFont.systemFont(ofSize: 10)
+        localePopup.toolTip = "转写语言（实时出字与导出文稿共用）".localized
+        let saved = UserDefaults.standard.string(forKey: TranscriptPanelView.localePrefKey) ?? ""
+        localePopup.selectItem(at: saved == "en-US" ? 1 : (saved == "zh-CN" ? 2 : 0))
+        localePopup.target = self
+        localePopup.action = #selector(localeChanged)
+        stackView.addArrangedSubview(makeSeparator())
+        stackView.addArrangedSubview(localePopup)
+
         // 尾部弹性空间
         let trailingSpacer = NSView()
         trailingSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
         stackView.addArrangedSubview(trailingSpacer)
+    }
+
+    @objc private func localeChanged() {
+        let localeID: String
+        switch localePopup.indexOfSelectedItem {
+        case 1: localeID = "en-US"
+        case 2: localeID = "zh-CN"
+        default: localeID = ""
+        }
+        UserDefaults.standard.set(localeID, forKey: TranscriptPanelView.localePrefKey)
+        UserDefaults.standard.synchronize()
+        NotificationCenter.default.post(name: .init(TranscriptPanelView.localePrefKey), object: nil)
     }
     
     private func setupConstraints() {

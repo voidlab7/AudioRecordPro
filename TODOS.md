@@ -236,7 +236,7 @@ TODOS.md 由两个会话共享：**需求台**（WorkBuddy 会话，老板提需
 - [ ] 录制态回归：开始录制后波形/时间轴/VU 正常显示（UI-001/002 已验证行为不回退）
 - [ ] `build-app.sh` exit 0；SDK 单测 77/77 不回退；截图证据落 `docs/证据/`
 
-### FEAT-001 语音转文字（录音→文字→App 内查看→导出 MD） | P1 | [doing · S1 完成] ｜ 标准 2026-10-11 老板批准
+### FEAT-001 语音转文字（录音→文字→App 内查看→导出 MD） | P1 | [done] ｜ 标准 2026-10-11 老板批准 · 16:12 老板签收
 
 **预估**：3-4天（S0-S3，见方案 §七）
 
@@ -251,6 +251,19 @@ TODOS.md 由两个会话共享：**需求台**（WorkBuddy 会话，老板提需
 > - **SDK 关键事实（实测）**：① `Result` 无 `isVolatile`，volatile 判定 = `result.range` 与 `analyzer.volatileRange`（actor 属性需 await）相交；② `audioTimeRange` 挂在 AttributedString 的 run 属性；③ yap 实测**不显式 allocate**（reserve+install 即可，方案 §4.2 初稿有误已修正）；④ App 是 swiftc 平铺同模块编译，**不能 import AudioRecordKit**
 > - 自验：`build-app.sh` exit 0（31s 零错误）；Kit 单测 77/77 PASS（`xcrun swift test --disable-sandbox`，WorkBuddy 沙箱内 SwiftPM 需此开关）；App 冒烟启动正常。**待老板真机录音验收**「说话后 ≤2s 出字 + 停止后 .arlock 旁出现 .atranscript.json」
 > 云端验证拆独立单排后（裁决规则见方案 §6.3）；whisper.cpp 高精模式 = S4 拆独立单。
+> **S2 落码完成（2026-10-11 15:23-15:28，老板「继续跑 TODO」开工）**：
+> - 新组件 `TranscriptPanelView`（编辑器底部抽屉，toolbar 与 statusBar 之间，180pt/0pt 切换）：分段文稿（时间戳+字数标签）+ 元信息行 + 「导出 MD」「生成转写/重新转写」按钮 + 空态引导
+> - 入口：编辑器 toolbar 播放组右侧新增「文」切换按钮（`editorToolbarDidToggleTranscript`，高亮态）
+> - 加载：`loadAudioWithSession` 成功后自动读 `.atranscript.json`（有→展示，无→空态）
+> - 手动转写：`TranscriptionService.transcribeRecording`（旧录音/无文稿兜底），进行中按钮置灰「转写中…」
+> - 导出 MD：NSSavePanel → `TranscriptPanelView.markdown`（标题+元信息+全文+带时间戳分段），写入后**读回断言含全文前 20 字**（硬验证）
+> - EditorStatusBar 加 `updateStatus`（临时消息 7s 自动清）；UXEventLog：transcript_toggle / transcribe_manual / transcribe_done / transcript_export
+> - 自验：build 28s 零错误（UTType.markdown 不存在→filenameExtension("md") 兜底）+ 冒烟 PID 42452。**S2 第一轮真机验证（15:47 老板录 Chrome 英文演讲 48s）打回三点** → S2.5 修复：
+>   ① 实时转写「不行」+ ② 英文无分词乱文 = **同根因：语言错配**（Lang: Auto→zh-CN 引擎听英文，UXEventLog live_start locale=auto + 文稿 zh-CN 296 字无空格坐实）→ 修复：**主窗口状态栏新增「文: 自动/English/中文」选择**（录制前可设，UserDefaults 与文稿面板同源，实时会话与手动转写共用）；Transcript.joinsWithSpace——非 CJK 语言段间补空格（init 全文拼接 + LiveSession storeResult 累积两处）。
+>   ③ 导出「没反应」：UXEventLog transcript_export ok:true bytes:837——**导出其实成功**，反馈写进了嵌入模式下隐藏的 statusBar → 修复：反馈改显示在文稿面板元信息行（showStatus，主色 8 秒），转写完成/失败同走此处。
+> - S2.5 自验：build 通过 + 冒烟 PID 67595 + Kit 77/77。**第二轮真机验收（16:12 老板签收「录完了也导出了」）全绿**：68.7s 英文演讲 → 手动转写 en-US 409 字（0.77s，~90x 实时），**分词标点完美**（桌面 `Google Chrome_20261011_160709.md` 1106 字节实证：`Knowing that I was gonna say that today...` 带空格带标点+时间戳分段），导出读回断言 ok。FEAT-001 全单 done。
+> - 遗留观察项（不阻塞）：录制**开始前**选好 English 的实时浮条英文出字链路未单独目击（live_start 显示 auto——老板是录完才切语言；引擎/分词/导出已由手动转写路径全验证）
+> - S3 打磨（重转写按钮语义、多语言混说、标点后处理）为可选后续，按需开单
 
 ---
 

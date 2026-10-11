@@ -28,8 +28,14 @@ public struct Transcript: Codable, Equatable {
     public var createdAt: Date
     /// 时间轴分段
     public var segments: [TranscriptSegment]
-    /// 全文（分段文本拼接）
+    /// 全文（分段文本拼接；非 CJK 语言段间补空格）
     public var fullText: String
+
+    /// 该语言分段拼接是否需要空格（CJK 无词间空格）
+    public static func joinsWithSpace(locale: String) -> Bool {
+        let lang = locale.lowercased().prefix(2)
+        return !["zh", "ja", "ko", "th"].contains(lang)
+    }
 
     public init(locale: String, engine: String, createdAt: Date = Date(),
                 segments: [TranscriptSegment], fullText: String? = nil) {
@@ -37,7 +43,12 @@ public struct Transcript: Codable, Equatable {
         self.engine = engine
         self.createdAt = createdAt
         self.segments = segments
-        self.fullText = fullText ?? segments.map(\.text).joined()
+        if let fullText {
+            self.fullText = fullText
+        } else {
+            let separator = Self.joinsWithSpace(locale: locale) ? " " : ""
+            self.fullText = segments.map(\.text).filter { !$0.isEmpty }.joined(separator: separator)
+        }
     }
 }
 

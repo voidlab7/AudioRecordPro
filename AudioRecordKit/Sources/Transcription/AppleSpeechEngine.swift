@@ -292,13 +292,15 @@ public final class AppleSpeechEngine: TranscriptionEngine {
         }
 
         /// 存入一条结果并返回当前快照（同步方法，规避 NSLock-in-async 警告）
+        /// 非 CJK 语言段间补空格（S2 老板报障：英文转写无分词）
         func storeResult(text: String, isVolatile: Bool) -> LiveTranscriptUpdate {
             stateLock.lock()
             defer { stateLock.unlock() }
             if isVolatile {
                 volatileText = text
             } else if !text.isEmpty {
-                finalizedText += text
+                let separator = (Transcript.joinsWithSpace(locale: localeID) && !finalizedText.isEmpty && !finalizedText.hasSuffix(" ")) ? " " : ""
+                finalizedText += separator + text
                 volatileText = ""
             }
             return LiveTranscriptUpdate(finalized: finalizedText, volatileText: volatileText)

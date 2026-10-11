@@ -21,6 +21,8 @@ enum EditorToolType: String, CaseIterable {
 protocol EditorToolbarDelegate: AnyObject {
     func editorToolbarDidTapPreviewPlay(_ toolbar: EditorToolbar)
     func editorToolbarDidTapPreviewStop(_ toolbar: EditorToolbar)
+    /// FEAT-001 S2: 切换转写文稿抽屉
+    func editorToolbarDidToggleTranscript(_ toolbar: EditorToolbar)
 }
 
 // MARK: - EditorToolbar
@@ -30,6 +32,8 @@ class EditorToolbar: NSView {
     // MARK: - UI Components
     private let previewPlayButton = IndustrialCompactIconButton(symbol: "▶")
     private let previewStopButton = IndustrialCompactIconButton(symbol: "■")
+    /// FEAT-001 S2: 文稿抽屉开关
+    private let transcriptButton = IndustrialCompactIconButton(symbol: "文")
     private let topSeparator = CALayer()
 
     /// 缩放控件组（公开，供 EditorViewController 设置 delegate）
@@ -72,6 +76,15 @@ class EditorToolbar: NSView {
         }
         addSubview(previewStopButton)
 
+        // FEAT-001 S2: 文稿开关（播放组右侧）
+        transcriptButton.translatesAutoresizingMaskIntoConstraints = false
+        transcriptButton.toolTip = "转写文稿".localized
+        transcriptButton.onClick = { [weak self] in
+            guard let self else { return }
+            self.delegate?.editorToolbarDidToggleTranscript(self)
+        }
+        addSubview(transcriptButton)
+
         // 缩放控件（右侧）
         zoomControls.translatesAutoresizingMaskIntoConstraints = false
         addSubview(zoomControls)
@@ -82,6 +95,9 @@ class EditorToolbar: NSView {
             previewPlayButton.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             previewStopButton.leadingAnchor.constraint(equalTo: previewPlayButton.trailingAnchor, constant: IndustrialSpacing.sm),
+
+            transcriptButton.leadingAnchor.constraint(equalTo: previewStopButton.trailingAnchor, constant: IndustrialSpacing.sm),
+            transcriptButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             previewStopButton.centerYAnchor.constraint(equalTo: centerYAnchor),
 
             // 缩放控件右侧
@@ -106,6 +122,13 @@ class EditorToolbar: NSView {
     func updatePreviewState(isPlaying: Bool) {
         previewPlayButton.setSymbol(isPlaying ? "Ⅱ" : "▶")
         previewStopButton.isEnabled = isPlaying
+    }
+
+    /// FEAT-001 S2: 文稿开关高亮态
+    func updateTranscriptToggle(isOn: Bool) {
+        transcriptButton.layer?.backgroundColor = isOn
+            ? IndustrialColors.primaryContainer.cgColor
+            : IndustrialColors.surfaceContainerHigh.cgColor
     }
 
     // 编辑工具相关方法保留接口但不操作（工具已移到 NavigationBar）

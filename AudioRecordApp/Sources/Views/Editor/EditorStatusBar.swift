@@ -97,6 +97,18 @@ class EditorStatusBar: NSView {
     func updateCurrentTime(_ time: TimeInterval) {
         timeLabel.stringValue = formatTimePrecise(time)
     }
+
+    /// FEAT-001 S2: 临时消息（转写/导出状态），7 秒后自动恢复信息区
+    func updateStatus(_ message: String) {
+        infoLabel.stringValue = message
+        NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(restoreInfoLabel), object: nil)
+        perform(#selector(restoreInfoLabel), with: nil, afterDelay: 7)
+    }
+
+    @objc private func restoreInfoLabel() {
+        // 恢复由 update(duration:...) 在下一次刷新时完成；此处仅清空临时消息
+        infoLabel.stringValue = ""
+    }
     
     private func formatTime(_ t: TimeInterval) -> String {
         let minutes = Int(t) / 60
