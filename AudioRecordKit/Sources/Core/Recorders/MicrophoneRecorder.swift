@@ -176,6 +176,9 @@ class MicrophoneRecorder: BaseAudioRecorder {
             } catch {
                 self.logger.error("写入麦克风音频失败: \(error.localizedDescription)")
             }
+
+            // FEAT-001 S1: 实时转写旁路（音频回调线程，消费方保证线程安全）
+            self.onAudioBuffer?(buffer)
             
             // Calculate and update level
             let level = self.calculateRMSLevel(from: buffer)

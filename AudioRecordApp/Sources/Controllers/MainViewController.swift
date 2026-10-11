@@ -19,6 +19,7 @@ class MainViewController: NSViewController {
     // Recording state
     private var isRecording = false
     private var recordingStartTime: Date?
+    private var captureStartTime: Date?
     private var recordingTimer: Timer?
     private var playbackTimer: Timer?
     private var lastRecordedFile: RecordedFileInfo?
@@ -57,6 +58,9 @@ class MainViewController: NSViewController {
     
     // BUG-1 修复：录制期间峰值电平最大值（用于静音/无效录音拦截）
     private var maxPeakDuringRecording: Float = 0
+
+    // FEAT-001 S1: 实时转写面板（录制中显示在主窗口下方）
+    private lazy var liveTranscriptPanel = LiveTranscriptPanel()
     
     // LOOP-05: UI 测试 mock 模式（XCUITest 以 --ui-testing 启动参数拉起）
     private let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
@@ -117,9 +121,18 @@ class MainViewController: NSViewController {
         // BUG-1 修复：录制态由管线真正启动回调驱动
         audioRecorderController.onRecordingStarted = { [weak self] in
             DispatchQueue.main.async {
-                guard let self = self, self.isRecording else { return }
+                guard let self = self, self.isRecording, self.captureStartTime == nil else { return }
                 self.logger.info("🎙️ 管线确认启动，进入录制态")
+                self.startTimer()
                 self.mainWindowView.updateRecordingState(.recording)
+
+                // FEAT-001 S1: 绑定首个录制器的 PCM 旁路（多录制器只转写第一个；
+                // 混音模式第一个即混合录制器，天然覆盖 麦克风+系统 双源）
+                if #available(macOS 26.0, *) {
+                    if let recorder = self.audioRecorderController.getCurrentRecorder() {
+                        LiveTranscriptionCoordinator.shared.bind(recorder: recorder)
+                    }
+                }
             }
         }
         
@@ -220,9 +233,9 @@ class MainViewController: NSViewController {
             maxPeakDuringRecording = 0
             mainWindowView.updateRecordingState(.preparing)
             mainWindowView.updateStatus("准备录制…".localized)
-            startTimer()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 guard let self = self, self.isRecording else { return }
+                self.startTimer()
                 self.mainWindowView.updateRecordingState(.recording)
             }
             return
@@ -282,7 +295,6 @@ class MainViewController: NSViewController {
             ])
             self.mainWindowView.updateRecordingState(.preparing)
             self.mainWindowView.updateStatus("准备录制…".localized)
-            self.startTimer()
             self.preventSleep()
             self.startDiskMonitor()
             self.audioRecorderController.setAudioFormat(self.currentFormat)
@@ -292,6 +304,20 @@ class MainViewController: NSViewController {
                 wantProcess: wantSpecificProcess, targetPID: self.selectedPIDs.first,
                 mixAudio: self.shouldMixAudio
             )
+
+            // FEAT-001 S1: 实时转写——预热会话 + 展示 live 文本条
+            if #available(macOS 26.0, *) {
+                let coordinator = LiveTranscriptionCoordinator.shared
+                coordinator.onLiveText = { [weak self] finalized, volatile in
+                    self?.liveTranscriptPanel.update(finalized: finalized, volatile: volatile)
+                }
+                coordinator.onError = { [weak self] message in
+                    self?.mainWindowView.updateStatus("实时转写不可用: %@".localized(message))
+                }
+                coordinator.start()
+                self.liveTranscriptPanel.show(for: self.view.window)
+                UXEventLog.shared.module("Transcription", "live_start", detail: ["locale": "auto"])
+            }
             
             // V2.0: 标记录制目录（用于 crash 恢复扫描 temp 目录）
             self.fileManager.markRecordingStarted(fileURL: self.fileManager.getRecordingsDirectory())
@@ -360,6 +386,12 @@ class MainViewController: NSViewController {
         stopDiskMonitor()
         allowSleep()
         audioRecorderController.stopRecording()
+
+        // FEAT-001 S1: 结束实时转写并收集文稿（暂存 coordinator，加密管线落盘）
+        if #available(macOS 26.0, *) {
+            LiveTranscriptionCoordinator.shared.finishAndCollect()
+            liveTranscriptPanel.dismiss()
+        }
     }
     
     // MARK: - Recording Complete + Encryption Pipeline (V2.0)
@@ -375,6 +407,12 @@ class MainViewController: NSViewController {
             SecureDelete.deleteFile(at: recording.fileURL)
             mainWindowView.updateRecordingState(.idle)
             mainWindowView.updateStatus("录制时间过短或内容为空，已取消保存".localized)
+
+            // FEAT-001 S1: 无效录音同时丢弃实时转写
+            if #available(macOS 26.0, *) {
+                LiveTranscriptionCoordinator.shared.cancel()
+                liveTranscriptPanel.dismiss()
+            }
             return
         }
         
@@ -433,6 +471,17 @@ class MainViewController: NSViewController {
             // 5. 加密并写入 .arlock
             let arlockURL = fileManager.getRecordingFileURL(uuid: recordingUUID)
             try encryptor.encryptAndWrite(audioData: audioData, metadata: metadata, recordingUUID: recordingUUID, outputURL: arlockURL)
+
+            // 5.5 FEAT-001 S1: 实时转写文稿落盘（.arlock 旁 <uuid>.atranscript.json）
+            if #available(macOS 26.0, *) {
+                if let transcript = LiveTranscriptionCoordinator.shared.collectedTranscript {
+                    try? TranscriptionService.shared.save(transcript, for: arlockURL)
+                    UXEventLog.shared.module("Transcription", "saved", detail: [
+                        "chars": transcript.fullText.count,
+                        "locale": transcript.locale,
+                    ])
+                }
+            }
 
             // 6. 安全删除原始临时 M4A
             SecureDelete.deleteFile(at: originalFileURL)
@@ -522,15 +571,18 @@ class MainViewController: NSViewController {
     
     // MARK: - Timer Management
     private func startTimer() {
+        captureStartTime = Date()
+        updateTimer()
         recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.updateTimer()
         }
     }
-    
+
     private func stopTimer() {
         recordingTimer?.invalidate()
         recordingTimer = nil
-        mainWindowView.updateTimer("00:00:00")
+        captureStartTime = nil
+        mainWindowView.updateTimer("00:00.00")
     }
     
     private func handleRecordingFailure() {
@@ -539,10 +591,16 @@ class MainViewController: NSViewController {
         stopTimer(); stopDiskMonitor(); allowSleep()
         fileManager.markRecordingFinished()
         mainWindowView.updateRecordingState(.idle)
+
+        // FEAT-001 S1: 录制失败同时放弃实时转写
+        if #available(macOS 26.0, *) {
+            LiveTranscriptionCoordinator.shared.cancel()
+            liveTranscriptPanel.dismiss()
+        }
     }
     
     private func updateTimer() {
-        guard let startTime = recordingStartTime else { return }
+        guard let startTime = captureStartTime else { return }
         let elapsed = Date().timeIntervalSince(startTime)
         let hours = Int(elapsed) / 3600
         let minutes = Int(elapsed) % 3600 / 60
@@ -580,35 +638,36 @@ class MainViewController: NSViewController {
     }
     
     /// V2.0: 播放 — 解密 .arlock → 临时 .m4a → AVAudioPlayer
-    private func startPlayback(file: RecordedFileInfo) {
+    /// FIX-003: initialProgress 非 nil 时解密完成后从该进度（0.0~1.0）起播（异步链路，seek 不能在调用侧同步写）
+    private func startPlayback(file: RecordedFileInfo, initialProgress: Double? = nil) {
         guard fileManager.fileExists(at: file.url) else {
             mainWindowView.updateStatus("播放失败：文件不存在".localized); return
         }
-        
+
         stopPlayback(resetDisplay: false)
-        
+
         // V2.0: 异步解密（长录音可能耗时）
         mainWindowView.updateStatus("正在加载…".localized)
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
-            
+
             do {
                 // 解密 .arlock → AAC Data
                 let (audioData, _) = try self.encryptor.decrypt(from: file.url)
-                
+
                 // 写临时 .m4a
                 let tempDir = FileManager.default.temporaryDirectory
                 let tempURL = tempDir.appendingPathComponent("\(AudioCryptoConfig.TempFilePattern.playbackPrefix)\(UUID().uuidString).\(AudioCryptoConfig.TempFilePattern.m4aExtension)")
                 try audioData.write(to: tempURL, options: .atomic)
-                
+
                 // 清理上一个播放临时文件
                 if let oldTemp = self.playbackTempURL {
                     SecureDelete.deleteFile(at: oldTemp)
                 }
                 self.playbackTempURL = tempURL
-                
+
                 DispatchQueue.main.async {
-                    self.playDecryptedFile(tempURL, file: file)
+                    self.playDecryptedFile(tempURL, file: file, initialProgress: initialProgress)
                 }
             } catch {
                 DispatchQueue.main.async { [weak self] in
@@ -628,21 +687,26 @@ class MainViewController: NSViewController {
         }
     }
     
-    private func playDecryptedFile(_ url: URL, file: RecordedFileInfo) {
+    private func playDecryptedFile(_ url: URL, file: RecordedFileInfo, initialProgress: Double? = nil) {
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.delegate = self
             player.isMeteringEnabled = true
             player.prepareToPlay()
-            
+
             playbackPlayer = player
             currentPlaybackFile = file
             selectedPlaybackFile = file
             playbackDuration = player.duration > 0 ? player.duration : file.duration
             isPlaybackPaused = false
-            
+
+            // FIX-003: 冷启动 seek — 在 play() 前定位到点击进度（避免先从头出声再跳）
+            if let progress = initialProgress, playbackDuration > 0 {
+                player.currentTime = player.duration * min(max(progress, 0), 1)
+            }
+
             player.play()
-            UXEventLog.shared.module("Playback", "start", ok: true, detail: ["file": file.name, "duration_sec": playbackDuration])
+            UXEventLog.shared.module("Playback", "start", ok: true, detail: ["file": file.name, "duration_sec": playbackDuration, "initial_sec": initialProgress.map { player.duration * $0 } ?? 0])
             mainWindowView.updateRecordingState(.playing)
             mainWindowView.updateStatus("正在播放: %@".localized(file.name))
             mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: player.currentTime, duration: playbackDuration, isPlaying: true, isPaused: false)
@@ -1101,6 +1165,7 @@ extension MainViewController: MainWindowViewDelegate {
         } else { mainWindowView.updateStatus("已关闭麦克风叠加".localized) }
     }
     
+    /// FIX-003: 波形 seek — 播放/暂停态直写 currentTime；无播放器（含已播完）时带初始进度启动播放
     func mainWindowViewDidSeekToProgress(_ view: MainWindowView, progress: Double) {
         if let player = playbackPlayer {
             let targetTime = player.duration * progress
@@ -1109,14 +1174,36 @@ extension MainViewController: MainWindowViewDelegate {
                 mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: targetTime, duration: playbackDuration, isPlaying: player.isPlaying, isPaused: isPlaybackPaused)
                 mainWindowView.updateTimer(formatTransportTime(targetTime))
             }
+            mainWindowView.updateWaveformProgress(progress)
+            UXEventLog.shared.module("Playback", "seek", ok: true, detail: ["progress": progress, "target_sec": targetTime, "wasPlaying": player.isPlaying])
         } else if let file = selectedPlaybackFile {
-            startPlayback(file: file)
-            if let player = playbackPlayer {
-                let targetTime = player.duration * progress
-                player.currentTime = targetTime
-                mainWindowView.updateWaveformProgress(progress)
-            }
+            // 播放器不存在（未开始/已播完）：异步解密后从点击位置起播
+            UXEventLog.shared.module("Playback", "seek", ok: true, detail: ["progress": progress, "mode": "cold_start"])
+            startPlayback(file: file, initialProgress: progress)
         }
+    }
+
+    /// FIX-003: 拖拽 scrubbing 开始 — 暂停播放静音跟手（playhead 由 seek 回调驱动）
+    func mainWindowViewDidBeginScrubbing(_ view: MainWindowView) {
+        guard let player = playbackPlayer, player.isPlaying else { return }
+        player.pause()
+        isPlaybackPaused = true
+        stopPlaybackTimer()
+        UXEventLog.shared.action("scrub_begin")
+    }
+
+    /// FIX-003: 拖拽 scrubbing 结束 — 从松手位置恢复播放
+    func mainWindowViewDidEndScrubbing(_ view: MainWindowView) {
+        guard let player = playbackPlayer, let file = currentPlaybackFile, isPlaybackPaused, player.currentTime < player.duration - 0.05 else {
+            UXEventLog.shared.action("scrub_end")
+            return
+        }
+        player.play()
+        isPlaybackPaused = false
+        mainWindowView.updateRecordingState(.playing)
+        mainWindowView.updatePlaybackDisplay(fileName: file.name, currentTime: player.currentTime, duration: playbackDuration, isPlaying: true, isPaused: false)
+        startPlaybackTimer()
+        UXEventLog.shared.action("scrub_end", detail: ["resume_sec": player.currentTime])
     }
     
     func mainWindowViewDidRequestEditFile(_ view: MainWindowView, file: RecordedFileInfo) {
@@ -1146,6 +1233,8 @@ extension MainViewController {
     func stopProcessRefreshTimer() { processRefreshTimer?.invalidate(); processRefreshTimer = nil }
     
     private func silentRefreshProcessList() {
+        // LOOP-05: UI 测试模式——保持 mock 列表，禁止真实进程覆盖
+        if isUITesting { return }
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             var processes: [AudioProcessInfo] = []

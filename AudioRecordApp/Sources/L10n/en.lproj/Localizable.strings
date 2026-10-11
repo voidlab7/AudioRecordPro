@@ -18,6 +18,11 @@
 /* Status bar */
 "就绪" = "Ready";
 "准备录制" = "Ready to Record";
+"已选择%@ · 点击下方按钮开始" = "Selected %@ · Click the button below to start";
+"请先选择系统音频或 App" = "Select System Audio or an app to record";
+"开始录制" = "Start Recording";
+"未监测" = "Not Monitoring";
+"实时电平" = "Live Audio Level";
 "● 准备中" = "● Preparing";
 "● 录制中" = "● Recording";
 "● 停止中" = "● Stopping";
@@ -306,3 +311,5 @@
 "不支持的音频格式" = "Unsupported audio format";
 "数据转换失败: %@" = "Data conversion failed: %@";
 "录制时间过短或内容为空，已取消保存" = "Recording too short or empty, save cancelled";
+"实时转写" = "Live Transcript";
+"实时转写不可用: %@" = "Live transcription unavailable: %@";

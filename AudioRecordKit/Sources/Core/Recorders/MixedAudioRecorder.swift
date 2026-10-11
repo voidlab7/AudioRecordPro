@@ -447,11 +447,26 @@ class MixedAudioRecorder: BaseAudioRecorder {
         for i in 0..<sampleCount {
             // 混音算法：60% 系统音频 + 40% 麦克风
             mixedData[i] = systemData[i] * 0.6 + micData[i] * 0.4
-            
+
             // 防止削波（clipping）
             mixedData[i] = max(-1.0, min(1.0, mixedData[i]))
         }
-        
+
+        // FEAT-001 S1: 实时转写旁路——混合后数据（interleaved 立体声 → non-interleaved PCM buffer）
+        if onAudioBuffer != nil {
+            if let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: targetSampleRate, channels: 2, interleaved: false),
+               let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) {
+                pcm.frameLength = frameCount
+                if let ch = pcm.floatChannelData {
+                    for i in 0..<Int(frameCount) {
+                        ch[0][i] = mixedData[i * 2]
+                        ch[1][i] = mixedData[i * 2 + 1]
+                    }
+                }
+                onAudioBuffer?(pcm)
+            }
+        }
+
         // 写入文件
         writeToFile(mixedData: mixedData, frameCount: frameCount)
     }

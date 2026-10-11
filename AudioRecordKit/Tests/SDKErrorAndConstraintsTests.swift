@@ -1,6 +1,7 @@
 import XCTest
 @testable import AudioRecordKit
 import Foundation
+import AVFoundation
 
 /// SDK 层单元测试：AudioRecordError / AudioConstraints / MediaStreamConstraints / MediaStream / MediaStreamTrack
 final class SDKErrorAndConstraintsTests: XCTestCase {
@@ -220,6 +221,7 @@ private class MockAudioRecorder: NSObject, AudioRecorderProtocol {
     var onRecordingStarted: (() -> Void)?
     var onRecordingComplete: ((AudioRecording) -> Void)?
     var onPlaybackComplete: (() -> Void)?
+    var onAudioBuffer: ((AVAudioPCMBuffer) -> Void)?
     
     private let _recordingMode: RecordingMode
     init(mode: RecordingMode = .microphone) { self._recordingMode = mode }

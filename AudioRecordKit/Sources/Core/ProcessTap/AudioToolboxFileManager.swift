@@ -20,6 +20,9 @@ class AudioToolboxFileManager {
         self.audioFormat = audioFormat
         logger.info("🎵 AudioToolboxFileManager: 初始化，格式 - 采样率: \(audioFormat.mSampleRate), 声道数: \(audioFormat.mChannelsPerFrame), 位深: \(audioFormat.mBitsPerChannel)")
     }
+
+    /// FEAT-001 S1: 暴露写盘 ASBD（实时转写旁路构造 PCM buffer 用）
+    var streamBasicDescription: AudioStreamBasicDescription { audioFormat }
     
     deinit {
         closeFile()

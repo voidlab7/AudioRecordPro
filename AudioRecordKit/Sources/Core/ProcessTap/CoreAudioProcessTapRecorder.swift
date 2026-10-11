@@ -260,6 +260,22 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
                 self?.onPeakLevel?(peakLevel)
             }
         }
+
+        // FEAT-001 S1: 实时转写 PCM 旁路——源格式优先取 AudioToolbox 写盘 ASBD（WAV 路径无 AVAudioFile）
+        if audioCallbackHandler.transcriptionFormat == nil {
+            audioCallbackHandler.transcriptionFormat = audioToolboxFileManager.map { fm in
+                let asbd = fm.streamBasicDescription
+                return AVAudioFormat(
+                    commonFormat: .pcmFormatFloat32,
+                    sampleRate: asbd.mSampleRate,
+                    channels: asbd.mChannelsPerFrame > 0 ? asbd.mChannelsPerFrame : 2,
+                    interleaved: (asbd.mFormatFlags & kAudioFormatFlagIsNonInterleaved) == 0
+                )
+            } ?? audioFile?.processingFormat
+        }
+        audioCallbackHandler.onPCMBuffer = { [weak self] buffer in
+            self?.onAudioBuffer?(buffer)
+        }
         
         // REQ-1.0-01: 直接在当前 MainActor 上下文启动，减少线程跳转延迟
         // startCoreAudioProcessTapCapture 内部的 CoreAudio 调用本身是同步的

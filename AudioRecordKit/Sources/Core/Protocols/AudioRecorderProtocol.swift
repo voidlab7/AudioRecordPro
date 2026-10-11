@@ -17,6 +17,10 @@ protocol AudioRecorderProtocol: AnyObject {
     var onRecordingStarted: (() -> Void)? { get set }
     var onRecordingComplete: ((AudioRecording) -> Void)? { get set }
     var onPlaybackComplete: (() -> Void)? { get set }
+
+    /// FEAT-001 S1: 实时转写旁路——每个音频 buffer 的原始 PCM 回调。
+    /// ⚠️ 音频回调线程直接触发（非主线程），消费方保证线程安全，禁止在回调内做重活。
+    var onAudioBuffer: ((AVAudioPCMBuffer) -> Void)? { get set }
     
     // MARK: - Recording Methods
     func startRecording()
@@ -60,6 +64,9 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     var onRecordingStarted: (() -> Void)?
     var onRecordingComplete: ((AudioRecording) -> Void)?
     var onPlaybackComplete: (() -> Void)?
+
+    /// FEAT-001 S1: 实时转写 PCM 旁路（音频回调线程触发）
+    var onAudioBuffer: ((AVAudioPCMBuffer) -> Void)?
     
     // MARK: - Main Thread Callback Helpers
     @MainActor

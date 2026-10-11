@@ -16,13 +16,14 @@ let package = Package(
         .target(
             name: "AudioRecordKit",
             path: "Sources",
-            sources: ["Core", "API", "Utils", "CAPI"],
+            sources: ["Core", "API", "Utils", "CAPI", "Transcription"],
             publicHeadersPath: "CAPI",
             linkerSettings: [
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("CoreAudio"),
                 .linkedFramework("AudioToolbox"),
                 .linkedFramework("IOKit"),
+                .linkedFramework("Speech"),
             ]
         ),
         .testTarget(

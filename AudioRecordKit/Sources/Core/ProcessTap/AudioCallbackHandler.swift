@@ -90,6 +90,11 @@ class AudioCallbackHandler {
     
     // 自定义回调（用于混音录制）
     private var customCallback: ((UnsafePointer<AudioBufferList>, UInt32) -> Void)?
+
+    // FEAT-001 S1: 实时转写 PCM 旁路（音频回调线程触发，消费方保证线程安全）
+    var onPCMBuffer: ((AVAudioPCMBuffer) -> Void)?
+    /// 转写旁路源格式（录制器启动时设置；nil 时回退 audioFile.processingFormat）
+    var transcriptionFormat: AVAudioFormat?
     
     // MARK: - Initialization
     
@@ -142,22 +147,25 @@ class AudioCallbackHandler {
     /// 创建 PCM 缓冲区
     func makePCMBuffer(from bufferList: UnsafePointer<AudioBufferList>, frames: UInt32, asbd: AudioStreamBasicDescription) -> AVAudioPCMBuffer? {
         guard let audioFile = audioFile else { return nil }
-        
-        let format = audioFile.processingFormat
-        guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)) else {
+        return buildPCMBuffer(from: bufferList.pointee, frameCount: frames, format: audioFile.processingFormat)
+    }
+
+    /// FEAT-001 S1: 通用 AudioBufferList → AVAudioPCMBuffer 拷贝（实时转写旁路用）
+    func buildPCMBuffer(from bufferList: AudioBufferList, frameCount: UInt32, format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        guard frameCount > 0 else { return nil }
+        guard let pcm = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frameCount)) else {
             return nil
         }
-        
-        pcm.frameLength = AVAudioFrameCount(frames)
-        
-        let abl = bufferList.pointee
-        let channels = Int(asbd.mChannelsPerFrame)
-        let _ = Int(asbd.mBytesPerFrame) // 暂时未使用，但保留以备将来使用
-        
+
+        pcm.frameLength = AVAudioFrameCount(frameCount)
+
+        let abl = bufferList
+        let channels = Int(max(1, format.channelCount))
+
         guard let src = abl.mBuffers.mData else { return nil }
-        
+
         if let dst = pcm.floatChannelData {
-            let totalFrames = Int(frames)
+            let totalFrames = Int(frameCount)
             for c in 0..<channels {
                 var s = src.assumingMemoryBound(to: Float.self).advanced(by: c)
                 let d = dst[c]
@@ -167,13 +175,12 @@ class AudioCallbackHandler {
                 }
             }
         } else if let dst = pcm.int16ChannelData {
-            // 将32位浮点数据转换为16位整数数据
-            let totalFrames = Int(frames)
+            // 将32位浮点数据转换为16位整数
+            let totalFrames = Int(frameCount)
             for c in 0..<channels {
                 var s = src.assumingMemoryBound(to: Float.self).advanced(by: c)
                 let d = dst[c]
                 for i in 0..<totalFrames {
-                    // 将浮点数转换为16位整数：-1.0 到 1.0 映射到 -32768 到 32767
                     let floatValue = s.pointee
                     let int16Value = Int16(max(-1.0, min(1.0, floatValue)) * 32767.0)
                     d[i] = int16Value
@@ -181,7 +188,7 @@ class AudioCallbackHandler {
                 }
             }
         } else if let dst = pcm.int32ChannelData {
-            let totalFrames = Int(frames)
+            let totalFrames = Int(frameCount)
             for c in 0..<channels {
                 var s = src.assumingMemoryBound(to: Int32.self).advanced(by: c)
                 let d = dst[c]
@@ -191,7 +198,7 @@ class AudioCallbackHandler {
                 }
             }
         }
-        
+
         return pcm
     }
     
@@ -214,7 +221,26 @@ class AudioCallbackHandler {
     
      func writeAudioData(from bufferList: AudioBufferList, frameCount: UInt32) {
         guard frameCount > 0 else { return }
-        
+
+        // FEAT-001 S1: 实时转写旁路——构造 PCM buffer 交给消费者（在文件写入路径之前，不互相影响）
+        if let transcriptionCallback = onPCMBuffer {
+            let sourceFormat: AVAudioFormat? = transcriptionFormat
+                ?? (audioToolboxFileManager.map { fm in
+                    let asbd = fm.streamBasicDescription
+                    return AVAudioFormat(
+                        commonFormat: .pcmFormatFloat32,
+                        sampleRate: asbd.mSampleRate,
+                        channels: asbd.mChannelsPerFrame > 0 ? asbd.mChannelsPerFrame : 2,
+                        interleaved: (asbd.mFormatFlags & kAudioFormatFlagIsNonInterleaved) == 0
+                    )
+                })
+                ?? audioFile?.processingFormat
+            if let sourceFormat,
+               let pcm = buildPCMBuffer(from: bufferList, frameCount: frameCount, format: sourceFormat) {
+                transcriptionCallback(pcm)
+            }
+        }
+
         // 如果设置了自定义回调（混音模式），则调用自定义回调
         if let customCallback = customCallback {
             withUnsafePointer(to: bufferList) { bufferListPointer in
