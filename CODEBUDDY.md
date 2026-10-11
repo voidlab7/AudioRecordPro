@@ -14,7 +14,7 @@ macOS 录音 App（Tapture）：系统音频 + 麦克风录制 + 剪映式轻编
 | `.codebuddy/rules/loop-protocol.md` | 协议自动加载版（每次会话强制在场） |
 | `TODOS.md` | 需求池 = **唯一状态真相**（单子/验收标准/状态/证据） |
 | `roles/Tab/AGENT.md` | 执行者人格（PM+测试+研发一体） |
-| `docs/需求/REQ-*.md` | 每张单的规格文档 |
+| `docs/需求/<单号>-*.md` | 每张单的规格文档（编号规范见 `TODOS.md` 头部；2026-10-11 起新单用 FEAT/FIX/UI/INFRA-NNN，存量 REQ-*.md 不回改） |
 | `e2e/testcases/` | 自验用例 |
 
 总纲（通用方法论，跨项目复用）：`AIAgent/research/LoopEngineering/LOOP-ENGINEERING-指导方针.md`

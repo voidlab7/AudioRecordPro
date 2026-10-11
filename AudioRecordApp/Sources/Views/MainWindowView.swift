@@ -64,7 +64,8 @@ class MainWindowView: NSView {
         case editing         // 编辑态 — 进入 EditorViewController
     }
     private(set) var currentMode: ViewMode = .idle
-    
+    private var isCaptureRunning = false
+
     // MARK: - Properties
     weak var delegate: MainWindowViewDelegate?
     private var availableProcesses: [AudioProcessInfo] = []
@@ -302,12 +303,13 @@ class MainWindowView: NSView {
     }
     
     func updateLevel(_ level: Float) {
-        // V2.0: 电平同时更新到独立卡片和轨道电平
+        guard isCaptureRunning else { return }
         levelMeterCardView.updateLevel(level)
         tracksView.updateLevel(level)
     }
-    
+
     func updatePeakLevel(_ peakLevel: Float) {
+        guard isCaptureRunning else { return }
         waveformView.updatePeakLevel(peakLevel)
     }
     
@@ -318,13 +320,21 @@ class MainWindowView: NSView {
     func updateRecordingState(_ state: RecordingState) {
         controlPanelView.updateRecordingState(state)
         switch state {
-        case .preparing, .recording:
+        case .preparing:
+            isCaptureRunning = false
+            levelMeterCardView.reset()
+            waveformView.reset()
+            switchToMode(.recording)
+        case .recording:
+            isCaptureRunning = true
             if !waveformView.isRecording {
                 waveformView.startRecording()
             }
             switchToMode(.recording)
         case .idle:
+            isCaptureRunning = false
             waveformView.stopRecording()
+            waveformView.reset()
             levelMeterCardView.reset()
             // REQ-2.0-05：录制完成后由 Controller 直接调用 enterEditor
             // 这里只需切回 idle 态，编辑器过渡由 Controller 负责
@@ -332,9 +342,14 @@ class MainWindowView: NSView {
                 switchToMode(.idle)
             }
         case .error:
+            isCaptureRunning = false
             waveformView.stopRecording()
+            waveformView.reset()
             levelMeterCardView.reset()
             switchToMode(.idle)
+        case .stopping:
+            isCaptureRunning = false
+            levelMeterCardView.reset()
         default:
             break
         }
@@ -388,12 +403,15 @@ class MainWindowView: NSView {
         if let process = selectedProcesses.first {
             titleBarView.updateTargetDescription(process.name)
             controlPanelView.updateTargetDescription(process.name)
+            waveformView.selectedSourceName = process.name
         } else if sidebarView.isSystemAudioSourceSelected() {
             titleBarView.updateTargetDescription("系统声音".localized)
             controlPanelView.updateTargetDescription("全部系统声音".localized)
+            waveformView.selectedSourceName = "系统音频".localized
         } else {
             titleBarView.updateTargetDescription("未选择录制目标".localized)
             controlPanelView.updateTargetDescription("未选择录制目标".localized)
+            waveformView.selectedSourceName = "未选择录制目标".localized
         }
     }
     
@@ -803,6 +821,14 @@ extension MainWindowView: WaveformViewDelegate {
     func waveformView(_ view: WaveformView, didSeekToProgress progress: Double) {
         delegate?.mainWindowViewDidSeekToProgress(self, progress: progress)
     }
+
+    func waveformViewDidBeginScrubbing(_ view: WaveformView) {
+        delegate?.mainWindowViewDidBeginScrubbing(self)
+    }
+
+    func waveformViewDidEndScrubbing(_ view: WaveformView) {
+        delegate?.mainWindowViewDidEndScrubbing(self)
+    }
 }
 
 // MARK: - Delegate Protocol
@@ -822,5 +848,7 @@ protocol MainWindowViewDelegate: AnyObject {
     func mainWindowViewDidRenameFile(_ view: MainWindowView, file: RecordedFileInfo, newName: String)
     func mainWindowViewDidChangeMixAudio(_ view: MainWindowView, enabled: Bool)
     func mainWindowViewDidSeekToProgress(_ view: MainWindowView, progress: Double)
+    func mainWindowViewDidBeginScrubbing(_ view: MainWindowView)
+    func mainWindowViewDidEndScrubbing(_ view: MainWindowView)
     func mainWindowViewDidRequestEditFile(_ view: MainWindowView, file: RecordedFileInfo)
 }

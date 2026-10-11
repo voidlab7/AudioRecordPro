@@ -6,6 +6,16 @@ import AVFoundation
 protocol WaveformViewDelegate: AnyObject {
     /// 用户在波形上点击/拖动，请求跳转到指定进度（0.0~1.0）
     func waveformView(_ view: WaveformView, didSeekToProgress progress: Double)
+    /// FIX-003: 用户开始拖拽 scrubbing（播放器应暂停静音，跟手显示 playhead）
+    func waveformViewDidBeginScrubbing(_ view: WaveformView)
+    /// FIX-003: 用户松手结束 scrubbing（播放器从松手位置恢复播放）
+    func waveformViewDidEndScrubbing(_ view: WaveformView)
+}
+
+// 默认空实现（避免无关 conformer 破坏）
+extension WaveformViewDelegate {
+    func waveformViewDidBeginScrubbing(_ view: WaveformView) {}
+    func waveformViewDidEndScrubbing(_ view: WaveformView) {}
 }
 
 /// 音频波形显示视图 - 类似图2的波形效果
@@ -15,6 +25,7 @@ class WaveformView: NSView {
     weak var delegate: WaveformViewDelegate?
     
     private var waveformData: [Float] = []
+    var selectedSourceName: String = "系统音频".localized { didSet { needsDisplay = true } }
     private var rawPeakData: [Float] = []  // 原始 PCM 峰值（未归一化），与 extractWaveformSamples 同源
     private var maxDataPoints: Int = 260
     private(set) var isRecording: Bool = false
@@ -69,8 +80,7 @@ class WaveformView: NSView {
         layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         
-        // 初始化波形数据
-        waveformData = Array(repeating: 0.0, count: maxDataPoints)
+        waveformData = []
     }
     
     
@@ -102,8 +112,7 @@ class WaveformView: NSView {
         smoothedLevel = smoothedLevel * (1.0 - alpha) + targetLevel * alpha
         
         let quantizedLevel = (smoothedLevel * 64).rounded() / 64
-        let displayLevel = max(quantizedLevel, isRecording ? 0.012 : 0.0)
-        waveformData.append(displayLevel)
+        waveformData.append(quantizedLevel)
         
         if waveformData.count > maxDataPoints {
             waveformData.removeFirst(waveformData.count - maxDataPoints)
@@ -151,6 +160,7 @@ class WaveformView: NSView {
     /// 开始录制
     func startRecording() {
         isRecording = true
+        waveformLoadID = UUID()
         isShowingStaticWaveform = false
         staticWaveformData = nil
         rawPeakData.removeAll()
@@ -180,9 +190,12 @@ class WaveformView: NSView {
         smoothedLevel = 0
         recentRawLevels.removeAll()
         rawPeakData.removeAll()
-        waveformData = Array(repeating: 0.0, count: maxDataPoints)
+        waveformData.removeAll()
+        waveformLoadID = UUID()
         isShowingStaticWaveform = false
         staticWaveformData = nil
+        recordingDuration = 0
+        staticFileDuration = 0
         needsDisplay = true
     }
     
@@ -238,6 +251,7 @@ class WaveformView: NSView {
             return
         }
         isDragging = true
+        delegate?.waveformViewDidBeginScrubbing(self)
         seekToMouseLocation(event)
     }
     
@@ -255,6 +269,7 @@ class WaveformView: NSView {
             return
         }
         isDragging = false
+        delegate?.waveformViewDidEndScrubbing(self)
     }
     
     private func seekToMouseLocation(_ event: NSEvent) {
@@ -344,19 +359,21 @@ class WaveformView: NSView {
     
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        drawNativeTimeline(in: dirtyRect)
-        
-        if isShowingStaticWaveform, let data = staticWaveformData, !data.isEmpty {
-            drawStaticWaveform(in: dirtyRect, data: data)
-        } else if isRecording {
-            drawWaveform(in: dirtyRect)
-            drawPlayhead(in: dirtyRect)
-        } else if waveformData.isEmpty {
-            // REQ-2.0-02: idle 态引导占位内容
-            drawIdlePlaceholder(in: dirtyRect)
-        } else {
-            drawWaveform(in: dirtyRect)
-            drawPlayhead(in: dirtyRect)
+        if !isRecording && !isShowingStaticWaveform && waveformData.isEmpty {
+            drawIdlePlaceholder(in: bounds)
+            return
+        }
+
+        if isRecording || (isShowingStaticWaveform && staticFileDuration > 0) || recordingDuration > 0 {
+            drawNativeTimeline(in: bounds)
+        }
+        if isShowingStaticWaveform {
+            if let data = staticWaveformData, !data.isEmpty {
+                drawStaticWaveform(in: bounds, data: data)
+            }
+        } else if !waveformData.isEmpty {
+            drawWaveform(in: bounds)
+            drawPlayhead(in: bounds)
         }
     }
     
@@ -364,34 +381,25 @@ class WaveformView: NSView {
     private func drawIdlePlaceholder(in rect: NSRect) {
         let centerX = rect.midX
         let centerY = rect.midY
-        
-        // Draw waveform SF Symbol icon with reduced opacity
-        let iconSize: CGFloat = 44
-        let iconRect = NSRect(
-            x: centerX - iconSize / 2,
-            y: centerY + 2,
-            width: iconSize,
-            height: iconSize
-        )
-        
-        if let symbolImage = NSImage(systemSymbolName: "waveform.circle", accessibilityDescription: "录制".localized) {
-            let config = NSImage.SymbolConfiguration(pointSize: 38, weight: .ultraLight)
-            let configured = symbolImage.withSymbolConfiguration(config) ?? symbolImage
-            configured.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 0.35)
+        let iconSize: CGFloat = 40
+        let iconRect = NSRect(x: centerX - iconSize / 2, y: centerY + 24,
+                              width: iconSize, height: iconSize)
+
+        if let symbolImage = NSImage(systemSymbolName: "waveform", accessibilityDescription: nil) {
+            let config = NSImage.SymbolConfiguration(pointSize: 36, weight: .light)
+                .applying(NSImage.SymbolConfiguration(paletteColors: [IndustrialColors.onSurfaceVariant]))
+            (symbolImage.withSymbolConfiguration(config) ?? symbolImage)
+                .draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 0.45)
         }
-        
-        // Draw guide text below icon
-        let guideText = "点击 ● 开始录制".localized
-        let textAttributes: [NSAttributedString.Key: Any] = [
-            .font: IndustrialTypography.body,
-            .foregroundColor: IndustrialColors.textTertiary
+
+        let title = "准备录制".localized
+        let titleAttributes: [NSAttributedString.Key: Any] = [
+            .font: IndustrialTypography.h2,
+            .foregroundColor: IndustrialColors.onSurfaceVariant
         ]
-        let textSize = (guideText as NSString).size(withAttributes: textAttributes)
-        let textPoint = NSPoint(
-            x: centerX - textSize.width / 2,
-            y: centerY - textSize.height - 8
-        )
-        (guideText as NSString).draw(at: textPoint, withAttributes: textAttributes)
+        let titleSize = (title as NSString).size(withAttributes: titleAttributes)
+        (title as NSString).draw(at: NSPoint(x: centerX - titleSize.width / 2, y: centerY - 4),
+                                 withAttributes: titleAttributes)
     }
     
     private func drawNativeTimeline(in rect: NSRect) {
@@ -404,47 +412,19 @@ class WaveformView: NSView {
             height: max(1, rect.height - 88)
         )
         
-        // 中线：虚线样式
-        // 录制时从右到左渐变（白→红），表示录制在进行中
-        if isRecording {
-            // 录制进度（0~1），用于颜色渐变
-            let step = barWidth + barSpacing
-            let maxVisibleBars = Int(floor(timelineRect.width / step))
-            let filledBars = min(waveformData.count, maxVisibleBars)
-            let fillRatio = CGFloat(filledBars) / CGFloat(max(1, maxVisibleBars))
-            let coloredWidth = timelineRect.width * fillRatio
-            
-            // 已录制部分：红色虚线（从左到 coloredWidth）
-            if coloredWidth > 0 {
-                IndustrialColors.waveformAccent.withAlphaComponent(0.6).setStroke()
-                let redLine = NSBezierPath()
-                redLine.lineWidth = 1
-                redLine.setLineDash([3, 3], count: 2, phase: 0)
-                redLine.move(to: NSPoint(x: timelineRect.minX, y: centerY))
-                redLine.line(to: NSPoint(x: timelineRect.minX + coloredWidth, y: centerY))
-                redLine.stroke()
-            }
-            
-            // 未录制部分：白色虚线（从 coloredWidth 到右端）
-            if coloredWidth < timelineRect.width {
-                IndustrialColors.gridMedium.withAlphaComponent(0.5).setStroke()
-                let whiteLine = NSBezierPath()
-                whiteLine.lineWidth = 1
-                whiteLine.setLineDash([3, 3], count: 2, phase: 0)
-                whiteLine.move(to: NSPoint(x: timelineRect.minX + coloredWidth, y: centerY))
-                whiteLine.line(to: NSPoint(x: timelineRect.maxX, y: centerY))
-                whiteLine.stroke()
-            }
-        } else {
-            // Idle state: visible white center line (no dashes — clean solid line)
-            NSColor(white: 1.0, alpha: 0.22).setStroke()
-            let centerLine = NSBezierPath()
-            centerLine.lineWidth = 1
-            centerLine.move(to: NSPoint(x: timelineRect.minX, y: centerY))
-            centerLine.line(to: NSPoint(x: timelineRect.maxX, y: centerY))
-            centerLine.stroke()
-        }
+        // 只有实际录制/预览才会调用本方法；静音零位线保持中性灰，不模拟录制进度。
+        IndustrialColors.gridMedium.withAlphaComponent(0.5).setStroke()
+        let centerLine = NSBezierPath()
+        centerLine.lineWidth = 1
+        centerLine.setLineDash([3, 3], count: 2, phase: 0)
+        centerLine.move(to: NSPoint(x: timelineRect.minX, y: centerY))
+        centerLine.line(to: NSPoint(x: timelineRect.maxX, y: centerY))
+        centerLine.stroke()
         
+        guard isRecording || recordingDuration > 0 || (isShowingStaticWaveform && staticFileDuration > 0) else {
+            return
+        }
+
         let tickColor = IndustrialColors.onSurfaceVariant.withAlphaComponent(0.24)
         tickColor.setStroke()
         let tickPath = NSBezierPath()
@@ -487,7 +467,7 @@ class WaveformView: NSView {
     }
     
     private func drawWaveform(in rect: NSRect) {
-        guard !waveformData.isEmpty else { return }
+        guard waveformData.contains(where: { $0 > 0 }) else { return }
         
         let timelineInsetX: CGFloat = 84
         let timelineRect = NSRect(

@@ -35,6 +35,8 @@ class EditorViewController {
     private var isPreviewPlaying: Bool = false
     private var previewTimer: Timer?
     private var previewStartHostTime: UInt64 = 0
+    /// FIX-003: 预览代际 token——stop() 触发的旧 buffer completion 不得误杀新一轮播放
+    private var previewGeneration = 0
     
     // 编辑器视图组件
     private let navigationBar = EditorNavigationBar()
@@ -502,7 +504,7 @@ class EditorViewController {
         if segments.isEmpty {
             let alert = NSAlert()
             alert.messageText = "未检测到静音段".localized
-            alert.informativeText = "当前阈值 %@ dB、最小时长 %@s 下未发现静音段。".localized(Int(params.thresholdDB), String(format: "%.1f", params.minDuration))
+            alert.informativeText = "当前阈值 %@ dB、最小时长 %@s 下未发现静音段。".localized(String(Int(params.thresholdDB)), String(format: "%.1f", params.minDuration))
             alert.alertStyle = .informational
             alert.addButton(withTitle: "确定".localized)
             alert.runModal()
@@ -513,8 +515,8 @@ class EditorViewController {
         let totalSilence = segments.reduce(0) { $0 + $1.duration }
         
         let alert = NSAlert()
-        alert.messageText = "检测到 %@ 个静音段".localized(segments.count)
-        alert.informativeText = "总计 %@ 秒静音。\n阈值: %@ dB，最小时长: %@s\n\n是否删除所有静音段？".localized(String(format: "%.1f", totalSilence), Int(params.thresholdDB), String(format: "%.1f", params.minDuration))
+        alert.messageText = "检测到 %@ 个静音段".localized(String(segments.count))
+        alert.informativeText = "总计 %@ 秒静音。\n阈值: %@ dB，最小时长: %@s\n\n是否删除所有静音段？".localized(String(format: "%.1f", totalSilence), String(Int(params.thresholdDB)), String(format: "%.1f", params.minDuration))
         alert.alertStyle = .informational
         alert.addButton(withTitle: "删除全部".localized)
         alert.addButton(withTitle: "取消".localized)
@@ -738,6 +740,13 @@ extension EditorViewController: EditorWaveformViewDelegate {
         // 同步 playhead overlay（TrackContainerView 级别，与 ruler 共享坐标系）
         trackContainerView.updatePlayhead(time: time)
         statusBar.updateCurrentTime(time)
+        // FIX-003(编辑器): 播放中选点 = 无缝跳播（stopPreview 已不归零，startPreview 读新 playhead 起播）
+        if isPreviewPlaying {
+            UXEventLog.shared.module("Editor", "seek", ok: true, detail: ["target_sec": time, "wasPlaying": true])
+            startPreview()
+        } else {
+            UXEventLog.shared.module("Editor", "seek", ok: true, detail: ["target_sec": time, "wasPlaying": false])
+        }
     }
 
     func editorWaveformViewDidChangeViewport(_ view: EditorWaveformView) {
@@ -768,51 +777,70 @@ extension EditorViewController: EditorToolbarDelegate {
 
 // MARK: - Preview Playback
 extension EditorViewController {
-    
+
     func startPreview() {
         guard let buffer = audioBuffer, let format = audioFormat else { return }
         stopPreview()
-        
+        previewGeneration += 1
+        let generation = previewGeneration
+
+        // FIX-003(编辑器): 从 playhead 位置起播；已播到末尾则回 0 重播
+        let totalDuration = Double(buffer.frameLength) / format.sampleRate
+        var startOffset = waveformView.currentPlayheadPosition
+        if startOffset < 0 { startOffset = 0 }
+        if startOffset >= totalDuration - 0.05 { startOffset = 0 }
+        let startFrame = AVAudioFrameCount(startOffset * format.sampleRate)
+
         let engine = AVAudioEngine()
         let playerNode = AVAudioPlayerNode()
         engine.attach(playerNode)
         engine.connect(playerNode, to: engine.mainMixerNode, format: format)
-        
+
         do {
             try engine.start()
-            playerNode.scheduleBuffer(buffer, completionHandler: { [weak self] in
+            // AVAudioPlayerNode 不支持 offset 调度——从起始帧切片 buffer
+            let playBuffer: AVAudioPCMBuffer
+            if startFrame > 0, let sliced = Self.sliceBuffer(buffer, fromFrame: startFrame) {
+                playBuffer = sliced
+            } else {
+                playBuffer = buffer
+            }
+            playerNode.scheduleBuffer(playBuffer, completionHandler: { [weak self] in
+                // 代际防护：stop() 会触发旧 completion，异步回来时不得误杀新一轮播放
                 DispatchQueue.main.async {
-                    self?.stopPreview()
+                    guard let self = self, generation == self.previewGeneration else { return }
+                    self.stopPreview()
                 }
             })
             playerNode.play()
-            
+
             previewEngine = engine
             previewPlayerNode = playerNode
             isPreviewPlaying = true
             toolbar.updatePreviewState(isPlaying: true)
-            
-            // BUG-005 fix: 启动游标跟踪 timer
-            let totalDuration = Double(buffer.frameLength) / format.sampleRate
+
+            // BUG-005 fix: 启动游标跟踪 timer（从起始 offset 累计）
             previewStartHostTime = mach_absolute_time()
             previewTimer = Timer.scheduledTimer(withTimeInterval: 0.033, repeats: true) { [weak self] _ in
                 guard let self = self, self.isPreviewPlaying else { return }
                 var info = mach_timebase_info_data_t()
                 mach_timebase_info(&info)
                 let elapsed = Double(mach_absolute_time() - self.previewStartHostTime) * Double(info.numer) / Double(info.denom) / 1_000_000_000
-                let clampedTime = min(elapsed, totalDuration)
+                let clampedTime = min(startOffset + elapsed, totalDuration)
                 self.waveformView.updatePlaybackTime(clampedTime)
                 self.trackContainerView.updatePlayhead(time: clampedTime)
                 self.statusBar.updateCurrentTime(clampedTime)
             }
-            
-            logger.info("预览播放开始")
+
+            UXEventLog.shared.module("Editor", "play", ok: true, detail: ["start_sec": startOffset, "duration_sec": totalDuration, "file": file.name])
+            logger.info("预览播放开始: offset=\(startOffset)s / \(totalDuration)s")
         } catch {
             logger.error("预览播放失败: \(error.localizedDescription)")
         }
     }
-    
+
     func stopPreview() {
+        previewGeneration += 1  // 使挂起的 buffer completion 全部失效
         previewTimer?.invalidate()
         previewTimer = nil
         previewPlayerNode?.stop()
@@ -821,8 +849,30 @@ extension EditorViewController {
         previewEngine = nil
         isPreviewPlaying = false
         toolbar.updatePreviewState(isPlaying: false)
-        waveformView.updatePlaybackTime(0)
-        trackContainerView.updatePlayhead(time: 0)
+        // FIX-003(编辑器): 停止不再强制把 playhead 归零——保留选点位置，点播放从该处开始。
+        // 自然播完时 timer 最后一帧已把 playhead 推到末尾（clampedTime = duration），下次播放自动回 0。
+    }
+
+    /// FIX-003(编辑器): 从指定帧切片 PCM buffer（float 非交织按声道拷贝，其余按字节平移）
+    private static func sliceBuffer(_ buffer: AVAudioPCMBuffer, fromFrame: AVAudioFrameCount) -> AVAudioPCMBuffer? {
+        let total = buffer.frameLength
+        guard fromFrame > 0, fromFrame < total else { return nil }
+        let frames = total - fromFrame
+        guard let sliced = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: frames) else { return nil }
+        sliced.frameLength = frames
+        if let src = buffer.floatChannelData, let dst = sliced.floatChannelData {
+            let bytes = Int(frames) * MemoryLayout<Float>.size
+            for ch in 0..<Int(buffer.format.channelCount) {
+                memcpy(dst[ch], src[ch].advanced(by: Int(fromFrame)), bytes)
+            }
+            return sliced
+        }
+        // 非 float 交织格式：按每帧字节平移整块拷贝
+        let bytesPerFrame = Int(buffer.format.streamDescription.pointee.mBytesPerFrame)
+        guard let srcPtr = buffer.audioBufferList.pointee.mBuffers.mData,
+              let dstPtr = sliced.audioBufferList.pointee.mBuffers.mData else { return nil }
+        memcpy(dstPtr, srcPtr.advanced(by: Int(fromFrame) * bytesPerFrame), Int(frames) * bytesPerFrame)
+        return sliced
     }
 
     // MARK: - Session State Management (V2.1 文件联动)
