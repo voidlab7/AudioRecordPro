@@ -3,6 +3,7 @@
 > 2026-09-20 清空重建。旧 backlog 已归档 `docs/归档/TODOS-archive-20260920.md`，待 loop 协议验证后批量补验收标准再捡回。
 > 开发方式唯一：`docs/LOOP.md` 循环协议。状态标记：todo / doing / self-verify / ready-for-review / blocked / done。
 > 老板只做三件事：签标准（定义）、拍板（裁决）、看证据（签收）。
+> **品牌更名（2026-10-11）**：产品对外品牌定为 **Loocap｜路录**（副标语：内录 · 转写 · 剪辑 / Capture & Transcribe），不再叫 Tapture。工程内代码标识符（TaptureTheme.swift、Bundle 名、window 属主等）暂未改，见 `docs/产品/品牌更名-2026-10-11.md`；本文档中历史单里的 Tapture 为当时事实记录，不回改。
 
 ## 编号规范（2026-10-11 定，Tab 入池必须遵守）
 

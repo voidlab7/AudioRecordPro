@@ -3,6 +3,7 @@
 > 排查人：Tab（录音产品 PM/测试/研发）｜日期：2026-09-20
 > 目标：发布国际版到 App Store，替换全量中文硬编码为本地化方案
 > 排查方式：全仓 ripgrep `\p{Han}` + 引号内中文字符串 + 逻辑依赖中文模式扫描
+> ⚠️ 品牌 note（2026-10-11）：产品已更名 **Loocap｜路录**（副标语 Capture & Transcribe）。本文中 `CFBundleDisplayName=Tapture` 等为排查当时的设置事实，后续落地国际版时应使用新品牌名。
 
 ---
 

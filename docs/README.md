@@ -1,4 +1,4 @@
-# Tapture（audio_record_mac）文档框架
+# Loocap 路录（audio_record_mac）文档框架
 
 > 重构时间：2026-09-18
 > 状态：**框架已重建，内容待填**。旧知识库因大面积过时已全部清空（git 历史可查旧版）。
