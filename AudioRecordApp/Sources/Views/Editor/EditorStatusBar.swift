@@ -90,7 +90,7 @@ class EditorStatusBar: NSView {
         durationLabel.stringValue = "总时长 %@".localized(formatTime(duration))
         let sampleRateStr = "\(Int(sampleRate / 1000))kHz"
         let channelStr = channels == 1 ? "单声道".localized : "立体声".localized
-        infoLabel.stringValue = "%@ · %@ · 编辑 %@/%@".localized(sampleRateStr, channelStr, editSteps, maxSteps)
+        infoLabel.stringValue = "%@ · %@ · 编辑 %@/%@".localized(sampleRateStr, channelStr, String(editSteps), String(maxSteps))
     }
     
     /// 更新当前播放/游标时间

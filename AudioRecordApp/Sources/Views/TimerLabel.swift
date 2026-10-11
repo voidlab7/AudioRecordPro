@@ -1,6 +1,6 @@
 import Cocoa
 
-/// 自定义计时器标签 - 强制使用青色文字
+/// 自定义计时器标签 — 待录制态中性灰，录制时高亮
 class TimerLabel: NSView {
     
     var stringValue: String = "00:00.00" {
@@ -10,7 +10,7 @@ class TimerLabel: NSView {
     }
     
     private let font = IndustrialTypography.timer
-    private let textColor = IndustrialColors.primary
+    var textColor: NSColor = IndustrialColors.onSurfaceVariant { didSet { needsDisplay = true } }
     
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)

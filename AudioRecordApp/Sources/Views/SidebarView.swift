@@ -276,8 +276,10 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             
             refreshButton.centerYAnchor.constraint(equalTo: appsHeader.centerYAnchor),
             refreshButton.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -16),
-            refreshButton.widthAnchor.constraint(equalToConstant: 80),
-            refreshButton.heightAnchor.constraint(equalToConstant: 24),
+            // 宽高只给下限，具体尺寸由 intrinsicContentSize 决定（BUG-013）：
+            // 钉死 80×24 会与内部 28 高度约束冲突，且英文 "REFRESH"+图标(~100pt) 装不下被压缩变形
+            refreshButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 72),
+            refreshButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 24),
             
             appsScroll.topAnchor.constraint(equalTo: appsHeader.bottomAnchor, constant: 8),
             appsScroll.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),

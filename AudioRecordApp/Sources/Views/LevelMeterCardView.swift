@@ -8,6 +8,7 @@ class LevelMeterCardView: NSView {
     // MARK: - Properties
     private var leftLevel: Float = 0.0
     private var rightLevel: Float = 0.0
+    private var hasAudioData = false
     private var leftPeak: Float = 0.0
     private var rightPeak: Float = 0.0
     private var peakHoldTime: TimeInterval = 1.5  // REQ: 1.5s hold time
@@ -64,11 +65,14 @@ class LevelMeterCardView: NSView {
         layer?.cornerRadius = IndustrialCornerRadius.sm
         layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
+        setAccessibilityLabel("未监测".localized)
     }
     
     // MARK: - Public Methods
     
     func updateLevels(left: Float, right: Float) {
+        hasAudioData = true
+        setAccessibilityLabel("实时电平".localized)
         let now = Date()
         let targetLeft = max(0, min(1, left))
         let targetRight = max(0, min(1, right))
@@ -106,6 +110,8 @@ class LevelMeterCardView: NSView {
     }
     
     func reset() {
+        hasAudioData = false
+        setAccessibilityLabel("未监测".localized)
         leftLevel = 0; rightLevel = 0
         leftPeak = 0; rightPeak = 0
         leftPeakTimestamp = nil; rightPeakTimestamp = nil
@@ -152,20 +158,30 @@ class LevelMeterCardView: NSView {
         drawBackgroundSegments(x: barsStartX + barWidth + barGap, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
         
         // 2. Draw L/R channel LED segments (fill from bottom up)
-        drawLEDChannel(level: leftLevel, peak: leftPeak, x: barsStartX, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
-        drawLEDChannel(level: rightLevel, peak: rightPeak, x: barsStartX + barWidth + barGap, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
-        
+        if hasAudioData {
+            drawLEDChannel(level: leftLevel, peak: leftPeak, x: barsStartX, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
+            drawLEDChannel(level: rightLevel, peak: rightPeak, x: barsStartX + barWidth + barGap, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
+        }
+
         // 3. Draw dB scale (text + tick lines)
         drawDBScale(labelX: contentStartX, tickEndX: barsStartX - tickGap, meterTop: meterTop, meterBottom: meterBottom, meterHeight: meterHeight)
         
         // 4. Draw L/R labels below bars
         drawChannelLabels(barsStartX: barsStartX, meterTop: meterTop)
         
-        // 5. Draw peak value display in bottom padding area
-        drawPeakValue(barsStartX: barsStartX, meterTop: meterTop)
-        
-        // 6. Draw Clip indicator at top of bars
-        drawClipIndicator(barsStartX: barsStartX, meterBottom: meterBottom)
+        if hasAudioData {
+            drawPeakValue(barsStartX: barsStartX, meterTop: meterTop)
+            drawClipIndicator(barsStartX: barsStartX, meterBottom: meterBottom)
+        } else {
+            let text = "未监测".localized
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9, weight: .medium),
+                .foregroundColor: IndustrialColors.textTertiary
+            ]
+            let size = (text as NSString).size(withAttributes: attrs)
+            (text as NSString).draw(at: NSPoint(x: (bounds.width - size.width) / 2,
+                                               y: bounds.height - 18), withAttributes: attrs)
+        }
     }
     
     // MARK: - LED Segment Drawing
@@ -262,7 +278,7 @@ class LevelMeterCardView: NSView {
     
     // MARK: - dB Scale Drawing
     
-    /// Draw dB scale with -3dB critical point (REQ: 0dB at top, red 0dB label)
+    /// Draw dB scale with 0dB at top; reserve red for actual peaks and clipping.
     private func drawDBScale(labelX: CGFloat, tickEndX: CGFloat, meterTop: CGFloat, meterBottom: CGFloat, meterHeight: CGFloat) {
         // REQ: Complete scale sequence [0, -3, -6, -12, -24, -48]
         let dbValues: [Float] = [0, -3, -6, -12, -24, -48]
@@ -275,10 +291,7 @@ class LevelMeterCardView: NSView {
             let normalized = (db - minDB) / (maxDB - minDB)
             let y = meterTop + CGFloat(normalized) * meterHeight
             
-            // REQ: 0dB label in red (#EF4444), others with improved opacity 0.55
-            let labelColor: NSColor = (db == 0)
-                ? ledRed
-                : IndustrialColors.onSurfaceVariant.withAlphaComponent(0.55)
+            let labelColor = IndustrialColors.onSurfaceVariant.withAlphaComponent(hasAudioData ? 0.55 : 0.3)
             
             let labelAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedDigitSystemFont(ofSize: 8, weight: .regular),
@@ -308,12 +321,12 @@ class LevelMeterCardView: NSView {
         // REQ: L label uses onSurface color
         let lAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold),
-            .foregroundColor: IndustrialColors.onSurface.withAlphaComponent(0.75)
+            .foregroundColor: IndustrialColors.onSurface.withAlphaComponent(hasAudioData ? 0.75 : 0.3)
         ]
         // REQ: R label uses onSurfaceVariant color (subtle distinction)
         let rAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold),
-            .foregroundColor: IndustrialColors.onSurfaceVariant.withAlphaComponent(0.75)
+            .foregroundColor: IndustrialColors.onSurfaceVariant.withAlphaComponent(hasAudioData ? 0.75 : 0.3)
         ]
         
         let lSize = "L".size(withAttributes: lAttrs)
@@ -393,8 +406,7 @@ class LevelMeterCardView: NSView {
             // REQ: Bright red when triggered
             ledRed.setFill()
         } else {
-            // REQ: Dim red when not triggered (0.15 opacity)
-            ledRed.withAlphaComponent(0.15).setFill()
+            IndustrialColors.onSurfaceVariant.withAlphaComponent(0.15).setFill()
         }
         NSBezierPath(rect: clipRect).fill()
     }

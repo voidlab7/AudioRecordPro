@@ -135,9 +135,9 @@ class ControlPanelView: NSView {
         timerLabel.wantsLayer = true
         timerLabel.layer?.shadowColor = IndustrialColors.glowCyan.cgColor
         timerLabel.layer?.shadowRadius = 8
-        timerLabel.layer?.shadowOpacity = 0.8
+        timerLabel.layer?.shadowOpacity = 0
         timerLabel.layer?.shadowOffset = .zero
-        
+
         addSubview(timerLabel)
     }
     
@@ -299,7 +299,7 @@ class ControlPanelView: NSView {
             // 计时器居中对齐：放在录制按钮左侧，与按钮组整体居中
             timerLabel.trailingAnchor.constraint(equalTo: playButton.leadingAnchor, constant: -16),
             timerLabel.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
-            
+
             // readout 标签隐藏（信息已移到状态栏）—— 放在底部不可见处
             readoutLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IndustrialSpacing.md),
             readoutLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -IndustrialSpacing.md),
@@ -351,7 +351,9 @@ class ControlPanelView: NSView {
         // 根据设计文档 REQ-2.0-02：准备就绪时只显示 REC 按钮
         let isRecording = (state == .recording || state == .preparing || state == .stopping)
         let isPlaying = (state == .playing)
-        
+        timerLabel.textColor = state == .recording ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+        timerLabel.layer?.shadowOpacity = state == .recording ? 0.8 : 0
+
         // 按钮显示/隐藏逻辑
         playButton.isHidden = !isPlaying  // 只有回看态显示播放按钮
         stopButton.isHidden = !isRecording  // 只有录制中/准备中/停止中显示停止按钮

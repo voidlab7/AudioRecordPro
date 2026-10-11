@@ -182,6 +182,7 @@ class HorizontalScrollBarView: NSView {
     // MARK: - Accessibility
 
     override func accessibilityValue() -> Any? {
-        return "位置 %@%%".localized(Int(scrollPosition * 100))
+        // %@ 期望对象参数，Int 裸传会被当对象指针解引用（同 LOOP-04/06 崩溃类）
+        return "位置 %@%%".localized(String(Int(scrollPosition * 100)))
     }
 }

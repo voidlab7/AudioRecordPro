@@ -212,7 +212,8 @@ class ZoomControlsView: NSView {
     private func updateSliderPosition() {
         let position = zoomLevelToSliderPosition(zoomLevel)
         zoomSlider.doubleValue = Double(position)
-        zoomSlider.setAccessibilityValue("缩放 %@x".localized(Int(zoomLevel)))
+        // %@ 期望对象参数，传 Int 会把整数值当对象指针（0x1）→ SIGSEGV，必须包 NSNumber
+        zoomSlider.setAccessibilityValue("缩放 %@x".localized(NSNumber(value: Int(zoomLevel))))
     }
 
     private func updateButtonAppearance() {
