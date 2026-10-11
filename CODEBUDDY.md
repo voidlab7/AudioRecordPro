@@ -1,10 +1,10 @@
-# audio_record_mac（录音 App / Loocap 路录）— 项目入口
+# audio_record_mac（录音 App / Loocap 路文）— 项目入口
 
 > 2026-09-20 重写：进入 Loop 时代。本文件是项目入口，CodeBuddy 每次会话自动读取。
 
 ## 一句话
 
-macOS 录音 App（Loocap 路录，2026-10-11 前旧名 Tapture）：系统音频内录 + 麦克风录制 + 转写 + 剪映式轻编辑。唯一开发方式 = **Loop 开发循环**。
+macOS 录音 App（Loocap 路文，2026-10-11 前旧名 Tapture）：系统音频内录 + 麦克风录制 + 转写 + 剪映式轻编辑。唯一开发方式 = **Loop 开发循环**。
 
 ## 核心文件地图
 

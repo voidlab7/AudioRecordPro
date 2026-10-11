@@ -1,4 +1,4 @@
-# E2E 测试计划 — Loocap 路录（audio_record_mac）
+# E2E 测试计划 — Loocap 路文（audio_record_mac）
 
 > 维护：Tab | 最后更新：2026-09-18
 
