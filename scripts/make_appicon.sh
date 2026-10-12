@@ -14,7 +14,7 @@ command -v iconutil >/dev/null || { echo "need macOS iconutil"; exit 1; }
 # 1) 像素定位圆角方框主体（灰描边 ~#969696 on 深底 #1A1A1C），裁掉底部 Loocap 文字与边距
 python3 - "$SRC" "$OUT_PNG" <<'PY'
 import sys
-from PIL import Image
+from PIL import Image, ImageFilter
 src, out = sys.argv[1], sys.argv[2]
 im = Image.open(src).convert("RGB")
 W, H = im.size
@@ -30,14 +30,42 @@ for y in range(0, H, 2):
             if y < H * 0.82:
                 minx, miny = min(minx, x), min(miny, y)
                 maxx, maxy = max(maxx, x), max(maxy, y)
-# 方形化并留 2% 余量
+# 方形化；UI-009：主体放大 4%（+2% 余量改 -2%）让方框贴满画布，压缩深色 Dock 上的边缘融合区
 cx, cy = (minx+maxx)//2, (miny+maxy)//2
-side = max(maxx-minx, maxy-miny) + int(W*0.02)
+side = max(maxx-minx, maxy-miny) - int(W*0.02)
 half = side//2
 box = (max(0,cx-half), max(0,cy-half), min(W,cx+half), min(H,cy+half))
 icon = im.crop(box).resize((1024,1024), Image.LANCZOS)
+
+# UI-009: 外圈环带描边提亮 ~#A0A0A0 -> ~#C8C8C8 并加粗 2px（只动外圈 8% 环带，不碰内部 LC 字标）
+BAND = int(1024 * 0.08)
+ip = icon.load()
+mask = Image.new("L", icon.size, 0)
+mp = mask.load()
+edge_sum = 0
+edge_cnt = 0
+for y in range(1024):
+    for x in range(1024):
+        near_border = x < BAND or y < BAND or x >= 1024-BAND or y >= 1024-BAND
+        if near_border and is_edge(ip[x, y]):
+            mp[x, y] = 255
+            edge_sum += ip[x, y][0]
+            edge_cnt += 1
+avg = max(1, edge_sum // max(1, edge_cnt))
+boost = min(205, int(avg * 1.28))
+thick = mask.filter(ImageFilter.MaxFilter(5))  # 2px 膨胀（5x5 核）
+tp = thick.load()
+for y in range(1024):
+    for x in range(1024):
+        if tp[x, y] == 255:
+            r, g, b = ip[x, y]
+            if is_edge(ip[x, y]):
+                k = boost / avg
+                ip[x, y] = (min(255,int(r*k)), min(255,int(g*k)), min(255,int(b*k)))
+            else:
+                ip[x, y] = (boost, boost, boost)
 icon.save(out)
-print(f"主体 bbox=({minx},{miny},{maxx},{maxy}) crop={box} -> {out}")
+print(f"主体 bbox=({minx},{miny},{maxx},{maxy}) crop={box} -> {out} | 描边均亮 {avg} -> {boost}")
 PY
 
 # 2) 全尺寸 iconset → icns
