@@ -2,10 +2,10 @@ import Cocoa
 import AudioToolbox
 
 // MARK: - 转写文稿面板（FEAT-001 S2）
-// 编辑器底部抽屉：展示 .atranscript.json 分段文稿 + 导出 MD + 手动转写
+// 编辑器底部抽屉：展示 .atranscript.json 分段文稿 + 导出 txt/MD（FEAT-002 双格式）+ 手动转写
 
 protocol TranscriptPanelDelegate: AnyObject {
-    /// 点击「导出 MD」
+    /// 点击「导出」（txt 默认 / md 可选，FEAT-002）
     func transcriptPanelDidTapExport(_ panel: TranscriptPanelView)
     /// 点击「生成转写 / 重新转写」
     func transcriptPanelDidTapTranscribe(_ panel: TranscriptPanelView)
@@ -26,7 +26,7 @@ final class TranscriptPanelView: NSView {
     private let titleLabel = NSTextField(labelWithString: "转写文稿".localized)
     private let metaLabel = NSTextField(labelWithString: "")
     private let localePopup = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let exportButton = NSButton(title: "导出 MD".localized, target: nil, action: nil)
+    private let exportButton = NSButton(title: "导出".localized, target: nil, action: nil)
     private let transcribeButton = NSButton(title: "生成转写".localized, target: nil, action: nil)
     private let emptyLabel = NSTextField(wrappingLabelWithString: "暂无转写文稿\n点击右上角「生成转写」，音频将在本机完成转写（约 20 倍速）".localized)
     private let scrollView = NSScrollView()

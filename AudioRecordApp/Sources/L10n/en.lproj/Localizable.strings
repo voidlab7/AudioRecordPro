@@ -314,7 +314,6 @@
 "实时转写" = "Live Transcript";
 "实时转写不可用: %@" = "Live transcription unavailable: %@";
 "转写文稿" = "Transcript";
-"导出 MD" = "Export MD";
 "生成转写" = "Transcribe";
 "重新转写" = "Re-transcribe";
 "转写中…" = "Transcribing…";
