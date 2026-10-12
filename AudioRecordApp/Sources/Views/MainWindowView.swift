@@ -210,10 +210,6 @@ class MainWindowView: NSView {
         waveformView.translatesAutoresizingMaskIntoConstraints = false
         middleAreaView.addSubview(waveformView)
         
-        // V2.0: 独立电平表卡片（右侧）
-        levelMeterCardView.translatesAutoresizingMaskIntoConstraints = false
-        middleAreaView.addSubview(levelMeterCardView)
-        
         // 控制面板（底部）
         controlPanelView.delegate = self
         controlPanelView.translatesAutoresizingMaskIntoConstraints = false
@@ -221,10 +217,15 @@ class MainWindowView: NSView {
 
         // UI-005（2026-10-12 老板裁决）：红钮居中锚 = 波形画布中心（侧栏↔电平表之间的视觉中心）
         controlPanelView.setCenteringAnchor(waveformView.centerXAnchor)
-        
+
         // 状态栏
         statusBarView.translatesAutoresizingMaskIntoConstraints = false
         recordingContentView.addSubview(statusBarView)
+
+        // UI-008 R2（2026-10-12 老板「到最底部」）：电平列提为 recordingContentView 直属全高右栏，
+        // 压在控制栏/状态栏之上，从画布顶贯穿到窗口最底部（z 序需在 statusBar 之后添加）
+        levelMeterCardView.translatesAutoresizingMaskIntoConstraints = false
+        recordingContentView.addSubview(levelMeterCardView)
         
         // 旧组件 — 保留引用但隐藏
         tracksView.delegate = self
@@ -277,10 +278,10 @@ class MainWindowView: NSView {
             trackPanelView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor),
             trackPanelWidthConstraint,
             
-            // 电平表卡片（中间区域右侧）——UI-008: 与画布等高（top 对齐画布顶），bottom 止于底部控制栏上缘
+            // 电平表卡片（右侧全高栏）——UI-008 R2: top 对齐画布顶，bottom 直落窗口最底部
             levelMeterCardView.topAnchor.constraint(equalTo: middleAreaView.topAnchor),
-            levelMeterCardView.trailingAnchor.constraint(equalTo: middleAreaView.trailingAnchor, constant: -IndustrialSpacing.sm),
-            levelMeterCardView.bottomAnchor.constraint(equalTo: controlPanelView.topAnchor),
+            levelMeterCardView.trailingAnchor.constraint(equalTo: recordingContentView.trailingAnchor, constant: -IndustrialSpacing.sm),
+            levelMeterCardView.bottomAnchor.constraint(equalTo: recordingContentView.bottomAnchor),
             levelMeterCardView.widthAnchor.constraint(equalToConstant: levelMeterWidth),
             
             // 波形视图（轨道板和电平表之间）；顶部 0 让网格顶到标题栏边界（UI-006：满铺）
