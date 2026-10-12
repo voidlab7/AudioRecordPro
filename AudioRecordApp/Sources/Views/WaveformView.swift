@@ -363,8 +363,9 @@ class WaveformView: NSView {
     
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
+        // UI-006: 网格背景所有状态铺满画布（原仅 idle 画，录制态只剩 timelineRect 中线——老板看到的"中间一块"）
+        drawCanvasGrid(in: bounds)
         if !isRecording && !isShowingStaticWaveform && waveformData.isEmpty {
-            drawCanvasGrid(in: bounds)
             drawIdlePlaceholder(in: bounds)
             return
         }
