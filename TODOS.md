@@ -68,7 +68,33 @@
 - [x] `build-app.sh` exit 0；SDK 77/77、控制面板快照 2/2、英文 strings `plutil -lint` 均通过
 - [ ] 录音/静音/回待录制态 GUI 与音频落盘验证（UI runner 无 automation 权限，视觉 advisor HTTP 403，需恢复环境后续验）
 
-### UI-008 右侧 DB METER 电平列顶穿底部控制栏 | P2 | S | [doing] ✅ 标准 2026-10-12 16:24 老板签（「签收」）
+### INFRA-003 App 更名 Loocap（代码侧 + Bundle ID 迁移） | P1 | M · 半天 | [todo · 待签]
+
+> 来源（2026-10-12 16:24 老板指令）：App 名字重构为 **Loocap**，Bundle ID 同步改为 **`com.microlab.loocap`**（老板定；microlab.top 为 MicroV 已有域名，反向域名约定成立）。
+> 背景与残留清单：`docs/产品/品牌更名-2026-10-11.md` §四（10-11 已完成对外品牌切换，代码侧本单执行）。实测代码残留 27 处/10 文件 + pbxproj 30 处。
+
+**做什么**：
+1. **Bundle ID**：`PRODUCT_BUNDLE_IDENTIFIER` 全 target（App/KitTests/UITests）`com.voidzhang.audio-record-mac` → `com.microlab.loocap`
+2. **显示名**：Info.plist ×2（`CFBundleDisplayName`/权限文案）、pbxproj Target/Product 显示名 → Loocap（工程文件名 `AudioRecordMac.xcodeproj` 不动）
+3. **L10n**：en `Localizable.strings` + zh `InfoPlist.strings` 中名称改 Loocap；`TranscriptPanelView.swift` 1 处可见文案
+4. **内部标识符**：`TaptureTheme.swift` → `LoocapTheme.swift`（3 处）+ `ThemeAndMonitorTests.swift` 同步（14 处）
+5. **数据迁移**：提供迁移步骤/脚本——旧容器 `~/Library/Containers/com.voidzhang.audio-record-mac/` 的录音库搬到新容器；**实测 .arlock 在新容器可解密**（确认加密密钥绑机器而非 bundle id，若绑 bundle id 需密钥迁移方案再议）
+6. **连锁同步**：e2e/判活脚本按窗口属主名定位的用例（CGWindowList「Tapture」）全部改 `Loocap`；`make_appicon.sh` 等脚本内路径引用核查
+
+**已知代价（老板已拍板接受）**：改 Bundle ID 后**首次需重新授权**录屏/麦克风各一次（此后 INFRA-002 的 LoocapDev 稳定签名继续保证不再重复）。
+
+**不做什么**：历史文档/证据行的 Tapture 不回改（10-11 定：旧名是当时事实）；官网 `/tapture/` 软链不动；不改工程目录名与 git 仓库名
+
+**验收标准**（待签）：
+- [ ] `codesign -dv` 显示 `Identifier=com.microlab.loocap` + LoocapDev 签名
+- [ ] Dock/程序坞/关于窗口显示 **Loocap**（截图证据）
+- [ ] 权限弹窗文案含 Loocap；重新授权一次后录音链路正常（录系统音频落盘成功）
+- [ ] **数据迁移验证**：旧录音在新 Bundle ID 下可见、可播放、可解密（硬验证：afinfo/播放成功日志）
+- [ ] 全仓 grep `Tapture`：代码/资源层清零（历史文档注记除外，列出豁免清单）
+- [ ] `build-app.sh` exit 0；SDK 单测 77/77 PASS
+- [ ] e2e/判活脚本窗口名同步（跑一次冒烟截图验证能找到窗口）
+
+### UI-008 右侧 DB METER 电平列顶穿底部控制栏 | P2 | S | [ready-for-review · 2026-10-12 实施完成待签收] ✅ 标准 16:24 老板签
 
 > 来源（2026-10-12 14:40 老板报障，附截图红框）：右侧 DB METER 电平列（刻度 + L/R 条）一路延伸到**窗口最底缘**，越过底部控制栏区域；设计稿中电平列与画布同高、**止于底部控制栏上缘**，底栏横贯全宽。
 > 追加（14:43 老板指令，附截图）：电平列中央的**「Not Monitoring」文字提示浮层不要**——浮在条上不好看，直接删除，不做替代方案。
@@ -78,10 +104,12 @@
 **不做什么**：不动电平表视觉样式（渐变/刻度值/UI-003 成果）、不动底部栏内容
 
 **验收标准**（2026-10-12 16:24 老板签）：
-- [ ] 电平列底缘 = 底部控制栏上缘（截图量测无重叠穿入，对照 `design-main-ui.png` 老板核对）
-- [ ] 「Not Monitoring」文字已删除（待录制态电平列只有刻度 + 置灰空条 + L/R 标签，无任何浮层文字）
-- [ ] 窗口缩放时约束保持（不重新顶底）
-- [ ] UI-003~007 成果不回退；`build-app.sh` exit 0；截图证据落 `docs/证据/`
+- [x] 电平列底缘 = 底部控制栏上缘（约束改 `levelMeterCardView.bottom = controlPanelView.top` 硬贴齐；像素实测内容最底 y=1223、控制栏上缘 y=1248，无穿入）
+- [x] 「Not Monitoring」文字已删除（`LevelMeterCardView.draw()` else 分支整删，未监测态只剩置灰空条；AX 标签「未监测」保留）
+- [x] 窗口缩放时约束保持（bottom 直接锚控制栏上缘，结构性贴齐，不依赖 middleArea 间接推算）
+- [x] UI-003~007 成果不回退；`build-app.sh` exit 0；截图证据落 `docs/证据/`
+- 证据：`docs/证据/UI-008-电平列收进控制栏-浮层已删-2026-10-12.png`（右列实拍：刻度/LR 条止于控制栏上缘，浮层消失）
+- 注：老板 14:40 报障截图未落盘，当前窗口尺寸（960/1200×750）实测均无穿入——修复以约束贴齐 + 浮层删除两验收项为准
 
 ---
 
