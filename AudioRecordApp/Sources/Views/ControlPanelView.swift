@@ -51,6 +51,7 @@ class ControlPanelView: NSView {
     private let recordButton = IndustrialRecordButtonView()
     private let outerRingLayer = CAShapeLayer()
     private let innerSquareLayer = CALayer()
+    private let coreGradientLayer = CAGradientLayer()
     private let topSeparator = CALayer()
     private let stopSquareSize: CGFloat = 12
 
@@ -199,10 +200,11 @@ class ControlPanelView: NSView {
         
         // 外环（柔和灰色）
         outerRingLayer.fillColor = NSColor.clear.cgColor
-        outerRingLayer.strokeColor = IndustrialColors.outlineVariant.withAlphaComponent(0.4).cgColor
+        outerRingLayer.strokeColor = NSColor.white.withAlphaComponent(0.20).cgColor
         outerRingLayer.lineWidth = 2.5
         outerRingLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
-        buttonContainer.layer?.addSublayer(outerRingLayer)
+        recordButton.wantsLayer = true
+        recordButton.layer?.addSublayer(outerRingLayer)  // v3.1: 与渐变核同父，强制同心
     }
     
     private func setupRecordButton() {
@@ -213,20 +215,24 @@ class ControlPanelView: NSView {
         recordButton.setAccessibilityElement(true)
         
         recordButton.wantsLayer = true
-        recordButton.layer?.backgroundColor = IndustrialColors.statusCritical.cgColor
+        recordButton.layer?.backgroundColor = NSColor.clear.cgColor
         recordButton.layer?.cornerRadius = 24
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
         
         // BUG-FIX-3: 简化发光效果，只保留单层柔和阴影
         recordButton.layer?.masksToBounds = false
-        recordButton.layer?.shadowColor = IndustrialColors.statusCritical.cgColor
+        recordButton.layer?.shadowColor = NSColor(hex: "#FF453A").cgColor
         recordButton.layer?.shadowOffset = CGSize(width: 0, height: 0)
-        recordButton.layer?.shadowRadius = 12
-        recordButton.layer?.shadowOpacity = 0.5
+        recordButton.layer?.shadowRadius = 24
+        recordButton.layer?.shadowOpacity = 0.45
         
-        // Industrial: 边框而非发光
-        recordButton.layer?.borderWidth = 0
-        recordButton.layer?.borderColor = IndustrialColors.outlineVariant.cgColor
-        
+        // UI-003: 红钮红色光晕环（Stitch v2）
+        recordButton.wantsLayer = true
+        recordButton.layer?.shadowColor = NSColor(hex: "#FF453A").withAlphaComponent(0.45).cgColor
+        recordButton.layer?.shadowRadius = 24
+        recordButton.layer?.shadowOpacity = 0.45
+        recordButton.layer?.shadowOffset = .zero
+
         recordButton.onClick = { [weak self] in
             self?.recordButtonClicked()
         }
@@ -243,7 +249,13 @@ class ControlPanelView: NSView {
         
         // 录制中视觉：内部白色方块（表示停止）
         if let layer = recordButton.layer {
-            innerSquareLayer.backgroundColor = NSColor.white.cgColor
+            // v3.1 Figma：渐变核 #FF453A→#FF6961
+            coreGradientLayer.colors = [NSColor(hex: "#FF453A").cgColor, NSColor(hex: "#FF6961").cgColor]
+            coreGradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+            coreGradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+            coreGradientLayer.cornerRadius = 24
+            layer.addSublayer(coreGradientLayer)
+            innerSquareLayer.backgroundColor = NSColor.white.withAlphaComponent(0.95).cgColor
             innerSquareLayer.cornerRadius = 3
             innerSquareLayer.isHidden = true
             // 关闭隐式动画，避免约束动画时方块出现闪烁放大
@@ -273,31 +285,32 @@ class ControlPanelView: NSView {
             // 头部标签紧贴顶部
             headerLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: IndustrialSpacing.md),
             headerLabel.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-            
+
             statusBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -IndustrialSpacing.md),
             statusBadge.centerYAnchor.constraint(equalTo: headerLabel.centerYAnchor),
             statusBadge.widthAnchor.constraint(equalToConstant: 104),
             statusBadge.heightAnchor.constraint(equalToConstant: 20),
-            
-            // Transport 区域居中（适配 90px 高度）
-            buttonContainer.centerXAnchor.constraint(equalTo: centerXAnchor),
+
+            // UI-005: 红钮绝对居中（Dead Center）——centerX 改在 viewDidMoveToWindow 钉窗口
+            // contentLayoutGuide 正中心（本视图只覆盖内容区，centerX 会偏右 sidebarWidth/2）；
+            // 时间码/transport 以红钮为锚独立排布，宽度变化不推动红钮
             buttonContainer.centerYAnchor.constraint(equalTo: centerYAnchor, constant: 6),
             containerW,
             containerH,
-            
+
             recordButton.centerXAnchor.constraint(equalTo: buttonContainer.centerXAnchor),
             recordButton.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
             w,
             h,
-            
+
             // Transport 按钮紧凑分组
             playButton.trailingAnchor.constraint(equalTo: buttonContainer.leadingAnchor, constant: -12),
             playButton.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
             stopButton.leadingAnchor.constraint(equalTo: buttonContainer.trailingAnchor, constant: 12),
             stopButton.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
-            
-            // 计时器居中对齐：放在录制按钮左侧，与按钮组整体居中
-            timerLabel.trailingAnchor.constraint(equalTo: playButton.leadingAnchor, constant: -16),
+
+            // UI-003: 时间码紧贴红钮左侧 24px
+            timerLabel.trailingAnchor.constraint(equalTo: buttonContainer.leadingAnchor, constant: -24),
             timerLabel.centerYAnchor.constraint(equalTo: buttonContainer.centerYAnchor),
 
             // readout 标签隐藏（信息已移到状态栏）—— 放在底部不可见处
@@ -316,7 +329,7 @@ class ControlPanelView: NSView {
             delegate?.controlPanelViewDidStartRecording(self)
         case .preparing, .recording:
             // 录制中点击应保持停止方块可见，直到状态进入 stopping/idle
-            innerSquareLayer.isHidden = false
+            innerSquareLayer.isHidden = true
             delegate?.controlPanelViewDidStopRecording(self)
         case .stopping, .playing:
             break
@@ -351,12 +364,12 @@ class ControlPanelView: NSView {
         // 根据设计文档 REQ-2.0-02：准备就绪时只显示 REC 按钮
         let isRecording = (state == .recording || state == .preparing || state == .stopping)
         let isPlaying = (state == .playing)
-        timerLabel.textColor = state == .recording ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+        timerLabel.textColor = state == .recording ? NSColor(hex: "#E5E5E5") : IndustrialColors.onSurfaceVariant
         timerLabel.layer?.shadowOpacity = state == .recording ? 0.8 : 0
 
         // 按钮显示/隐藏逻辑
         playButton.isHidden = !isPlaying  // 只有回看态显示播放按钮
-        stopButton.isHidden = !isRecording  // 只有录制中/准备中/停止中显示停止按钮
+        stopButton.isHidden = true  // v3.1: 红钮录制中即停止键，冗余灰键永久隐藏
         // recordButton 一直显示：idle/error 时是 REC，recording 时变为停止样式
         
         switch state {
@@ -370,8 +383,10 @@ class ControlPanelView: NSView {
             playButton.setSymbol("▶")
             stopButton.isEnabled = false
             innerSquareLayer.isHidden = true  // 显示 REC 圆形
-            recordButton.layer?.backgroundColor = IndustrialColors.statusCritical.cgColor
+            outerRingLayer.isHidden = false
+            recordButton.layer?.backgroundColor = NSColor.clear.cgColor
             recordButton.layer?.cornerRadius = normalButtonSize / 2
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
             recordButton.layer?.shadowColor = IndustrialColors.statusCritical.cgColor
             recordButton.layer?.shadowRadius = 12
             recordButton.layer?.shadowOpacity = 0.5
@@ -393,6 +408,7 @@ class ControlPanelView: NSView {
             innerSquareLayer.isHidden = true
             recordButton.layer?.backgroundColor = IndustrialColors.statusCritical.withAlphaComponent(0.6).cgColor
             recordButton.layer?.cornerRadius = normalButtonSize / 2
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
             recordButton.layer?.shadowColor = IndustrialColors.statusCritical.cgColor
             recordButton.layer?.shadowRadius = 8
             recordButton.layer?.shadowOpacity = 0.3
@@ -407,14 +423,17 @@ class ControlPanelView: NSView {
             playButton.isEnabled = false
             playButton.setSymbol("▶")
             stopButton.isEnabled = true
-            innerSquareLayer.isHidden = false  // 显示停止方块
-            recordButton.layer?.backgroundColor = IndustrialColors.statusCritical.cgColor
-            recordButton.layer?.cornerRadius = recordingButtonSize / 2
-            recordButton.layer?.shadowColor = IndustrialColors.statusCritical.cgColor
-            recordButton.layer?.shadowRadius = 16
-            recordButton.layer?.shadowOpacity = 0.7
-            recordButton.layer?.borderColor = IndustrialColors.statusDanger.cgColor
-            setRecordButtonSize(recordingButtonSize, animated: true)
+            // v3.2 形变方案（Voice Memos/QuickTime 式）：红圆 → 红圆角方块，无内嵌方块
+            innerSquareLayer.isHidden = true
+            recordButton.layer?.backgroundColor = NSColor.clear.cgColor
+            recordButton.layer?.cornerRadius = normalButtonSize * 0.28  // squircle 比例，尺寸恒定只变形状
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
+            recordButton.layer?.shadowColor = NSColor(hex: "#FF453A").withAlphaComponent(0.45).cgColor
+            recordButton.layer?.shadowRadius = 24
+            recordButton.layer?.shadowOpacity = 0.45
+            recordButton.layer?.borderColor = NSColor.clear.cgColor
+            outerRingLayer.isHidden = true  // 形变态隐藏圆环（Voice Memos 式）
+            setRecordButtonSize(normalButtonSize, animated: true)  // 尺寸恒定，消除跳动
             
         case .stopping:
             statusBadge.stringValue = "停止中".localized
@@ -423,12 +442,13 @@ class ControlPanelView: NSView {
             readoutLabel.stringValue = ""
             recordButton.isEnabled = false
             stopButton.isEnabled = false
-            innerSquareLayer.isHidden = false
-            recordButton.layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-            recordButton.layer?.cornerRadius = recordingButtonSize / 2
+            innerSquareLayer.isHidden = true
+            recordButton.layer?.backgroundColor = NSColor.clear.cgColor
+            recordButton.layer?.cornerRadius = normalButtonSize * 0.28
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
             recordButton.layer?.shadowRadius = 6
             recordButton.layer?.shadowOpacity = 0.3
-            setRecordButtonSize(recordingButtonSize, animated: false)
+            setRecordButtonSize(normalButtonSize, animated: false)
             
         case .playing:
             statusBadge.stringValue = "回看态".localized
@@ -440,8 +460,9 @@ class ControlPanelView: NSView {
             playButton.setSymbol("Ⅱ")
             stopButton.isEnabled = true
             innerSquareLayer.isHidden = true
-            recordButton.layer?.backgroundColor = IndustrialColors.statusCritical.withAlphaComponent(0.4).cgColor
+            recordButton.layer?.backgroundColor = NSColor.clear.cgColor
             recordButton.layer?.cornerRadius = normalButtonSize / 2
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
             recordButton.layer?.shadowRadius = 8
             recordButton.layer?.shadowOpacity = 0.3
             setRecordButtonSize(normalButtonSize, animated: true)
@@ -458,6 +479,7 @@ class ControlPanelView: NSView {
             innerSquareLayer.isHidden = true
             recordButton.layer?.backgroundColor = IndustrialColors.statusDanger.cgColor
             recordButton.layer?.cornerRadius = normalButtonSize / 2
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? 24
             recordButton.layer?.shadowColor = IndustrialColors.glowDanger.cgColor
             recordButton.layer?.shadowRadius = 20
             recordButton.layer?.shadowOpacity = 1.0
@@ -466,24 +488,48 @@ class ControlPanelView: NSView {
     }
     
     // MARK: - Layout
+
+    /// UI-005（2026-10-12 老板裁决）：红钮「居中」= 画布视觉中心，非窗口中心。
+    /// 本视图只覆盖内容区，自身 centerX ≠ 任何视觉中心，故由 MainWindowView 注入目标锚点（waveformView.centerX）。
+    private var centeringConstraint: NSLayoutConstraint?
+
+    /// 注入红钮的水平居中锚点（MainWindowView 传入波形画布 centerX）
+    func setCenteringAnchor(_ anchor: NSLayoutAnchor<NSLayoutXAxisAnchor>) {
+        centeringConstraint?.isActive = false
+        let c = buttonContainer.centerXAnchor.constraint(equalTo: anchor)
+        c.priority = .required
+        c.isActive = true
+        centeringConstraint = c
+    }
+
     override func layout() {
         super.layout()
         
         // 更新顶部硬边分隔线
         topSeparator.frame = CGRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1)
         
-        // 更新按钮硬件底座
-        buttonBaseLayer.frame = buttonContainer.bounds.insetBy(dx: 3, dy: 3)
+        // v3.1: 硬件底座弃用（设计无此元素，暗弧残留来源）
+        buttonBaseLayer.isHidden = true
         
-        // 更新内方块的位置与外环路径
-        layoutStopSquareLayer()
+        // v3.1: 渐变核几何跟随
+        let rb = recordButton.bounds
+        if rb.width > 1 {
+            coreGradientLayer.frame = rb
+            coreGradientLayer.cornerRadius = recordButton.layer?.cornerRadius ?? rb.width / 2
+            // 停止方块：frame 绝对居中（frame 与 anchorPoint 无关，免疫偏心）
+            innerSquareLayer.anchorPoint = CGPoint(x: 0, y: 0)
+            innerSquareLayer.frame = NSRect(x: (rb.width - stopSquareSize) / 2,
+                                            y: (rb.height - stopSquareSize) / 2,
+                                            width: stopSquareSize, height: stopSquareSize)
+        }
         
         // 外环路径：以容器中间为圆心，稍大于内部按钮，保留间距
-        let bounds = buttonContainer.bounds
-        if bounds.width > 0 && bounds.height > 0 {
-            outerRingLayer.frame = bounds
-            let center = CGPoint(x: bounds.midX, y: bounds.midY)
-            let radius = min(bounds.width, bounds.height) / 2 - outerRingLayer.lineWidth / 2 - 1
+        let ringBounds = rb.insetBy(dx: -8, dy: -8)  // v3.1: 环挂核坐标系，天然同心
+        if ringBounds.width > 0 && ringBounds.height > 0 {
+            outerRingLayer.frame = ringBounds
+            // path 坐标系是 layer bounds（原点恒 0,0），圆心必须用 bounds 半宽，不能用 frame.mid
+            let center = CGPoint(x: ringBounds.width / 2, y: ringBounds.height / 2)
+            let radius = min(ringBounds.width, ringBounds.height) / 2 - outerRingLayer.lineWidth / 2 - 1
             let path = NSBezierPath()
             path.appendArc(withCenter: NSPoint(x: center.x, y: center.y), radius: radius, startAngle: 0, endAngle: 360)
             // 构造 CGPath 兼容旧系统

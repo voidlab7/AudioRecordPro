@@ -150,10 +150,14 @@ class MainWindowView: NSView {
         addSubview(splitView)
     }
     
+    private var didApplyInitialSidebarWidth = false
+
     override func layout() {
         super.layout()
-        if splitView.subviews.count >= 2 && sidebarView.frame.width < 10 {
+        // v3.1: 初次布局无条件应用侧栏宽度（旧条件 width<10 在 NSSplitView 自动布局后永不触发，导致 412 不生效）
+        if !didApplyInitialSidebarWidth && splitView.subviews.count >= 2 {
             splitView.setPosition(IndustrialSpacing.sidebarWidth, ofDividerAt: 0)
+            didApplyInitialSidebarWidth = true
         }
     }
     
@@ -210,6 +214,9 @@ class MainWindowView: NSView {
         controlPanelView.delegate = self
         controlPanelView.translatesAutoresizingMaskIntoConstraints = false
         recordingContentView.addSubview(controlPanelView)
+
+        // UI-005（2026-10-12 老板裁决）：红钮居中锚 = 波形画布中心（侧栏↔电平表之间的视觉中心）
+        controlPanelView.setCenteringAnchor(waveformView.centerXAnchor)
         
         // 状态栏
         statusBarView.translatesAutoresizingMaskIntoConstraints = false
@@ -744,7 +751,7 @@ extension MainWindowView: NSSplitViewDelegate {
     func splitView(_ splitView: NSSplitView,
                    constrainMaxCoordinate proposedMaximumPosition: CGFloat,
                    ofSubviewAt dividerIndex: Int) -> CGFloat {
-        return 320
+        return IndustrialSpacing.sidebarWidth  // UI-004: 260（老板裁决 2026-10-12）
     }
     
     func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool {
