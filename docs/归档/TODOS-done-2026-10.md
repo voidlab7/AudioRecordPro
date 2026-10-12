@@ -300,3 +300,31 @@
 - [x] `build-app.sh` exit 0（2026-10-12 双轮）；SDK 单测未跑（改动仅构建脚本签名段，产品代码零变更）
 
 > **实施记录（2026-10-12 13:25）**：openssl 生成 10 年期自签证书 CN=LoocapDev（codeSigning EKU）→ p12 `-legacy` 导出（OpenSSL 3 默认算法 macOS security 不认，坑位已记）→ 导入登录钥匙串 + `add-trusted-cert -p codeSign` → build-app.sh 签名段改「检测身份→LoocapDev，缺失回退 adhoc 并告警」，支持 `LOOCAP_SIGN_IDENTITY` 覆盖。证书/私钥在 `~/.loocap-certs/`（不入 git）。钥匙串里的公司 Developer ID（Tencent）未动用——个人 App 合规红线。
+
+### UI-006 画布网格线未铺满画布 | P2 | S | [done] ✅ 2026-10-12 16:24 老板签收
+
+> 来源（2026-10-12 13:02 老板报障）：设计稿中画布网格线铺满整个画布区域；现状网格只覆盖中间一块。
+> R1（14:06）：像素测量诊断——idle 网格其实已满铺，真病灶是录制态不画网格；`WaveformView.draw()` 把 `drawCanvasGrid` 提到顶部全状态共用。
+> R2（14:20 老板打回「顶部有留白」）：根因 = `editToolbarView` idle 态 isHidden 但 36px 约束仍占位 + 画布顶边距 8pt。修法：`middleAreaTopConstraint` 常量随模式切换（idle/录制 0，编辑 36）；画布顶边距 8→0。实测第一条网格线 y=83 紧贴标题栏下缘（76px）。
+
+**验收标准**：
+- [x] 网格线铺满画布：与侧栏/标题栏/电平表交界处也有网格
+- [x] 网格间距 30pt、white@0.035 与现值一致（v2 校准不回退）
+- [x] `build-app.sh` exit 0；截图证据落 `docs/证据/`
+- 证据：`docs/证据/UI-006-网格满铺-2026-10-12.png`（29 线满铺）、`docs/证据/UI-006-R2-顶部留白修复-2026-10-12.png`
+- commit：befc6ad（R1）、bec798c（R2）
+- 教训：①自绘改动前先截图实测，别信报障描述的病灶位置；②isHidden 不释放布局空间，隐藏态组件必须同步收约束
+
+### UI-007 App 图标改为 LC 圆角字标（Loocap） | P2 | S | [done] ✅ 2026-10-12 16:24 老板签收
+
+> 来源（2026-10-12 13:18 老板指令）：App Logo 换成 LC 字标圆角风格。正本 `docs/设计稿/logo-lc-正本-1024.jpg`。
+> R1（14:06）：`scripts/make_appicon.sh` 可复跑管线（像素定位主体、排除文字区、10 档 iconset→icns），bbox=(182,182,842,838)。
+> R2（14:41 老板打回「图标不对」）：Dock 仍显旧波形图标。排障：bundle icns 内容验证正确 → 缓存四连刷（touch/killall Dock/lsregister/iconservices）无效 → 改查代码命中真根因——`AppDelegate.swift:74` 启动时用 `AudioRecordLogo.png` 覆盖 `NSApp.applicationIconImage`，icns 永不生效。删覆盖代码 + 删旧图资源后 Dock 实拍 LC 字标生效。
+
+**验收标准**：
+- [x] 1024 主稿（裁切后）无 Loocap 文字残留、主体居中不变形
+- [x] 全尺寸 AppIcon 生成，Dock/访达显示正确
+- [x] `build-app.sh` exit 0；重编译后图标不丢（DR 稳定签名）
+- 证据：`docs/证据/UI-007-图标裁切-2026-10-12.png`（1024 裁切稿）、`docs/证据/UI-007-R1-Dock生效-2026-10-12.png`（Dock 实拍）
+- commit：2a0ab18（R1）、c7df8d1（R2）
+- 教训：图标异常先查运行时覆盖（applicationIconImage/dockTile），再查缓存——缓存四连刷白费三轮
