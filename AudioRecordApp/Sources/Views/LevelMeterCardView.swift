@@ -33,7 +33,9 @@ class LevelMeterCardView: NSView {
     private let tickLength: CGFloat = 4         // Tick line length
     private let tickGap: CGFloat = 2            // Tick to bar gap
     private let topPadding: CGFloat = 24        // REQ: 24px top padding
-    private let bottomPadding: CGFloat = 28     // REQ: 28px bottom (for peak value)
+    // UI-008 R1（2026-10-12 老板「没有到最底部」）：28→20，L/R 标签下沉至距卡底 ~2pt，
+    // 条/刻度/标签视觉上贴到控制栏上缘（20 = 标签高 12 + 间隙 6 + 余量 2）
+    private let bottomPadding: CGFloat = 20
     private let horizontalPadding: CGFloat = 6  // REQ: 6px left/right padding
 
     // Clip indicator size
