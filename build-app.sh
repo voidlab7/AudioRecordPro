@@ -86,6 +86,17 @@ else
 fi
 
 echo "🔐 [5/5] 代码签名..."
+# INFRA-002: 优先用稳定身份 LoocapDev（自签证书，TCC 授权不随重编译重置）；
+# 证书缺失时回退 adhoc（每次 cdhash 变化，TCC 当新 App，授权清零）
+SIGN_IDENTITY="${LOOCAP_SIGN_IDENTITY:-LoocapDev}"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$SIGN_IDENTITY\""; then
+  SIGN_FLAG=(--sign "$SIGN_IDENTITY")
+  echo "   使用稳定签名身份: $SIGN_IDENTITY"
+else
+  SIGN_FLAG=(--sign -)
+  echo "   ⚠️ 未找到 $SIGN_IDENTITY，回退 adhoc（重建后需重新授权录屏/麦克风）"
+  echo "   修复: 见 docs/INFRA-002-证书重建路径.md"
+fi
 # 检查是否有 entitlements
 ENTITLEMENTS=""
 for candidate in \
@@ -95,16 +106,16 @@ for candidate in \
   if [ -f "$candidate" ]; then ENTITLEMENTS="$candidate"; break; fi
 done
 if [ -n "$ENTITLEMENTS" ]; then
-  codesign --force --sign - \
+  codesign --force "${SIGN_FLAG[@]}" \
     --entitlements "$ENTITLEMENTS" \
     "$MACOS_DIR/$APP_NAME"
-  codesign --force --sign - \
+  codesign --force "${SIGN_FLAG[@]}" \
     --entitlements "$ENTITLEMENTS" \
     "$APP_DIR"
   echo "   ✅ 已签名（含 entitlements）"
 else
-  codesign --force --sign - "$MACOS_DIR/$APP_NAME"
-  codesign --force --sign - "$APP_DIR"
+  codesign --force "${SIGN_FLAG[@]}" "$MACOS_DIR/$APP_NAME"
+  codesign --force "${SIGN_FLAG[@]}" "$APP_DIR"
   echo "   ✅ 已签名（无 entitlements）"
 fi
 
