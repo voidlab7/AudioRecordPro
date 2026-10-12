@@ -15,7 +15,6 @@
 | LOOP-08 | 录音准备态与实时采集态视觉分离 ≡UI-002 | P1 | **blocked** | 主链路已通，细项留日常观察 |
 | UI-006 | 画布网格线未铺满画布 | P2 | todo · 待签 | 10-12 13:02 报障，标准草案待老板签 |
 | UI-007 | App 图标改为 LC 圆角字标 | P2 | todo · 待签 | 正本 `docs/设计稿/logo-lc-正本-1024.jpg`，标准草案待签 |
-| INFRA-002 | 稳定开发签名（LoocapDev 证书） | P1 | ready-for-review | 双轮 DR 验证过，等签收 |
 | LOOP-01~04 | 测试盘点 / localized 断裂 / 计时器脱节 / 单测卡死 | P0 | done ✅ | 09-20/21 签收 |
 | LOOP-06 | localized %@ 残留清理 ≡FIX-001 | P0 | done ✅ | 10-11 签收 |
 | LOOP-07 | 待录制界面隐藏时间刻度 ≡UI-001 | P2 | done ✅ | 10-11 签收 |
@@ -25,6 +24,7 @@
 | UI-004 | 侧栏初始化宽度 260pt | P2 | done ✅ | 10-12 13:15 签收 |
 | UI-005 | 红钮画布视觉居中 | P2 | done ✅ | 10-12 13:15 签收 |
 | FEAT-001 | 语音转文字（双引擎+导出 MD） | P1 | done ✅ | 10-11 16:12 签收 |
+| INFRA-002 | 稳定开发签名（LoocapDev 证书） | P1 | done ✅ | 10-12 13:54 签收 |
 
 > done 单正文全部在 `docs/归档/TODOS-done-2026-10.md`；更早 backlog 在 `docs/归档/TODOS-archive-20260920.md`（捡回规则：补验收标准回池，P0 > P1 > P2）。
 
@@ -96,23 +96,6 @@
 - [ ] 全尺寸 AppIcon 生成，Dock/访达显示正确（截图证据落 `docs/证据/`）
 - [ ] `build-app.sh` exit 0；重编译后图标不丢
 
-### INFRA-002 稳定开发签名：消除每次重编译后的重复授权 | P1 | S | [ready-for-review · 2026-10-12 已实施待签收]
-
-> 来源（2026-10-12 00:40 老板提问）：①录屏/麦克风权限能不能不授权？②重编译后能不能不重新授权？
-> **需求台结论（已核）**：①首次授权**免不了**——录系统/App 声音走 ProcessTap 需要「屏幕录制」TCC（macOS 以此判定进程音频捕获），麦克风需要「麦克风」TCC，OS 隐私模型无 API 可绕；②重编译重复授权**可以修**：实测当前产物 `Signature=adhoc`（`codesign -dv` 确认，Identifier=com.voidzhang.audio-record-mac 固定）——ad-hoc 签名每次构建 cdhash 都变，TCC 把它当新 App，授权即清零。
-
-**做什么**：①Keychain 创建本地长期自签代码签名证书（如 `LoocapDev`，Apple Development/CodeSigning 类型，有效期设长）；②`build-app.sh` 签名从 adhoc 改为该证书（产物 `codesign -dv` 显示真实证书身份）；③全量文档记录证书重建路径（换机/证书过期后如何恢复，避免知识孤岛）。
-
-**不做什么**：不改 bundle id（com.voidzhang.audio-record-mac 已固定）、不动 entitlements 内容、不做 TCC.db 直写 hack（SIP 对抗，脆弱且不该做）
-
-**验收标准**（2026-10-12 老板「继续」视为签署）：
-- [x] `codesign -dv build/*.app` 显示 `Signature=LoocapDev`（或等效证书名），不再 `adhoc`（2026-10-12：`Authority=LoocapDev`，verbose=4 实证）
-- [x] **硬验证**：授权一次后，连续 2 轮「重编译 + 重启 App」，屏幕录制/麦克风授权不重置（2026-10-12 双轮构建：cdhash 变化（真·两次独立构建）而 DR 逐字节相同 `certificate root = H"a9ea33aa…"`——TCC 以 DR 判定身份，结构性证明授权随证书而非产物；**GUI 终验**：换签名后首次启动会弹最后一次授权，勾完后老板日常录音即验证不再弹）
-- [x] 证书重建路径文档落 `docs/`（`docs/INFRA-002-证书重建路径.md`，含换机/过期重建双路径、坑位 5 条、复跑验证命令）
-- [x] `build-app.sh` exit 0（2026-10-12 双轮）；SDK 单测未跑（改动仅构建脚本签名段，产品代码零变更）
-
-> **实施记录（2026-10-12 13:25）**：openssl 生成 10 年期自签证书 CN=LoocapDev（codeSigning EKU）→ p12 `-legacy` 导出（OpenSSL 3 默认算法 macOS security 不认，坑位已记）→ 导入登录钥匙串 + `add-trusted-cert -p codeSign` → build-app.sh 签名段改「检测身份→LoocapDev，缺失回退 adhoc 并告警」，支持 `LOOCAP_SIGN_IDENTITY` 覆盖。证书/私钥在 `~/.loocap-certs/`（不入 git）。钥匙串里的公司 Developer ID（Tencent）未动用——个人 App 合规红线。
-
 ---
 
 ## done 索引（正文见 `docs/归档/TODOS-done-2026-10.md`）
@@ -131,3 +114,4 @@
 | UI-004 | 侧栏初始化宽度 260pt | 2026-10-12 |
 | UI-005 | 红钮画布视觉居中 | 2026-10-12 |
 | FEAT-001 | 语音转文字（SpeechAnalyzer + 导出 MD） | 2026-10-11 |
+| INFRA-002 | 稳定开发签名（LoocapDev 证书） | 2026-10-12 |

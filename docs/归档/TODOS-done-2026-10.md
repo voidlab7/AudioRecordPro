@@ -283,3 +283,20 @@
 > - S2.5 自验：build 通过 + 冒烟 PID 67595 + Kit 77/77。**第二轮真机验收（16:12 老板签收「录完了也导出了」）全绿**：68.7s 英文演讲 → 手动转写 en-US 409 字（0.77s，~90x 实时），**分词标点完美**（桌面 `Google Chrome_20261011_160709.md` 1106 字节实证：`Knowing that I was gonna say that today...` 带空格带标点+时间戳分段），导出读回断言 ok。FEAT-001 全单 done。
 > - 遗留观察项（不阻塞）：录制**开始前**选好 English 的实时浮条英文出字链路未单独目击（live_start 显示 auto——老板是录完才切语言；引擎/分词/导出已由手动转写路径全验证）
 > - S3 打磨（重转写按钮语义、多语言混说、标点后处理）为可选后续，按需开单
+
+### INFRA-002 稳定开发签名：消除每次重编译后的重复授权 | P1 | S | [done] ✅ 2026-10-12 13:54 老板签收
+
+> 来源（2026-10-12 00:40 老板提问）：①录屏/麦克风权限能不能不授权？②重编译后能不能不重新授权？
+> **需求台结论（已核）**：①首次授权**免不了**——录系统/App 声音走 ProcessTap 需要「屏幕录制」TCC（macOS 以此判定进程音频捕获），麦克风需要「麦克风」TCC，OS 隐私模型无 API 可绕；②重编译重复授权**可以修**：实测当前产物 `Signature=adhoc`（`codesign -dv` 确认，Identifier=com.voidzhang.audio-record-mac 固定）——ad-hoc 签名每次构建 cdhash 都变，TCC 把它当新 App，授权即清零。
+
+**做什么**：①Keychain 创建本地长期自签代码签名证书（如 `LoocapDev`，Apple Development/CodeSigning 类型，有效期设长）；②`build-app.sh` 签名从 adhoc 改为该证书（产物 `codesign -dv` 显示真实证书身份）；③全量文档记录证书重建路径（换机/证书过期后如何恢复，避免知识孤岛）。
+
+**不做什么**：不改 bundle id（com.voidzhang.audio-record-mac 已固定）、不动 entitlements 内容、不做 TCC.db 直写 hack（SIP 对抗，脆弱且不该做）
+
+**验收标准**（2026-10-12 老板「继续」视为签署）：
+- [x] `codesign -dv build/*.app` 显示 `Signature=LoocapDev`（或等效证书名），不再 `adhoc`（2026-10-12：`Authority=LoocapDev`，verbose=4 实证）
+- [x] **硬验证**：授权一次后，连续 2 轮「重编译 + 重启 App」，屏幕录制/麦克风授权不重置（2026-10-12 双轮构建：cdhash 变化（真·两次独立构建）而 DR 逐字节相同 `certificate root = H"a9ea33aa…"`——TCC 以 DR 判定身份，结构性证明授权随证书而非产物；**GUI 终验**：换签名后首次启动会弹最后一次授权，勾完后老板日常录音即验证不再弹）
+- [x] 证书重建路径文档落 `docs/`（`docs/INFRA-002-证书重建路径.md`，含换机/过期重建双路径、坑位 5 条、复跑验证命令）
+- [x] `build-app.sh` exit 0（2026-10-12 双轮）；SDK 单测未跑（改动仅构建脚本签名段，产品代码零变更）
+
+> **实施记录（2026-10-12 13:25）**：openssl 生成 10 年期自签证书 CN=LoocapDev（codeSigning EKU）→ p12 `-legacy` 导出（OpenSSL 3 默认算法 macOS security 不认，坑位已记）→ 导入登录钥匙串 + `add-trusted-cert -p codeSign` → build-app.sh 签名段改「检测身份→LoocapDev，缺失回退 adhoc 并告警」，支持 `LOOCAP_SIGN_IDENTITY` 覆盖。证书/私钥在 `~/.loocap-certs/`（不入 git）。钥匙串里的公司 Developer ID（Tencent）未动用——个人 App 合规红线。
