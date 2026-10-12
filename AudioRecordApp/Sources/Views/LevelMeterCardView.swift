@@ -172,17 +172,8 @@ class LevelMeterCardView: NSView {
         if hasAudioData {
             drawPeakValue(barsStartX: barsStartX, meterTop: meterTop)
             drawClipIndicator(barsStartX: barsStartX, meterBottom: meterBottom)
-        } else {
-            // UI-002: 未采集/停止后电平置灰显示「未监测」（表体中央，避免与 DB METER 标题相撞）
-            let text = "未监测".localized
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 9, weight: .medium),
-                .foregroundColor: IndustrialColors.textTertiary
-            ]
-            let size = (text as NSString).size(withAttributes: attrs)
-            (text as NSString).draw(at: NSPoint(x: (bounds.width - size.width) / 2,
-                                               y: meterTop + meterHeight / 2 - size.height / 2), withAttributes: attrs)
         }
+        // UI-008（2026-10-12 老板定）：「未监测」浮层文字已删——未监测态用置灰空条表达，AX 标签保留
     }
     
     // MARK: - Title

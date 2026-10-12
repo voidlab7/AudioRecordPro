@@ -277,10 +277,10 @@ class MainWindowView: NSView {
             trackPanelView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor),
             trackPanelWidthConstraint,
             
-            // 电平表卡片（中间区域右侧）
-            levelMeterCardView.topAnchor.constraint(equalTo: middleAreaView.topAnchor, constant: IndustrialSpacing.sm),
+            // 电平表卡片（中间区域右侧）——UI-008: 与画布等高（top 对齐画布顶），bottom 止于底部控制栏上缘
+            levelMeterCardView.topAnchor.constraint(equalTo: middleAreaView.topAnchor),
             levelMeterCardView.trailingAnchor.constraint(equalTo: middleAreaView.trailingAnchor, constant: -IndustrialSpacing.sm),
-            levelMeterCardView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor, constant: -IndustrialSpacing.sm),
+            levelMeterCardView.bottomAnchor.constraint(equalTo: controlPanelView.topAnchor),
             levelMeterCardView.widthAnchor.constraint(equalToConstant: levelMeterWidth),
             
             // 波形视图（轨道板和电平表之间）；顶部 0 让网格顶到标题栏边界（UI-006：满铺）
