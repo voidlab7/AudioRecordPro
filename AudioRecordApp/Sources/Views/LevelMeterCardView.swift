@@ -26,7 +26,8 @@ class LevelMeterCardView: NSView {
     private let maxDB: Float = 0
     
     // Layout constants — REQ: optimized for 80px card width
-    private let barWidth: CGFloat = 12          // REQ: 12px bar width
+    private let barWidth: CGFloat = 10          // UI-003 v3: Figma 规格 10px 条宽
+    private let fillWidth: CGFloat = 6          // UI-003 v3: Figma 规格 6px 信号填充宽
     private let barGap: CGFloat = 4             // REQ: 4px L/R gap
     private let labelAreaWidth: CGFloat = 20    // REQ: 20px dB label area
     private let tickLength: CGFloat = 4         // Tick line length
@@ -34,19 +35,15 @@ class LevelMeterCardView: NSView {
     private let topPadding: CGFloat = 24        // REQ: 24px top padding
     private let bottomPadding: CGFloat = 28     // REQ: 28px bottom (for peak value)
     private let horizontalPadding: CGFloat = 6  // REQ: 6px left/right padding
-    
-    // LED segment constants — REQ: segmented LED style
-    private let segmentHeight: CGFloat = 3      // REQ: 3px per segment
-    private let segmentGap: CGFloat = 1         // REQ: 1px gap between segments
-    
+
     // Clip indicator size
     private let clipSize: CGFloat = 6           // REQ: 6x6px clip indicator
-    
-    // LED colors — REQ: four-color segments
-    private let ledGreen = NSColor(calibratedRed: 0.133, green: 0.773, blue: 0.369, alpha: 1.0)   // #22C55E
-    private let ledYellow = NSColor(calibratedRed: 0.961, green: 0.620, blue: 0.043, alpha: 1.0)  // #F59E0B
-    private let ledOrange = NSColor(calibratedRed: 0.976, green: 0.451, blue: 0.086, alpha: 1.0)  // #F97316
-    private let ledRed = NSColor(calibratedRed: 0.937, green: 0.267, blue: 0.267, alpha: 1.0)     // #EF4444
+
+    // UI-003 v3: Figma 电平表渐变（无红段，顶即黄）#10B981→#34D399@50%→#FBBF24
+    private let gradBottom = NSColor(hex: "#10B981")
+    private let gradMid = NSColor(hex: "#34D399")
+    private let gradTop = NSColor(hex: "#FBBF24")
+    private let ledRed = NSColor(hex: "#FF3B30")  // 仅用于实际削波指示（UI-002：红色只用于实际峰值/削波）
     
     // MARK: - Initialization
     override init(frame frameRect: NSRect) {
@@ -153,14 +150,17 @@ class LevelMeterCardView: NSView {
         let contentStartX = (bounds.width - totalContentWidth) / 2
         let barsStartX = contentStartX + labelAreaWidth + tickLength + tickGap
         
-        // 1. Draw background slots (unfilled LED segments)
-        drawBackgroundSegments(x: barsStartX, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
-        drawBackgroundSegments(x: barsStartX + barWidth + barGap, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
+        // 0. UI-003 v3: 顶部 DB METER 标题（9px mono #A3A3A3，Figma §3）
+        drawTitle()
         
-        // 2. Draw L/R channel LED segments (fill from bottom up)
+        // 1. Draw background slots (Figma: 10px r2 fill #171717@0.90 stroke white@0.10)
+        drawBarSlot(x: barsStartX, meterTop: meterTop, meterHeight: meterHeight)
+        drawBarSlot(x: barsStartX + barWidth + barGap, meterTop: meterTop, meterHeight: meterHeight)
+        
+        // 2. Draw L/R channel gradient fills (fill from bottom up)
         if hasAudioData {
-            drawLEDChannel(level: leftLevel, peak: leftPeak, x: barsStartX, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
-            drawLEDChannel(level: rightLevel, peak: rightPeak, x: barsStartX + barWidth + barGap, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight)
+            drawGradientChannel(level: leftLevel, peak: leftPeak, x: barsStartX, meterTop: meterTop, meterHeight: meterHeight)
+            drawGradientChannel(level: rightLevel, peak: rightPeak, x: barsStartX + barWidth + barGap, meterTop: meterTop, meterHeight: meterHeight)
         }
 
         // 3. Draw dB scale (text + tick lines)
@@ -173,6 +173,7 @@ class LevelMeterCardView: NSView {
             drawPeakValue(barsStartX: barsStartX, meterTop: meterTop)
             drawClipIndicator(barsStartX: barsStartX, meterBottom: meterBottom)
         } else {
+            // UI-002: 未采集/停止后电平置灰显示「未监测」（表体中央，避免与 DB METER 标题相撞）
             let text = "未监测".localized
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 9, weight: .medium),
@@ -180,100 +181,72 @@ class LevelMeterCardView: NSView {
             ]
             let size = (text as NSString).size(withAttributes: attrs)
             (text as NSString).draw(at: NSPoint(x: (bounds.width - size.width) / 2,
-                                               y: bounds.height - 18), withAttributes: attrs)
+                                               y: meterTop + meterHeight / 2 - size.height / 2), withAttributes: attrs)
         }
     }
     
-    // MARK: - LED Segment Drawing
+    // MARK: - Title
     
-    /// Draw unfilled background segments (REQ: white @ 0.04)
-    private func drawBackgroundSegments(x: CGFloat, barWidth: CGFloat, meterTop: CGFloat, meterHeight: CGFloat) {
-        let segmentStride = segmentHeight + segmentGap
-        let segmentCount = Int(meterHeight / segmentStride)
-        let bgColor = NSColor.white.withAlphaComponent(0.04)
-        
-        for i in 0..<segmentCount {
-            // Segments drawn from bottom (meterTop) upward
-            let segY = meterTop + CGFloat(i) * segmentStride
-            let segRect = NSRect(x: x + 1, y: segY, width: barWidth - 2, height: segmentHeight)
-            bgColor.setFill()
-            NSBezierPath(rect: segRect).fill()
-        }
+    /// UI-003 v3: DB METER title — 9px mono #A3A3A3 centered at top (Figma §3)
+    private func drawTitle() {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium),
+            .foregroundColor: NSColor(hex: "#A3A3A3").withAlphaComponent(0.9)
+        ]
+        let text = "DB METER"
+        let size = (text as NSString).size(withAttributes: attrs)
+        (text as NSString).draw(at: NSPoint(x: (bounds.width - size.width) / 2,
+                                            y: bounds.height - size.height - 6), withAttributes: attrs)
     }
     
-    /// Draw filled LED segments with four-color gradient (REQ: segmented LED style)
-    /// Segments fill from bottom to top: index 0 = bottom (green), high index = top (red)
-    private func drawLEDChannel(level: Float, peak: Float, x: CGFloat, barWidth: CGFloat, meterTop: CGFloat, meterHeight: CGFloat) {
-        let segmentStride = segmentHeight + segmentGap
-        let segmentCount = Int(meterHeight / segmentStride)
-        let filledSegments = Int(Float(segmentCount) * level)
+    // MARK: - Bar Slot & Gradient Fill (UI-003 v3 Figma 规格)
+    
+    /// Figma §3: 条 10px 宽 r=2，fill #171717@0.90，stroke white@0.10
+    private func drawBarSlot(x: CGFloat, meterTop: CGFloat, meterHeight: CGFloat) {
+        let slotRect = NSRect(x: x, y: meterTop, width: barWidth, height: meterHeight)
+        let path = NSBezierPath(roundedRect: slotRect, xRadius: 2, yRadius: 2)
+        NSColor(hex: "#171717").withAlphaComponent(0.90).setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(0.10).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+    
+    /// Figma §3: 信号填充 6px 宽，渐变 #10B981→#34D399@50%→#FBBF24（无红段，顶即黄）
+    private func drawGradientChannel(level: Float, peak: Float, x: CGFloat, meterTop: CGFloat, meterHeight: CGFloat) {
+        let fillHeight = CGFloat(level) * meterHeight
+        let fillX = x + (barWidth - fillWidth) / 2
         
-        guard filledSegments > 0 else {
-            // Still draw peak hold line if present
-            if peak > 0.01 {
-                drawPeakHoldLine(peak: peak, x: x, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight, segmentCount: segmentCount)
-            }
-            return
+        if fillHeight > 0 {
+            let clipPath = NSBezierPath(roundedRect: NSRect(x: fillX, y: meterTop + 1, width: fillWidth, height: fillHeight), xRadius: 2, yRadius: 2)
+            NSGraphicsContext.saveGraphicsState()
+            clipPath.addClip()
+            // 渐变绘制在整个槽高上（颜色位置对应 dB 范围），clip 只显示底部填充
+            let gradient = NSGradient(colorsAndLocations:
+                (gradBottom, 0.0),
+                (gradMid, 0.5),
+                (gradTop, 1.0)
+            )
+            gradient?.draw(in: NSRect(x: fillX, y: meterTop + 1, width: fillWidth, height: meterHeight - 2), angle: 90)
+            NSGraphicsContext.restoreGraphicsState()
         }
         
-        for i in 0..<filledSegments {
-            // i=0 is the bottom segment (lowest y), filled upward
-            let segY = meterTop + CGFloat(i) * segmentStride
-            let segRect = NSRect(x: x + 1, y: segY, width: barWidth - 2, height: segmentHeight)
-            
-            // Determine color based on segment position (REQ: four-color zones)
-            // position 0.0 = bottom (green), position 1.0 = top (red)
-            let position = Float(i) / Float(segmentCount)
-            let color = colorForPosition(position)
-            color.setFill()
-            NSBezierPath(rect: segRect).fill()
-        }
-        
-        // Draw peak hold line
+        // 峰值保持横线（白 / 顶部峰值转黄，无红）
         if peak > 0.01 {
-            drawPeakHoldLine(peak: peak, x: x, barWidth: barWidth, meterTop: meterTop, meterHeight: meterHeight, segmentCount: segmentCount)
+            drawPeakHoldLine(peak: peak, x: x, meterTop: meterTop, meterHeight: meterHeight)
         }
     }
     
-    /// Draw peak hold line — REQ: 2px width, dynamic color, easeOut decay
-    private func drawPeakHoldLine(peak: Float, x: CGFloat, barWidth: CGFloat, meterTop: CGFloat, meterHeight: CGFloat, segmentCount: Int) {
-        // Peak line position: from bottom up
+    /// Peak hold line — 2px，白@0.9；峰值进入顶部 5% 区转 #FBBF24
+    private func drawPeakHoldLine(peak: Float, x: CGFloat, meterTop: CGFloat, meterHeight: CGFloat) {
         let peakY = meterTop + CGFloat(peak) * meterHeight
-        let peakColor = peakHoldColor(for: peak)
+        let peakColor: NSColor = peak >= 0.95 ? gradTop : NSColor.white.withAlphaComponent(0.9)
         peakColor.setStroke()
         let peakLine = NSBezierPath()
-        peakLine.lineWidth = 2.0  // REQ: 2px peak line
+        peakLine.lineWidth = 2.0
         peakLine.move(to: NSPoint(x: x + 1, y: peakY))
         peakLine.line(to: NSPoint(x: x + barWidth - 1, y: peakY))
         peakLine.stroke()
-    }
-    
-    /// Get LED color for segment position (REQ: green/yellow/orange/red zones)
-    /// position 0.0 = bottom, 1.0 = top
-    private func colorForPosition(_ position: Float) -> NSColor {
-        switch position {
-        case 0..<0.6:
-            return ledGreen
-        case 0.6..<0.8:
-            return ledYellow
-        case 0.8..<0.95:
-            return ledOrange
-        default:
-            return ledRed
-        }
-    }
-    
-    /// Get peak hold line color based on peak position (REQ: dynamic coloring)
-    private func peakHoldColor(for position: Float) -> NSColor {
-        if position >= 0.95 {
-            return ledRed
-        } else if position >= 0.8 {
-            return ledOrange.withAlphaComponent(0.9)
-        } else if position >= 0.6 {
-            return ledYellow.withAlphaComponent(0.9)
-        } else {
-            return NSColor.white.withAlphaComponent(0.8)
-        }
     }
     
     // MARK: - dB Scale Drawing
@@ -316,17 +289,16 @@ class LevelMeterCardView: NSView {
     
     // MARK: - Channel Labels
     
-    /// Draw L/R labels below bars with improved visibility (REQ: 9px, semibold, 0.75 opacity)
+    /// Draw L/R labels below bars — UI-003 v3: Figma §3 mono 10px w700 #A3A3A3
     private func drawChannelLabels(barsStartX: CGFloat, meterTop: CGFloat) {
-        // REQ: L label uses onSurface color
+        let labelColor = NSColor(hex: "#A3A3A3").withAlphaComponent(hasAudioData ? 0.95 : 0.35)
         let lAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold),
-            .foregroundColor: IndustrialColors.onSurface.withAlphaComponent(hasAudioData ? 0.75 : 0.3)
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold),
+            .foregroundColor: labelColor
         ]
-        // REQ: R label uses onSurfaceVariant color (subtle distinction)
         let rAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold),
-            .foregroundColor: IndustrialColors.onSurfaceVariant.withAlphaComponent(hasAudioData ? 0.75 : 0.3)
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold),
+            .foregroundColor: labelColor
         ]
         
         let lSize = "L".size(withAttributes: lAttrs)
@@ -355,14 +327,14 @@ class LevelMeterCardView: NSView {
         }
         let clampedDB = max(-60, min(0, peakDB))
         
-        // REQ: Color based on level
+        // REQ: Color based on level — UI-003 v3 无红段：危险 #FBBF24、偏高 #34D399、正常灰
         let valueColor: NSColor
         if clampedDB > -3 {
-            valueColor = ledRed           // REQ: Danger (> -3dB)
+            valueColor = gradTop           // Danger (> -3dB) — 顶黄（无红段）
         } else if clampedDB > -6 {
-            valueColor = ledYellow         // REQ: High (-6 ~ -3dB)
+            valueColor = gradMid           // High (-6 ~ -3dB)
         } else {
-            valueColor = IndustrialColors.onSurfaceVariant  // REQ: Normal (< -6dB)
+            valueColor = IndustrialColors.onSurfaceVariant  // Normal (< -6dB)
         }
         
         let valueAttrs: [NSAttributedString.Key: Any] = [

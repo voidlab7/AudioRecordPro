@@ -605,8 +605,11 @@ class MainViewController: NSViewController {
         let hours = Int(elapsed) / 3600
         let minutes = Int(elapsed) % 3600 / 60
         let seconds = Int(elapsed) % 60
-        let milliseconds = Int((elapsed.truncatingRemainder(dividingBy: 1)) * 10)
-        mainWindowView.updateTimer(String(format: "%02d:%02d:%02d.%d", hours, minutes, seconds, milliseconds))
+        let centiseconds = Int((elapsed.truncatingRemainder(dividingBy: 1)) * 100)
+        let timeString = hours > 0
+            ? String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+            : String(format: "%02d:%02d.%02d", minutes, seconds, centiseconds)
+        mainWindowView.updateTimer(timeString)
     }
     
     // MARK: - Playback Management (V2.0: decrypt → temp → play → cleanup)

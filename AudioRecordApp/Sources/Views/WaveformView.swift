@@ -72,10 +72,14 @@ class WaveformView: NSView {
         setupView()
     }
     
+    private let equalizerContainer = CALayer()
+    private var equalizerBars: [CALayer] = []
+
     private func setupView() {
         wantsLayer = true
-        // Industrial Design: 深灰背景
-        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
+        // UI-003: 画布背景对齐设计稿实测 #14161A
+        layer?.backgroundColor = NSColor(hex: "#14161A").cgColor
+        setupEqualizer()
         layer?.cornerRadius = 4
         layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
@@ -360,10 +364,12 @@ class WaveformView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
         if !isRecording && !isShowingStaticWaveform && waveformData.isEmpty {
+            drawCanvasGrid(in: bounds)
             drawIdlePlaceholder(in: bounds)
             return
         }
 
+        equalizerContainer.isHidden = true
         if isRecording || (isShowingStaticWaveform && staticFileDuration > 0) || recordingDuration > 0 {
             drawNativeTimeline(in: bounds)
         }
@@ -376,30 +382,141 @@ class WaveformView: NSView {
             drawPlayhead(in: bounds)
         }
     }
-    
-    /// REQ-2.0-02: 绘制 idle 态引导占位内容
+
+    // MARK: - v3.1 Idle 均衡器动效（Figma 规格：5 柱脉冲）
+    private func setupEqualizer() {
+        let heights: [CGFloat] = [16, 28, 32, 24, 12]
+        let barW: CGFloat = 4, gap: CGFloat = 6
+        let total = CGFloat(heights.count) * barW + CGFloat(heights.count - 1) * gap
+        equalizerContainer.frame = NSRect(x: 0, y: 0, width: total, height: 32)
+        for (i, h) in heights.enumerated() {
+            let bar = CALayer()
+            bar.backgroundColor = NSColor(hex: "#13BBA3").cgColor
+            bar.cornerRadius = 2
+            bar.bounds = CGRect(x: 0, y: 0, width: barW, height: h)
+            bar.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            bar.position = CGPoint(x: CGFloat(i) * (barW + gap) + barW / 2, y: 16)
+            // 脉冲：纵向缩放呼吸，错相位
+            let anim = CABasicAnimation(keyPath: "transform.scale.y")
+            anim.fromValue = 0.45
+            anim.toValue = 1.0
+            anim.duration = [0.7, 0.95, 1.15, 0.8, 1.05][i]
+            anim.autoreverses = true
+            anim.repeatCount = .infinity
+            anim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            anim.beginTime = CACurrentMediaTime() + Double(i) * 0.13
+            bar.add(anim, forKey: "eqPulse")
+            equalizerContainer.addSublayer(bar)
+            equalizerBars.append(bar)
+        }
+        layer?.addSublayer(equalizerContainer)
+    }
+
+    private func updateEqualizerGeometry(cardRect: NSRect) {
+        equalizerContainer.isHidden = false
+        equalizerContainer.position = CGPoint(x: cardRect.midX, y: cardRect.midY)
+    }
+
+    /// UI-003: 画布细网格背景（Stitch v2 设计稿）
+    /// 设计实测：#181A1E on #14161A，亮度差仅 +2~4（极隐约）；间距 45px@2x = 30pt
+    private func drawCanvasGrid(in rect: NSRect) {
+        let gridSize: CGFloat = 30
+        let gridPath = NSBezierPath()
+        var x = rect.minX + gridSize
+        while x < rect.maxX {
+            gridPath.move(to: NSPoint(x: x, y: rect.minY))
+            gridPath.line(to: NSPoint(x: x, y: rect.maxY))
+            x += gridSize
+        }
+        var y = rect.minY + gridSize
+        while y < rect.maxY {
+            gridPath.move(to: NSPoint(x: rect.minX, y: y))
+            gridPath.line(to: NSPoint(x: rect.maxX, y: y))
+            y += gridSize
+        }
+        NSColor.white.withAlphaComponent(0.035).setStroke()
+        gridPath.lineWidth = 1
+        gridPath.stroke()    }
+
+    /// UI-003: idle 态——发光图标卡片 + Ready to Record + Space 键帽副标题 + 左上 Ready 状态点
     private func drawIdlePlaceholder(in rect: NSRect) {
         let centerX = rect.midX
         let centerY = rect.midY
-        let iconSize: CGFloat = 40
-        let iconRect = NSRect(x: centerX - iconSize / 2, y: centerY + 24,
-                              width: iconSize, height: iconSize)
 
-        if let symbolImage = NSImage(systemSymbolName: "waveform", accessibilityDescription: nil) {
-            let config = NSImage.SymbolConfiguration(pointSize: 36, weight: .light)
-                .applying(NSImage.SymbolConfiguration(paletteColors: [IndustrialColors.onSurfaceVariant]))
-            (symbolImage.withSymbolConfiguration(config) ?? symbolImage)
-                .draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 0.45)
-        }
-
-        let title = "准备录制".localized
-        let titleAttributes: [NSAttributedString.Key: Any] = [
-            .font: IndustrialTypography.h2,
+        // 左上极简状态：绿点 + Ready（点色对齐设计薄荷 #13BBA3）
+        let dotSize: CGFloat = 6
+        let dot = NSBezierPath(ovalIn: NSRect(x: 16, y: rect.maxY - 22, width: dotSize, height: dotSize))
+        NSColor(hex: "#13BBA3").setFill()
+        dot.fill()
+        let readyAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
             .foregroundColor: IndustrialColors.onSurfaceVariant
         ]
-        let titleSize = (title as NSString).size(withAttributes: titleAttributes)
-        (title as NSString).draw(at: NSPoint(x: centerX - titleSize.width / 2, y: centerY - 4),
-                                 withAttributes: titleAttributes)
+        ("Ready" as NSString).draw(at: NSPoint(x: 28, y: rect.maxY - 26), withAttributes: readyAttrs)
+
+        // 图标卡片（设计实测：#2E3336→#272D2E 灰卡轻渐变，无明显光晕；微弱环境光）
+        let cardSize: CGFloat = 76
+        let cardRect = NSRect(x: centerX - cardSize / 2, y: centerY + 30, width: cardSize, height: cardSize)
+        NSGraphicsContext.current?.saveGraphicsState()
+        let glow = NSShadow()
+        glow.shadowColor = NSColor.black.withAlphaComponent(0.4)
+        glow.shadowBlurRadius = 14
+        glow.shadowOffset = NSSize(width: 0, height: 3)
+        glow.set()
+        let card = NSBezierPath(roundedRect: cardRect, xRadius: 16, yRadius: 16)
+        NSColor(hex: "#2B3034").setFill()
+        card.fill()
+        NSGraphicsContext.current?.restoreGraphicsState()
+        card.lineWidth = 1
+        NSColor.white.withAlphaComponent(0.07).setStroke()
+        card.stroke()
+
+        updateEqualizerGeometry(cardRect: cardRect)
+
+        // 标题（亮白）
+        let title = "Ready to Record"
+        let titleAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
+            .foregroundColor: IndustrialColors.onSurface
+        ]
+        let titleSize = (title as NSString).size(withAttributes: titleAttrs)
+        (title as NSString).draw(at: NSPoint(x: centerX - titleSize.width / 2, y: centerY - 6),
+                                 withAttributes: titleAttrs)
+
+        // 一行副标题：Press record or hit [Space] to start（Space 键帽）
+        let subFont = NSFont.systemFont(ofSize: 11)
+        let subColor = IndustrialColors.onSurfaceVariant
+        let prefix = "Press record or hit "
+        let suffix = " to start"
+        let keyText = "Space"
+        let prefixSize = (prefix as NSString).size(withAttributes: [.font: subFont, .foregroundColor: subColor])
+        let keyCapWidth: CGFloat = 42
+        let keyCapHeight: CGFloat = 17
+        let suffixSize = (suffix as NSString).size(withAttributes: [.font: subFont, .foregroundColor: subColor])
+        let totalWidth = prefixSize.width + 6 + keyCapWidth + 6 + suffixSize.width
+        var cursorX = centerX - totalWidth / 2
+        let baseY = centerY - 34
+
+        (prefix as NSString).draw(at: NSPoint(x: cursorX, y: baseY + 2),
+                                  withAttributes: [.font: subFont, .foregroundColor: subColor])
+        cursorX += prefixSize.width + 6
+
+        // Space 键帽（描边圆角矩形 + 居中文字）
+        let keyCap = NSBezierPath(roundedRect: NSRect(x: cursorX, y: baseY, width: keyCapWidth, height: keyCapHeight), xRadius: 4, yRadius: 4)
+        keyCap.lineWidth = 1
+        IndustrialColors.outline.setStroke()
+        keyCap.stroke()
+        let keyAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 9.5, weight: .medium),
+            .foregroundColor: IndustrialColors.onSurfaceVariant
+        ]
+        let keySize = (keyText as NSString).size(withAttributes: keyAttrs)
+        (keyText as NSString).draw(at: NSPoint(x: cursorX + (keyCapWidth - keySize.width) / 2, y: baseY + 3.5),
+                                   withAttributes: keyAttrs)
+        cursorX += keyCapWidth + 6
+
+        (suffix as NSString).draw(at: NSPoint(x: cursorX, y: baseY + 2),
+                                  withAttributes: [.font: subFont, .foregroundColor: subColor])
     }
     
     private func drawNativeTimeline(in rect: NSRect) {

@@ -9,33 +9,33 @@ struct IndustrialColors {
     // MARK: - 背景色（3 级核心阶梯）
     
     /// 最深底色 — 轨道区、时间线背景、窗口底
-    static let surface = NSColor(hex: "#1B1B1F")
+    static let surface = NSColor(hex: "#0F1115")
     
     /// 同 surface（兼容旧接口）
-    static let surfaceDim = NSColor(hex: "#1B1B1F")
+    static let surfaceDim = NSColor(hex: "#0F1115")
     
     /// 亮色背景（Tooltip、Popover）
-    static let surfaceBright = NSColor(hex: "#424245")
+    static let surfaceBright = NSColor(hex: "#1A1F26")
     
     /// 最深底色（兼容旧接口，统一到 surface）
-    static let surfaceContainerLowest = NSColor(hex: "#1B1B1F")
+    static let surfaceContainerLowest = NSColor(hex: "#0F1115")
     
     /// 轨道区/波形区底色（= surface，最深层）
-    static let surfaceContainerLow = NSColor(hex: "#1B1B1F")
+    static let surfaceContainerLow = NSColor(hex: "#0F1115")
     
     /// 面板色 — Sidebar、Toolbar、控制面板、卡片
-    static let surfaceContainer = NSColor(hex: "#2A2A2E")
+    static let surfaceContainer = NSColor(hex: "#161B22")
     
     /// Hover 态 / 抬升色
-    static let surfaceContainerHigh = NSColor(hex: "#363638")
+    static let surfaceContainerHigh = NSColor(hex: "#1D232C")
     
     /// Active / 选中容器（非主选中色，用于非强调区域）
-    static let surfaceContainerHighest = NSColor(hex: "#363638")
+    static let surfaceContainerHighest = NSColor(hex: "#1D232C")
     
     // MARK: - 文字色
     
     /// 主文字 — 标题、文件名、数值
-    static let onSurface = NSColor(hex: "#E8E8EA")
+    static let onSurface = NSColor(hex: "#EDEFF2")
     
     /// 次要文字 — 描述、元数据、分区标题
     static let onSurfaceVariant = NSColor(hex: "#A0A0A5")
@@ -44,10 +44,10 @@ struct IndustrialColors {
     static let textTertiary = NSColor(hex: "#6B6B70")
     
     /// 反转背景色
-    static let inverseSurface = NSColor(hex: "#E8E8EA")
+    static let inverseSurface = NSColor(hex: "#EDEFF2")
     
     /// 反转文字色
-    static let inverseOnSurface = NSColor(hex: "#2A2A2E")
+    static let inverseOnSurface = NSColor(hex: "#161B22")
     
     // MARK: - 分割线（极少使用）
     
@@ -60,10 +60,10 @@ struct IndustrialColors {
     // MARK: - 主强调色（Accent 青绿）
     
     /// 主强调 — 选中态文字/icon、活跃 tab、交互元素
-    static let primary = NSColor(hex: "#3CD5C8")
+    static let primary = NSColor(hex: "#13BBA3")
     
     /// 选中态背景填充（accent 暗化）
-    static let primaryContainer = NSColor(hex: "#2A9B91")
+    static let primaryContainer = NSColor(hex: "#0E8A78")
     
     /// 主色上的文字
     static let onPrimary = NSColor(hex: "#FFFFFF")
@@ -75,8 +75,8 @@ struct IndustrialColors {
     static let inversePrimary = NSColor(hex: "#006877")
     
     /// 主色固定色（兼容）
-    static let primaryFixed = NSColor(hex: "#3CD5C8")
-    static let primaryFixedDim = NSColor(hex: "#2A9B91")
+    static let primaryFixed = NSColor(hex: "#13BBA3")
+    static let primaryFixedDim = NSColor(hex: "#0E8A78")
     static let onPrimaryFixed = NSColor(hex: "#FFFFFF")
     static let onPrimaryFixedVariant = NSColor(hex: "#FFFFFF")
     
@@ -125,14 +125,14 @@ struct IndustrialColors {
     
     // MARK: - Legacy 兼容（映射到新色值）
     
-    static let base1 = NSColor(hex: "#1B1B1F")
-    static let base2 = NSColor(hex: "#2A2A2E")
-    static let base3 = NSColor(hex: "#363638")
+    static let base1 = NSColor(hex: "#0F1115")
+    static let base2 = NSColor(hex: "#161B22")
+    static let base3 = NSColor(hex: "#1D232C")
     static let borderMuted = NSColor(white: 1.0, alpha: 0.08)
-    static let textPrimary = NSColor(hex: "#E8E8EA")
+    static let textPrimary = NSColor(hex: "#EDEFF2")
     static let textSecondary = NSColor(hex: "#A0A0A5")
-    static let cyanDim = NSColor(hex: "#2A9B91")
-    static let blueDim = NSColor(hex: "#3CD5C8")
+    static let cyanDim = NSColor(hex: "#0B815A")
+    static let blueDim = NSColor(hex: "#10B981")
     
     // MARK: - 波形色（珊瑚橙系列）
     
@@ -175,10 +175,10 @@ struct IndustrialColors {
     static let editorHandle = IndustrialColors.primary
     
     /// 选区外遮罩
-    static let editorDimOverlay = NSColor(hex: "#1B1B1F", alpha: 0.5)
+    static let editorDimOverlay = NSColor(hex: "#0F1115", alpha: 0.5)
     
     /// 静音段背景
-    static let editorSilenceOverlay = NSColor(hex: "#363638", alpha: 0.6)
+    static let editorSilenceOverlay = NSColor(hex: "#1D232C", alpha: 0.6)
     
     /// 静音段删除标记线
     static let editorSilenceLine = IndustrialColors.error
@@ -206,7 +206,7 @@ struct IndustrialTypography {
     static let label = NSFont.systemFont(ofSize: 11, weight: .semibold)
     
     /// 计时器 - 28px Bold 等宽
-    static let timer = NSFont.monospacedDigitSystemFont(ofSize: 28, weight: .bold)
+    static let timer = NSFont.monospacedDigitSystemFont(ofSize: 30, weight: .light)
     
     /// dB 数值 - 10px Regular 等宽
     static let monoDB = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
@@ -236,8 +236,8 @@ struct IndustrialSpacing {
     /// 卡片间距 - 12px（与 md 统一）
     static let gutter: CGFloat = 12
     
-    /// Sidebar 宽度 - 220px
-    static let sidebarWidth: CGFloat = 220
+    /// Sidebar 宽度
+    static let sidebarWidth: CGFloat = 260  // UI-004: 2026-10-12 老板裁决「小一点为主」，回归 Stitch 规格 260pt
     
     /// 网格纹理间隔 - 24px
     static let gridTextureInterval: CGFloat = 24

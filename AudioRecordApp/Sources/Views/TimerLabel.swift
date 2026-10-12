@@ -19,7 +19,7 @@ class TimerLabel: NSView {
         let attrs: [NSAttributedString.Key: Any] = [
             .foregroundColor: textColor,
             .font: font,
-            .kern: 2.0
+            .kern: 1.0
         ]
         
         let attrString = NSAttributedString(string: stringValue, attributes: attrs)

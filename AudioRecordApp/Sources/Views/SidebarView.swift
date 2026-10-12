@@ -36,7 +36,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     private let appsHeader = NSTextField()
     private let systemTargetRow = IndustrialAudioTargetRowView(
         title: "录制全部系统声音".localized,
-        subtitle: "",
+        subtitle: "Default Output Master",
         systemSymbolName: "speaker.wave.3.fill"
     )
     private let micHeader = NSTextField()
@@ -89,38 +89,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     override func layout() {
         super.layout()
 
-        // 移除旧的网格和边框层
-        layer?.sublayers?.filter { $0.name == "grid" || $0.name == "border" }.forEach { $0.removeFromSuperlayer() }
-        
-        // 绘制网格纹理
-        let gridLayer = CAShapeLayer()
-        gridLayer.name = "grid"
-        let path = CGMutablePath()
-        let spacing = IndustrialSpacing.gridTextureInterval
-        
-        // 垂直线
-        var x: CGFloat = 0
-        while x <= bounds.width {
-            path.move(to: CGPoint(x: x, y: 0))
-            path.addLine(to: CGPoint(x: x, y: bounds.height))
-            x += spacing
-        }
-        
-        // 水平线
-        var y: CGFloat = 0
-        while y <= bounds.height {
-            path.move(to: CGPoint(x: 0, y: y))
-            path.addLine(to: CGPoint(x: bounds.width, y: y))
-            y += spacing
-        }
-        
-        gridLayer.path = path
-        gridLayer.strokeColor = IndustrialColors.gridLight.cgColor
-        gridLayer.lineWidth = 1
-        gridLayer.fillColor = nil
-        layer?.insertSublayer(gridLayer, at: 0)
-        
-        // v3.0: 不添加右侧边框线，靠面板色差(bgPanel vs bgDeepest)区分
+        // v3.1: 移除 UI-001 旧网格纹理（设计稿侧栏无网格）
     }
     
     private func setupTabContainer() {
@@ -188,14 +157,15 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             textField.isBordered = false
             textField.isEditable = false
             textField.backgroundColor = .clear
-            textField.font = IndustrialTypography.h2 // 14px Bold
-            textField.textColor = IndustrialColors.onSurface // 亮灰
+            // v3.1: Figma 规格 — 大写 11px w600 #A3A3A3@0.80
+            textField.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
+            textField.textColor = NSColor(hex: "#A3A3A3").withAlphaComponent(0.8)
             textField.translatesAutoresizingMaskIntoConstraints = false
         }
         
-        styleHeader(targetHeader, "系统音频".localized)
-        styleHeader(appsHeader, "App音频".localized)
-        styleHeader(micHeader, "麦克风设备".localized)
+        styleHeader(targetHeader, "SYSTEM AUDIO")
+        styleHeader(appsHeader, "APP AUDIO")
+        styleHeader(micHeader, "MICROPHONE")
     }
     
     private func setupTargetControls() {
@@ -652,11 +622,16 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
 final class IndustrialAudioTargetRowView: NSView {
     var onClick: (() -> Void)?
     var isSelectedTarget: Bool = false { didSet { updateAppearance() } }
-    
-    private let indicatorLayer = CALayer()
+
+    private let gradientLayer = CAGradientLayer()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let metaLabel = NSTextField(labelWithString: "")
+    private let checkBadge = NSView()
+    private let checkGlyph = NSTextField(labelWithString: "✓")
+    // UI-003 v3 批次2k: 未选中态右侧 radio 空圈（系统卡 16px stroke #525252，Figma §2）
+    private let radioEmptyBadge = NSView()
+    private var titleCenterYConstraint: NSLayoutConstraint!
     private var isHovering = false
     
     init(title: String, subtitle: String, systemSymbolName: String) {
@@ -665,6 +640,8 @@ final class IndustrialAudioTargetRowView: NSView {
         titleLabel.stringValue = title
         metaLabel.stringValue = subtitle
         metaLabel.isHidden = subtitle.isEmpty
+        // 有副题时标题上移，形成两行堆叠（Figma 系统声音卡 54 高双行布局）
+        titleCenterYConstraint.constant = subtitle.isEmpty ? 0 : -9
         iconView.image = NSImage(systemSymbolName: systemSymbolName, accessibilityDescription: title)
     }
     
@@ -678,66 +655,123 @@ final class IndustrialAudioTargetRowView: NSView {
         layer?.cornerRadius = IndustrialCornerRadius.xs
         layer?.borderWidth = 0
         translatesAutoresizingMaskIntoConstraints = false
-        
-        indicatorLayer.backgroundColor = IndustrialColors.primaryContainer.cgColor
-        indicatorLayer.isHidden = true
-        layer?.addSublayer(indicatorLayer)
-        
+
+        // UI-003: 选中态底色对齐设计稿实测 #13BBA3 柔和薄荷纯色（非饱和渐变）
+        gradientLayer.colors = [NSColor(hex: "#13BBA3").cgColor, NSColor(hex: "#13BBA3").cgColor]
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        gradientLayer.isHidden = true
+        layer?.addSublayer(gradientLayer)
+
         iconView.contentTintColor = IndustrialColors.onSurfaceVariant
         iconView.imageScaling = .scaleProportionallyUpOrDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(iconView)
-        
+
         titleLabel.font = IndustrialTypography.body
         titleLabel.textColor = IndustrialColors.onSurface
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
-        
-        metaLabel.font = IndustrialTypography.monoDB
-        metaLabel.textColor = IndustrialColors.textTertiary
+
+        metaLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
+        metaLabel.textColor = NSColor(hex: "#A3A3A3")
         metaLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(metaLabel)
-        
+
+        // UI-003 v3.1: 选中态右侧白色圆勾（16px 白底 + mint 勾，Figma 规格）
+        checkBadge.wantsLayer = true
+        checkBadge.layer?.backgroundColor = NSColor.white.cgColor
+        checkBadge.layer?.cornerRadius = 8
+        checkBadge.isHidden = true
+        checkBadge.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(checkBadge)
+
+        checkGlyph.font = NSFont.systemFont(ofSize: 10, weight: .bold)
+        checkGlyph.textColor = NSColor(hex: "#13BBA3")
+        checkGlyph.alignment = .center
+        checkGlyph.translatesAutoresizingMaskIntoConstraints = false
+        checkBadge.addSubview(checkGlyph)
+
+        // UI-003 v3 批次2k: 未选中态 radio 空圈（16px stroke #525252）
+        radioEmptyBadge.wantsLayer = true
+        radioEmptyBadge.layer?.backgroundColor = NSColor.clear.cgColor
+        radioEmptyBadge.layer?.borderWidth = 1
+        radioEmptyBadge.layer?.borderColor = NSColor(hex: "#525252").cgColor
+        radioEmptyBadge.layer?.cornerRadius = 8
+        radioEmptyBadge.isHidden = true
+        radioEmptyBadge.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(radioEmptyBadge)
+
+        titleCenterYConstraint = titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor)
+
         NSLayoutConstraint.activate([
             iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconView.widthAnchor.constraint(equalToConstant: 24),
             iconView.heightAnchor.constraint(equalToConstant: 24),
-            
+
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            
+            titleCenterYConstraint,
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: checkBadge.leadingAnchor, constant: -6),
+
             metaLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             metaLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
-            metaLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor)
+            metaLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+
+            checkBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            checkBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            checkBadge.widthAnchor.constraint(equalToConstant: 16),
+            checkBadge.heightAnchor.constraint(equalToConstant: 16),
+
+            radioEmptyBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            radioEmptyBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            radioEmptyBadge.widthAnchor.constraint(equalToConstant: 16),
+            radioEmptyBadge.heightAnchor.constraint(equalToConstant: 16),
+
+            checkGlyph.centerXAnchor.constraint(equalTo: checkBadge.centerXAnchor),
+            checkGlyph.centerYAnchor.constraint(equalTo: checkBadge.centerYAnchor)
         ])
-        
+
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
         updateAppearance()
     }
-    
+
     override func layout() {
         super.layout()
-        indicatorLayer.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
+        gradientLayer.frame = bounds
     }
-    
+
     private func updateAppearance() {
         if isSelectedTarget {
-            layer?.backgroundColor = IndustrialColors.primaryContainer.cgColor
+            layer?.backgroundColor = NSColor.clear.cgColor
+            gradientLayer.isHidden = false
             titleLabel.textColor = .white
             iconView.contentTintColor = .white
-        } else if isHovering {
-            layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-            titleLabel.textColor = IndustrialColors.onSurface
-            iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+            checkBadge.isHidden = false
+            radioEmptyBadge.isHidden = true
+            // Figma §2 选中行副题：Focused App Capture #CCFBF1@0.90
+            metaLabel.stringValue = "Focused App Capture"
+            metaLabel.textColor = NSColor(hex: "#CCFBF1").withAlphaComponent(0.90)
+            metaLabel.font = NSFont.systemFont(ofSize: 10, weight: .medium)
         } else {
-            layer?.backgroundColor = NSColor.clear.cgColor
-            titleLabel.textColor = IndustrialColors.onSurface
-            iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+            gradientLayer.isHidden = true
+            checkBadge.isHidden = true
+            radioEmptyBadge.isHidden = false
+            // Figma §2 系统卡副题：Default Output Master #A3A3A3 10px w400
+            metaLabel.stringValue = "Default Output Master"
+            metaLabel.textColor = NSColor(hex: "#A3A3A3")
+            metaLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
+            if isHovering {
+                layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+                titleLabel.textColor = IndustrialColors.onSurface
+                iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+            } else {
+                layer?.backgroundColor = NSColor.clear.cgColor
+                titleLabel.textColor = IndustrialColors.onSurface
+                iconView.contentTintColor = IndustrialColors.onSurfaceVariant
+            }
         }
-        indicatorLayer.isHidden = true
     }
     
     override func mouseEntered(with event: NSEvent) {
@@ -1047,10 +1081,14 @@ final class IndustrialCheckboxView: NSView {
 final class IndustrialProcessRowView: NSView {
     var onClick: (() -> Void)?
     var isSelectedRow: Bool = false { didSet { updateAppearance() } }
-    
-    private let indicatorLayer = CALayer()
+
+    private let gradientLayer = CAGradientLayer()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
+    private let checkBadge = NSView()
+    private let checkGlyph = NSTextField(labelWithString: "✓")
+    // UI-003 v3 批次2k: 未选中态右侧 radio 空圈（App 行 14px stroke #404040，Figma §2）
+    private let radioEmptyBadge = NSView()
     private var isHovering = false
     
     init(process: AudioProcessInfo, icon: NSImage) {
@@ -1067,14 +1105,17 @@ final class IndustrialProcessRowView: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 0  // 未选中态 1px outlineVariant，选中态 2px primaryContainer
+        layer?.borderWidth = 0  // 未选中态无边框，选中态翡翠渐变
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         translatesAutoresizingMaskIntoConstraints = false
-        
-        indicatorLayer.backgroundColor = IndustrialColors.primaryContainer.cgColor
-        indicatorLayer.isHidden = true
-        layer?.addSublayer(indicatorLayer)
-        
+
+        // UI-003: 选中态底色 #13BBA3（与系统声音行一致）
+        gradientLayer.colors = [NSColor(hex: "#13BBA3").cgColor, NSColor(hex: "#13BBA3").cgColor]
+        gradientLayer.startPoint = CGPoint(x: 0.5, y: 0)
+        gradientLayer.endPoint = CGPoint(x: 0.5, y: 1)
+        gradientLayer.isHidden = true
+        layer?.addSublayer(gradientLayer)
+
         iconView.imageScaling = .scaleProportionallyUpOrDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(iconView)
@@ -1088,22 +1129,59 @@ final class IndustrialProcessRowView: NSView {
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
-        
+
+        // UI-003 v3.1: 选中态右侧白色圆勾（16px 白底 + mint 勾，Figma 规格）
+        checkBadge.wantsLayer = true
+        checkBadge.layer?.backgroundColor = NSColor.white.cgColor
+        checkBadge.layer?.cornerRadius = 8
+        checkBadge.isHidden = true
+        checkBadge.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(checkBadge)
+
+        checkGlyph.font = NSFont.systemFont(ofSize: 10, weight: .bold)
+        checkGlyph.textColor = NSColor(hex: "#13BBA3")
+        checkGlyph.alignment = .center
+        checkGlyph.translatesAutoresizingMaskIntoConstraints = false
+        checkBadge.addSubview(checkGlyph)
+
+        // UI-003 v3 批次2k: 未选中态 radio 空圈（14px stroke #404040）
+        radioEmptyBadge.wantsLayer = true
+        radioEmptyBadge.layer?.backgroundColor = NSColor.clear.cgColor
+        radioEmptyBadge.layer?.borderWidth = 1
+        radioEmptyBadge.layer?.borderColor = NSColor(hex: "#404040").cgColor
+        radioEmptyBadge.layer?.cornerRadius = 7
+        radioEmptyBadge.isHidden = true
+        radioEmptyBadge.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(radioEmptyBadge)
+
         NSLayoutConstraint.activate([
             iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
             iconView.widthAnchor.constraint(equalToConstant: 24),
             iconView.heightAnchor.constraint(equalToConstant: 24),
-            
+
             titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: checkBadge.leadingAnchor, constant: -6),
+
+            checkBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            checkBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            checkBadge.widthAnchor.constraint(equalToConstant: 16),
+            checkBadge.heightAnchor.constraint(equalToConstant: 16),
+
+            radioEmptyBadge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -13),
+            radioEmptyBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            radioEmptyBadge.widthAnchor.constraint(equalToConstant: 14),
+            radioEmptyBadge.heightAnchor.constraint(equalToConstant: 14),
+
+            checkGlyph.centerXAnchor.constraint(equalTo: checkBadge.centerXAnchor),
+            checkGlyph.centerYAnchor.constraint(equalTo: checkBadge.centerYAnchor)
         ])
-        
+
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
         updateAppearance()
     }
-    
+
     private func configure(process: AudioProcessInfo, icon: NSImage) {
         iconView.image = icon
         titleLabel.stringValue = process.name
@@ -1112,23 +1190,30 @@ final class IndustrialProcessRowView: NSView {
         setAccessibilityIdentifier("ProcessRow-\(pidStr)")
         setAccessibilityLabel(process.name)
     }
-    
+
     override func layout() {
         super.layout()
-        indicatorLayer.frame = CGRect(x: 0, y: 0, width: 3, height: bounds.height)
+        gradientLayer.frame = bounds
     }
-    
+
     private func updateAppearance() {
-        indicatorLayer.isHidden = true
         if isSelectedRow {
-            layer?.backgroundColor = IndustrialColors.primaryContainer.cgColor
-            titleLabel.textColor = .white
-        } else if isHovering {
-            layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-            titleLabel.textColor = IndustrialColors.onSurface
-        } else {
             layer?.backgroundColor = NSColor.clear.cgColor
-            titleLabel.textColor = IndustrialColors.onSurface
+            gradientLayer.isHidden = false
+            titleLabel.textColor = .white
+            checkBadge.isHidden = false
+            radioEmptyBadge.isHidden = true
+        } else {
+            gradientLayer.isHidden = true
+            checkBadge.isHidden = true
+            radioEmptyBadge.isHidden = false
+            if isHovering {
+                layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+                titleLabel.textColor = IndustrialColors.onSurface
+            } else {
+                layer?.backgroundColor = NSColor.clear.cgColor
+                titleLabel.textColor = IndustrialColors.onSurface
+            }
         }
     }
     

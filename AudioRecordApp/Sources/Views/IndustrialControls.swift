@@ -226,13 +226,13 @@ final class IndustrialCompactIconButton: NSView {
         let active = isEnabled && isHovering
         alphaValue = isEnabled ? 1.0 : 0.42
         // 参考 Transport 面板：微妙内凹阴影 + 柔和背景
-        layer.backgroundColor = (active ? IndustrialColors.surfaceContainerHighest : IndustrialColors.surfaceContainerHigh).cgColor
-        layer.borderColor = (active ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant.withAlphaComponent(0.5)).cgColor
-        layer.shadowColor = NSColor.black.cgColor
-        layer.shadowRadius = active ? 1 : 2
-        layer.shadowOpacity = active ? 0.1 : 0.25
-        layer.shadowOffset = CGSize(width: 0, height: active ? 0 : 1)
-        let tintColor = active ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+        // v3.1 Figma：white@0.08 底无边框，hover 0.12，去内凹阴影
+        layer.backgroundColor = (active ? NSColor.white.withAlphaComponent(0.12) : NSColor.white.withAlphaComponent(0.08)).cgColor
+        layer.borderColor = NSColor.clear.cgColor
+        layer.shadowColor = NSColor.clear.cgColor
+        layer.shadowRadius = 0
+        layer.shadowOpacity = 0
+        let tintColor = active ? NSColor(hex: "#E5E5E5") : NSColor(hex: "#D4D4D4")
         iconLabel.textColor = tintColor
         iconImageView.contentTintColor = tintColor
     }
@@ -408,10 +408,10 @@ final class IndustrialTabButtonView: NSView {
     }
 
     private func updateAppearance() {
-        let active = isSelectedTab || isHovering
-        layer?.backgroundColor = (isSelectedTab ? IndustrialColors.surfaceContainerHighest : (isHovering ? IndustrialColors.surfaceContainerHigh : NSColor.clear)).cgColor
-        layer?.borderColor = (active ? IndustrialColors.primaryContainer : IndustrialColors.outlineVariant.withAlphaComponent(0.4)).cgColor
-        titleLabel.textColor = isSelectedTab ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
+        // v3.1 Figma 规格：选中 = white@0.10 底无边框白字；未选 = 透明灰字；无 mint 描边
+        layer?.backgroundColor = (isSelectedTab ? NSColor.white.withAlphaComponent(0.10) : (isHovering ? NSColor.white.withAlphaComponent(0.06) : NSColor.clear)).cgColor
+        layer?.borderColor = NSColor.clear.cgColor
+        titleLabel.textColor = isSelectedTab ? .white : IndustrialColors.onSurfaceVariant
         iconView.contentTintColor = isSelectedTab ? IndustrialColors.primary : IndustrialColors.onSurfaceVariant
     }
 

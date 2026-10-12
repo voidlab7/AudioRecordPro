@@ -22,10 +22,23 @@ class TitleBarView: NSView {
         return label
     }()
     
+    /// UI-003: 源名 Capsule 药丸容器（设计实测 #202F2E 暗青底 + 薄荷细边）
+    private let targetCapsule: NSView = {
+        let v = NSView()
+        v.wantsLayer = true
+        // v3.1: Figma #13BBA3@0.15，按老板截图渲染观感折中 @0.30
+        v.layer?.backgroundColor = NSColor(hex: "#13BBA3").withAlphaComponent(0.30).cgColor
+        v.layer?.cornerRadius = 11
+        v.layer?.borderWidth = 1
+        v.layer?.borderColor = NSColor(hex: "#13BBA3").withAlphaComponent(0.25).cgColor
+        v.translatesAutoresizingMaskIntoConstraints = false
+        return v
+    }()
+
     private let targetLabel: NSTextField = {
         let label = NSTextField(labelWithString: "")
-        label.font = NSFont.systemFont(ofSize: 11, weight: .regular)
-        label.textColor = IndustrialColors.onSurfaceVariant.withAlphaComponent(0.6)
+        label.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        label.textColor = IndustrialColors.primaryFixed
         label.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
@@ -58,53 +71,60 @@ class TitleBarView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
         
         addSubview(appTitleLabel)
-        addSubview(targetLabel)
+        addSubview(targetCapsule)
+        targetCapsule.addSubview(targetLabel)
         addSubview(exportButton)
-        
+
         exportButton.target = self
         exportButton.action = #selector(exportClicked)
-        
+
         NSLayoutConstraint.activate([
             // App 标题在左侧（避开红绿灯 ~76px）
             appTitleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 78),
             appTitleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            
-            // 录制目标居中
-            targetLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            targetLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            targetLabel.leadingAnchor.constraint(greaterThanOrEqualTo: appTitleLabel.trailingAnchor, constant: 16),
-            
+
+            // UI-003: 录制目标居中翠绿药丸（label 上下左右内边距 10/6）
+            targetCapsule.centerXAnchor.constraint(equalTo: centerXAnchor),
+            targetCapsule.centerYAnchor.constraint(equalTo: centerYAnchor),
+            targetCapsule.leadingAnchor.constraint(greaterThanOrEqualTo: appTitleLabel.trailingAnchor, constant: 16),
+            targetLabel.topAnchor.constraint(equalTo: targetCapsule.topAnchor, constant: 3),
+            targetLabel.bottomAnchor.constraint(equalTo: targetCapsule.bottomAnchor, constant: -3),
+            targetLabel.leadingAnchor.constraint(equalTo: targetCapsule.leadingAnchor, constant: 12),
+            targetLabel.trailingAnchor.constraint(equalTo: targetCapsule.trailingAnchor, constant: -12),
+
             // 导出按钮右侧
             exportButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             exportButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             exportButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 56),
-            targetLabel.trailingAnchor.constraint(lessThanOrEqualTo: exportButton.leadingAnchor, constant: -16),
+            targetCapsule.trailingAnchor.constraint(lessThanOrEqualTo: exportButton.leadingAnchor, constant: -16),
         ])
     }
     
     // MARK: - Public
     
     func updateTargetDescription(_ description: String) {
-        targetLabel.stringValue = description
+        targetLabel.stringValue = "Selected Source: %@".localized(description)
     }
-    
+
     /// 更新录制目标文字 — 多选格式：1 个源显示 App 名，多个显示 "A, B +N"
     /// - Parameter names: 选中音源名称数组（有序）
     func updateTargetNames(_ names: [String]) {
+        let inner: String
         if names.isEmpty {
-            targetLabel.stringValue = "未选择录制目标".localized
+            inner = "未选择录制目标".localized
         } else if names.count == 1 {
-            targetLabel.stringValue = names[0]
+            inner = names[0]
         } else {
             // "A, B +N" 格式：显示前 2 个名 + 剩余数
             let displayNames = names.prefix(2).joined(separator: ", ")
             let remaining = names.count - 2
             if remaining > 0 {
-                targetLabel.stringValue = "\(displayNames) +\(remaining)"
+                inner = "\(displayNames) +\(remaining)"
             } else {
-                targetLabel.stringValue = displayNames
+                inner = displayNames
             }
         }
+        targetLabel.stringValue = "Selected Source: %@".localized(inner)
     }
     
     func setExportEnabled(_ enabled: Bool) {

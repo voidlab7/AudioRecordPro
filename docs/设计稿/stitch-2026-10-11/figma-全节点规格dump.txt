@@ -1,0 +1,219 @@
+DOCUMENT 'Document' NonexNone
+  CANVAS 'Page 1' NonexNone
+    FRAME 'Html → Body' 1280.0x880.0 pad[40.0,40.0,40.0,40.0] AL(HORIZONTAL,gap=None) fill=#FFFFFF, #0A0A0A
+      FRAME 'Main Desktop Window with native border and rounded corners' 1200.0x880.0 r=16.0 AL(VERTICAL,gap=None) fill=#141519 stroke=#FFFFFF@0.10 w=1.0 fx=shadow #FFFFFF@0.10 r=0.0 off=(0.0,0.0); shadow #000000@0.75 r=60.0 off=(0.0,25.0); BACKGROUND_BLUR r=40.0
+        FRAME 'Header - MacUnifiedTitleBar' 1198.0x44.0 pad[16.0,None,16.0,None] AL(HORIZONTAL,gap=270.1000061035156) fill=#171717@0.60 stroke=#FFFFFF@0.08 w=1.0 fx=BACKGROUND_BLUR r=12.0
+          FRAME 'Traffic Light Window Controls' 192.0x16.0 AL(HORIZONTAL,gap=None)
+            FRAME 'Button - Close' 12.0x12.0 r=9999.0 AL(HORIZONTAL,gap=None) fill=#FF5F56 stroke=#E0443E w=1.0
+              FRAME 'SVG' 6.0x6.0
+                VECTOR 'Vector' 3.0x3.0 stroke=#171717 w=0.75
+            FRAME 'Button - Minimize:margin' 20.0x12.0 pad[8.0,None,None,None] AL(VERTICAL,gap=None)
+              FRAME 'Button - Minimize' 12.0x12.0 r=9999.0 AL(HORIZONTAL,gap=None) fill=#FFBD2E stroke=#DEA123 w=1.0
+                FRAME 'SVG' 6.0x6.0
+                  VECTOR 'Vector' 4.0x0.0 stroke=#171717 w=0.75
+            FRAME 'Button - Maximize:margin' 20.0x12.0 pad[8.0,None,None,None] AL(VERTICAL,gap=None)
+              FRAME 'Button - Maximize' 12.0x12.0 r=9999.0 AL(HORIZONTAL,gap=None) fill=#27C93F stroke=#1AAB29 w=1.0
+                FRAME 'SVG' 6.0x6.0
+                  VECTOR 'Vector' 2.5x2.5 stroke=#171717 w=0.75
+            FRAME 'Margin' 106.88999938964844x16.0 pad[8.0,None,None,None] AL(VERTICAL,gap=None)
+              FRAME 'Container' 98.88999938964844x16.0 AL(HORIZONTAL,gap=6.0)
+                RECTANGLE 'Background' 6.0x6.0 r=9999.0 fill=#13BBA3
+                TEXT 'Text' 86.88999938964844x16.0 fill=#A3A3A3@0.90 [Liberation Sans w500 12.0px] text='AudioRecord Pro'
+          FRAME 'Center Title and Status Pill' 241.83999633789062x22.0 AL(HORIZONTAL,gap=8.0)
+            FRAME 'Container' 91.38999938964844x16.0 AL(VERTICAL,gap=None)
+              TEXT 'Text' 91.38999938964844x16.0 fill=#D4D4D4 [Liberation Sans w500 12.0px] text='Selected Source:'
+            FRAME 'Overlay+Border' 142.4499969482422x22.0 r=9999.0 pad[10.0,2.0,10.0,2.0] AL(HORIZONTAL,gap=6.0) fill=#13BBA3@0.15 stroke=#13BBA3@0.25 w=1.0
+              FRAME 'SVG' 12.0x12.0
+                VECTOR 'Vector' 7.0x7.0 stroke=#13BBA3 w=1.0
+              TEXT 'Text' 102.44999694824219x16.0 fill=#13BBA3 [Liberation Sans w500 12.0px] text='企业微信 (WeCom)'
+          FRAME 'Top Right Actions' 192.0x26.0 AL(HORIZONTAL,gap=-0.009999999776482582)
+            FRAME 'Settings Button' 83.36000061035156x24.0 r=6.0 pad[10.0,4.0,10.0,4.0] AL(HORIZONTAL,gap=6.0)
+              FRAME 'SVG' 14.0x14.0
+                VECTOR 'Vector' 10.5x10.5 stroke=#A3A3A3 w=1.1666666269302368
+                VECTOR 'Vector' 3.5x3.5 stroke=#A3A3A3 w=1.1666666269302368
+              TEXT 'Text' 43.36000061035156x16.0 fill=#A3A3A3 [Liberation Sans w500 12.0px] text='Settings'
+            FRAME 'Export Button:margin' 68.0199966430664x26.0 pad[8.0,None,None,None] AL(VERTICAL,gap=None)
+              FRAME 'Export Button' 60.02000045776367x26.0 r=6.0 pad[10.0,4.0,10.0,4.0] AL(HORIZONTAL,gap=None) fill=#FFFFFF@0.10 stroke=#FFFFFF@0.10 w=1.0 fx=shadow #000000@0.05 r=2.0 off=(0.0,1.0)
+                TEXT 'Text' 38.02000045776367x16.0 fill=#E5E5E5 [Liberation Sans w600 12.0px] text='Export'
+        FRAME 'Main Workspace Body Split (Sidebar & Visualizer Area)' 1198.0x834.0 AL(HORIZONTAL,gap=None)
+          FRAME 'Aside - Frosted Glass Sidebar for Source Selection' 320.0x834.0 AL(VERTICAL,gap=None) fill=#17181D@0.82 stroke=#FFFFFF@0.08 w=1.0 fx=BACKGROUND_BLUR r=24.0
+            FRAME 'Top Segmented Nav Pill' 319.0x65.0 pad[12.0,12.0,12.0,12.0] AL(VERTICAL,gap=None) stroke=#FFFFFF@0.60 w=1.0
+              FRAME 'Overlay+Border' 295.0x40.0 r=12.0 pad[4.0,4.0,4.0,4.0] AL(HORIZONTAL,gap=4.0) fill=#000000@0.40 stroke=#FFFFFF@0.05 w=1.0
+                FRAME 'Button' 141.5x30.0 r=8.0 pad[12.0,6.0,12.0,6.0] AL(HORIZONTAL,gap=8.0) fill=#FFFFFF@0.10 stroke=#FFFFFF@0.10 w=1.0 fx=shadow #000000@0.05 r=2.0 off=(0.0,1.0)
+                  RECTANGLE 'Background+Shadow' 8.0x8.0 r=9999.0 fill=#13BBA3 fx=shadow #13BBA3@0.35 r=16.0 off=(0.0,0.0)
+                  TEXT 'Text' 52.02000045776367x16.0 fill=#FFFFFF [Liberation Sans w600 12.0px] text='RECORD'
+                FRAME 'Button' 139.5x28.0 r=8.0 pad[12.0,6.0,12.0,6.0] AL(HORIZONTAL,gap=8.0)
+                  FRAME 'SVG' 14.0x14.0
+                    VECTOR 'Vector' 10.5x8.166666030883789 stroke=#A3A3A3 w=1.1666666269302368
+                  TEXT 'Text' 33.36000061035156x16.0 fill=#A3A3A3 [Liberation Sans w500 12.0px] text='FILES'
+            FRAME 'Scrollable Source Selector List' 319.0x670.0 pad[12.0,8.0,12.0,8.0] AL(VERTICAL,gap=16.0)
+              FRAME 'Section: System Audio' 295.0x83.0 AL(VERTICAL,gap=4.0)
+                FRAME 'Container' 295.0x25.0 pad[8.0,4.0,8.0,4.0] AL(VERTICAL,gap=None)
+                  TEXT 'SYSTEM AUDIO' 279.0x17.0 fill=#A3A3A3@0.80 [Liberation Sans w600 11.0px] text='SYSTEM AUDIO'
+                FRAME 'Button - System Audio Item Card' 295.0x54.0 r=12.0 pad[12.0,10.0,12.0,10.0] AL(HORIZONTAL,gap=77.58999633789062) fill=#FFFFFF@0.03 stroke=#FFFFFF@0.05 w=1.0
+                  FRAME 'Container' 175.41000366210938x32.0 AL(HORIZONTAL,gap=12.0)
+                    FRAME 'Background' 32.0x32.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#262626
+                      FRAME 'SVG' 16.0x16.0
+                        VECTOR 'Vector' 12.000052452087402x10.669281005859375 stroke=#D4D4D4 w=1.3333333730697632
+                    FRAME 'Container' 131.41000366210938x31.0 AL(VERTICAL,gap=None)
+                      FRAME 'Container' 131.41000366210938x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 131.41000366210938x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='Record All System Audio'
+                      FRAME 'Container' 131.41000366210938x15.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 97.83000183105469x15.0 fill=#A3A3A3 [Liberation Sans w400 10.0px] text='Default Output Master'
+                  FRAME 'Radio/Checkbox Indicator' 16.0x16.0 r=9999.0 AL(HORIZONTAL,gap=None) stroke=#525252 w=1.0
+                    RECTANGLE 'Rectangle' 8.0x8.0 r=9999.0
+              FRAME 'Section: App Audio' 295.0x371.0 AL(VERTICAL,gap=4.0)
+                FRAME 'Container' 295.0x29.0 pad[8.0,4.0,8.0,4.0] AL(HORIZONTAL,gap=147.0)
+                  FRAME 'Container' 65.47000122070312x17.0 AL(VERTICAL,gap=None)
+                    TEXT 'Text' 65.47000122070312x17.0 fill=#A3A3A3@0.80 [Liberation Sans w600 11.0px] text='APP AUDIO'
+                  FRAME 'Button' 66.52999877929688x21.0 r=4.0 pad[6.0,2.0,6.0,2.0] AL(HORIZONTAL,gap=4.0)
+                    FRAME 'SVG' 12.0x12.0
+                      VECTOR 'Vector' 8.0x8.001134872436523 stroke=#A3A3A3 w=1.0
+                    TEXT 'Text' 38.529998779296875x17.0 fill=#A3A3A3 [Liberation Sans w400 11.0px] text='Refresh'
+                FRAME 'List of Running macOS Apps' 295.0x338.0 AL(VERTICAL,gap=4.0)
+                  FRAME 'Button - WeChat' 295.0x44.0 r=12.0 pad[12.0,8.0,12.0,8.0] AL(HORIZONTAL,gap=173.86000061035156)
+                    FRAME 'Container' 83.13999938964844x28.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Background+Shadow' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#07C160 fx=shadow #000000@0.05 r=2.0 off=(0.0,1.0)
+                        FRAME 'SVG' 16.0x16.0
+                          VECTOR 'Vector' 13.333333969116211x11.333333015441895 fill=#FFFFFF
+                      FRAME 'Container' 43.13999938964844x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 43.13999938964844x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='WeChat'
+                    RECTANGLE 'Border' 14.0x14.0 r=9999.0 stroke=#404040 w=1.0
+                  FRAME 'Button - DoubaoWork Browser' 295.0x44.0 r=12.0 pad[12.0,8.0,12.0,8.0] AL(HORIZONTAL,gap=99.83000183105469)
+                    FRAME 'Container' 157.1699981689453x28.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Background+Shadow' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=GRAD[#3B82F6@0.00, #6366F1@1.00] fx=shadow #000000@0.05 r=2.0 off=(0.0,1.0)
+                        TEXT 'Text' 20.0x16.0 fill=#FFFFFF [Liberation Sans w700 12.0px] text='DW'
+                      FRAME 'Container' 117.16999816894531x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 117.16999816894531x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='DoubaoWork Browser'
+                    RECTANGLE 'Border' 14.0x14.0 r=9999.0 stroke=#404040 w=1.0
+                  FRAME 'Button - QQ Browser' 295.0x44.0 r=12.0 pad[12.0,8.0,12.0,8.0] AL(HORIZONTAL,gap=154.30999755859375)
+                    FRAME 'Container' 102.69000244140625x28.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Background+Shadow' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#12B7F5 fx=shadow #000000@0.05 r=2.0 off=(0.0,1.0)
+                        FRAME 'SVG' 16.0x16.0
+                          VECTOR 'Vector' 13.333333969116211x13.333333969116211 stroke=#FFFFFF w=1.3333333730697632
+                          VECTOR 'Vector' 13.333333969116211x13.333333969116211 stroke=#FFFFFF w=1.3333333730697632
+                      FRAME 'Container' 62.689998626708984x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 62.689998626708984x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='QQBrowser'
+                    RECTANGLE 'Border' 14.0x14.0 r=9999.0 stroke=#404040 w=1.0
+                  FRAME 'Button - Photos' 295.0x44.0 r=12.0 pad[12.0,8.0,12.0,8.0] AL(HORIZONTAL,gap=179.63999938964844)
+                    FRAME 'Container' 77.36000061035156x28.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Background' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#262626
+                        FRAME 'SVG' 16.0x16.0
+                          VECTOR 'Vector' 10.666666984558105x10.666666984558105 stroke=#FBBF24 w=1.3333333730697632
+                      FRAME 'Container' 37.36000061035156x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 37.36000061035156x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='Photos'
+                    RECTANGLE 'Border' 14.0x14.0 r=9999.0 stroke=#404040 w=1.0
+                  FRAME 'Button - ChatGPT / AI Voice' 295.0x44.0 r=12.0 pad[12.0,8.0,12.0,8.0] AL(HORIZONTAL,gap=134.5)
+                    FRAME 'Container' 122.5x28.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Background' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#10A37F
+                        FRAME 'SVG' 16.0x16.0
+                          VECTOR 'Vector' 11.96438217163086x13.037935256958008 fill=#FFFFFF
+                      FRAME 'Container' 82.5x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 82.5x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='ChatGPT Voice'
+                    RECTANGLE 'Border' 14.0x14.0 r=9999.0 stroke=#404040 w=1.0
+                  FRAME 'Button - QuickTime Player' 295.0x44.0 r=12.0 pad[12.0,8.0,12.0,8.0] AL(HORIZONTAL,gap=122.75)
+                    FRAME 'Container' 134.25x28.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Background' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#0284C7
+                        TEXT 'Text' 9.34000015258789x16.0 fill=#FFFFFF [Liberation Sans w700 12.0px] text='Q'
+                      FRAME 'Container' 94.25x16.0 AL(VERTICAL,gap=None)
+                        TEXT 'Text' 94.25x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='QuickTime Player'
+                    RECTANGLE 'Border' 14.0x14.0 r=9999.0 stroke=#404040 w=1.0
+                  FRAME 'Button - Enterprise WeChat / WeCom (ACTIVE SELECTED ITEM)' 295.0x50.0 r=12.0 pad[12.0,10.0,12.0,10.0] AL(HORIZONTAL,gap=107.61000061035156) fill=#13BBA3
+                    RECTANGLE 'Button - Enterprise WeChat / WeCom (ACTIVE SELECTED ITEM):shadow' 295.0x50.0 r=12.0 fill=#FFFFFF@0.00 fx=shadow #000000@0.10 r=4.0 off=(0.0,2.0); shadow #000000@0.10 r=6.0 off=(0.0,4.0)
+                    FRAME 'Container' 147.38999938964844x30.0 AL(HORIZONTAL,gap=12.0)
+                      FRAME 'Overlay+OverlayBlur' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#FFFFFF@0.20 fx=BACKGROUND_BLUR r=4.0
+                        FRAME 'SVG' 16.0x16.0
+                          VECTOR 'Vector' 12.0x10.666705131530762 stroke=#FFFFFF w=1.4666666984558105
+                      FRAME 'Container' 107.38999938964844x30.0 AL(VERTICAL,gap=None)
+                        FRAME 'Container' 107.38999938964844x15.0 AL(VERTICAL,gap=None)
+                          TEXT 'Text' 107.38999938964844x15.0 fill=#FFFFFF [Liberation Sans w700 12.0px] text='企业微信 (WeCom)'
+                        FRAME 'Container' 107.38999938964844x15.0 AL(VERTICAL,gap=None)
+                          TEXT 'Text' 96.7300033569336x15.0 fill=#CCFBF1@0.90 [Liberation Sans w500 10.0px] text='Focused App Capture'
+                    FRAME 'Active Check Icon' 16.0x16.0 r=9999.0 AL(HORIZONTAL,gap=None) fill=#FFFFFF fx=shadow #000000@0.05 r=2.0 off=(0.0,1.0)
+                      FRAME 'SVG' 10.0x10.0
+                        VECTOR 'Vector' 5.8333330154418945x4.166666507720947 stroke=#13BBA3 w=1.25
+            FRAME 'Section: Microphone Pinned at Bottom' 319.0x99.0 pad[12.0,12.0,12.0,12.0] AL(VERTICAL,gap=8.0) fill=#000000@0.20 stroke=#FFFFFF@0.08 w=1.0
+              FRAME 'Container' 295.0x17.0 pad[4.0,None,4.0,None] AL(VERTICAL,gap=None)
+                TEXT 'MICROPHONE' 287.0x17.0 fill=#A3A3A3@0.80 [Liberation Sans w600 11.0px] text='MICROPHONE'
+              FRAME 'Overlay+Border' 295.0x49.0 r=12.0 pad[8.0,8.0,8.0,8.0] AL(HORIZONTAL,gap=110.19000244140625) fill=#FFFFFF@0.02 stroke=#FFFFFF@0.05 w=1.0
+                FRAME 'Container' 130.80999755859375x31.0 AL(HORIZONTAL,gap=10.0)
+                  FRAME 'Background' 28.0x28.0 r=8.0 AL(HORIZONTAL,gap=None) fill=#262626
+                    FRAME 'SVG' 14.0x14.0
+                      VECTOR 'Vector' 8.166666030883789x8.166666030883789 stroke=#D4D4D4 w=1.1666666269302368
+                  FRAME 'Container' 92.80999755859375x31.0 AL(VERTICAL,gap=None)
+                    FRAME 'Container' 92.80999755859375x16.0 AL(VERTICAL,gap=None)
+                      TEXT 'Text' 87.36000061035156x16.0 fill=#E5E5E5 [Liberation Sans w500 12.0px] text='Also Record Mic'
+                    FRAME 'Container' 92.80999755859375x15.0 AL(VERTICAL,gap=None)
+                      TEXT 'Text' 92.80999755859375x15.0 fill=#A3A3A3 [Liberation Sans w400 10.0px] text='Mix into current track'
+                FRAME 'Label - macOS Native Style Toggle Switch' 36.0x20.0 AL(HORIZONTAL,gap=None)
+                  RECTANGLE 'Background' 36.0x20.0 r=9999.0 fill=#404040
+                  RECTANGLE 'Background+Border' 16.0x16.0 r=9999.0 fill=#FFFFFF stroke=#D1D5DB w=1.0
+          FRAME 'Main Acoustic Canvas, Recording Status & Meters' 798.0x834.0 AL(VERTICAL,gap=None) fill=#141519, GRAD[#FFFFFF@0.02@0.03, #FFFFFF@0.00@0.03], GRAD[#FFFFFF@0.02@0.03, #FFFFFF@0.00@0.03]
+            FRAME 'Subtle Top Banner Notification / App Target Detail' 798.0x49.0 pad[16.0,16.0,16.0,16.0] AL(HORIZONTAL,gap=None) stroke=#FFFFFF@0.03 w=1.0
+              FRAME 'Container' 50.689998626708984x16.0 AL(HORIZONTAL,gap=8.0)
+                RECTANGLE 'Background' 8.0x8.0 r=9999.0 fill=#10B981
+                FRAME 'Container' 34.689998626708984x16.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 34.689998626708984x16.0 fill=#D4D4D4 [Liberation Sans w500 12.0px] text='Ready'
+            FRAME 'Center Stage: Ready to Record Hero & Soundwave Visualization' 798.0x673.0
+              FRAME 'Heading 2 - Hero State Message' 136.3000030517578x28.0 AL(VERTICAL,gap=None)
+                TEXT 'Text' 136.3000030517578x28.0 fill=#F5F5F5 [Liberation Sans w600 18.0px] text='Ready to Record'
+              FRAME 'Margin' 185.38999938964844x23.0 AL(VERTICAL,gap=None)
+                FRAME 'Container' 185.38999938964844x19.0
+                  TEXT 'Text' 101.37999725341797x16.0 fill=#A3A3A3 [Liberation Sans w400 12.0px] text='Press record or hit '
+                  FRAME 'Keyboard' 44.0x18.0 r=4.0 pad[6.0,None,6.0,None] AL(HORIZONTAL,gap=None) fill=#262626 stroke=#404040 w=1.0
+                    TEXT 'Text' 30.0x16.0 fill=#D4D4D4 [Nimbus Mono PS w400 10.0px] text='Space'
+                  TEXT 'Text' 40.02000045776367x16.0 fill=#A3A3A3 [Liberation Sans w400 12.0px] text=' to start'
+              FRAME 'Outer Pulsing Decorative Aura:margin' 80.0x104.0 AL(VERTICAL,gap=None)
+                FRAME 'Outer Pulsing Decorative Aura' 80.0x80.0 AL(HORIZONTAL,gap=None)
+                  RECTANGLE 'Overlay+Blur' 128.0x128.0 r=9999.0 fill=#13BBA3@0.10 fx=LAYER_BLUR r=40.0
+                  FRAME 'Background+Border+OverlayBlur' 80.0x80.0 r=16.0 AL(HORIZONTAL,gap=None) fill=GRAD[#FFFFFF@0.10@0.00, #FFFFFF@0.05@1.00] stroke=#FFFFFF@0.10 w=1.0 fx=BACKGROUND_BLUR r=12.0
+                    RECTANGLE 'Overlay+Shadow' 80.0x80.0 r=16.0 fill=#FFFFFF@0.00 fx=shadow #000000@0.10 r=10.0 off=(0.0,8.0); shadow #000000@0.10 r=25.0 off=(0.0,20.0)
+                    FRAME 'Acoustic Visualizer Bars' 44.0x32.0 AL(HORIZONTAL,gap=6.0)
+                      RECTANGLE 'Background' 4.0x16.0 r=9999.0 fill=#13BBA3
+                      RECTANGLE 'Background' 4.0x28.0 r=9999.0 fill=#13BBA3
+                      RECTANGLE 'Background' 4.0x32.0 r=9999.0 fill=#13BBA3
+                      RECTANGLE 'Background' 4.0x24.0 r=9999.0 fill=#13BBA3
+                      RECTANGLE 'Background' 4.0x12.0 r=9999.0 fill=#13BBA3
+            FRAME 'Footer - Recording Timer, Big Action Button, and Specifications' 798.0x112.0 pad[32.0,None,32.0,None] AL(HORIZONTAL,gap=None) fill=#171717@0.70 stroke=#FFFFFF@0.80 w=1.0 fx=BACKGROUND_BLUR r=24.0
+              FRAME 'Left: Status Indicator' 367.0x16.0 AL(HORIZONTAL,gap=12.0)
+                FRAME 'Container' 10.0x10.0 AL(HORIZONTAL,gap=None)
+                  RECTANGLE 'Background' 10.0x10.0 r=9999.0 fill=#13BBA3
+                  RECTANGLE 'Background' 10.0x10.0 r=9999.0 fill=#13BBA3
+                FRAME 'Container' 95.36000061035156x16.0 AL(VERTICAL,gap=None)
+                  FRAME 'Container' 95.36000061035156x16.0 AL(VERTICAL,gap=None)
+                    TEXT 'Text' 95.36000061035156x16.0 fill=#E5E5E5 [Liberation Sans w600 12.0px] text='Ready to Record'
+              FRAME 'Absolute Centered Controls: Timer to the left, Record Button dead center' 377.20001220703125x72.0 AL(HORIZONTAL,gap=5.684341886080802e-14)
+                FRAME 'Digital Clock Display positioned to the left of the record button' 177.1999969482422x36.0
+                  TEXT 'Text' 97.5x36.0 fill=#E5E5E5 [Nimbus Mono PS w300 30.0px] text='00:00'
+                  TEXT 'Text' 47.70000076293945x32.0 fill=#737373 [Nimbus Mono PS w400 24.0px] text='.00'
+                FRAME 'Button - Start Recording' 72.0x72.0 pad[4.0,4.0,4.0,4.0] AL(VERTICAL,gap=None)
+                  FRAME 'Outer Glow and Ring' 64.0x64.0 r=9999.0 AL(HORIZONTAL,gap=None) fill=#FFFFFF@0.00 stroke=#FFFFFF@0.20 w=2.0 fx=shadow #FF453A@0.45 r=24.0 off=(0.0,0.0)
+                    FRAME 'Red Trigger Core' 48.0x48.0 r=9999.0 AL(HORIZONTAL,gap=None) fill=GRAD[#FF453A@0.00, #FF6961@1.00]
+                      RECTANGLE 'Red Trigger Core:shadow' 48.0x48.0 r=9999.0 fill=#FFFFFF@0.00 fx=shadow #000000@0.10 r=6.0 off=(0.0,4.0); shadow #000000@0.10 r=15.0 off=(0.0,10.0)
+                      RECTANGLE 'Overlay' 12.0x12.0 r=2.0 fill=#FFFFFF@0.20
+          FRAME 'Aside - Professional Audio Studio VU / dB Peak Level Meter' 80.0x834.0 pad[8.0,16.0,8.0,16.0] AL(VERTICAL,gap=None) fill=#171717@0.50 stroke=#FFFFFF@0.08 w=1.0 fx=BACKGROUND_BLUR r=12.0
+            FRAME 'Container' 63.0x14.0 AL(VERTICAL,gap=None)
+              TEXT 'Text' 41.40999984741211x14.0 fill=#A3A3A3 [Nimbus Mono PS w600 9.0px] text='DB METER'
+            FRAME 'Meter Graphic and Graticule Scale' 63.0x768.0 AL(HORIZONTAL,gap=6.0)
+              FRAME 'dB Numeric Scale Marks' 14.40999984741211x744.0 AL(VERTICAL,gap=132.89999389648438)
+                FRAME 'Container' 14.40999984741211x12.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 4.809999942779541x12.0 fill=#A3A3A3 [Nimbus Mono PS w400 8.0px] text='0'
+                FRAME 'Container' 14.40999984741211x12.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 9.609999656677246x12.0 fill=#A3A3A3 [Nimbus Mono PS w400 8.0px] text='-3'
+                FRAME 'Container' 14.40999984741211x12.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 9.609999656677246x12.0 fill=#A3A3A3 [Nimbus Mono PS w400 8.0px] text='-6'
+                FRAME 'Container' 14.40999984741211x12.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 14.40999984741211x12.0 fill=#A3A3A3 [Nimbus Mono PS w400 8.0px] text='-12'
+                FRAME 'Container' 14.40999984741211x12.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 14.40999984741211x12.0 fill=#A3A3A3 [Nimbus Mono PS w400 8.0px] text='-24'
+                FRAME 'Container' 14.40999984741211x12.0 AL(VERTICAL,gap=None)
+                  TEXT 'Text' 14.40999984741211x12.0 fill=#A3A3A3 [Nimbus Mono PS w400 8.0px] text='-48'
+              FRAME 'Left Channel Bar' 10.0x744.0 r=2.0 pad[1.0,1.0,1.0,1.0] AL(VERTICAL,gap=None) fill=#171717@0.90 stroke=#FFFFFF@0.10 w=1.0
+                RECTANGLE 'Simulated Signal Fill with Gradient Segments' 6.0x185.1300048828125 r=1.0 fill=GRAD[#10B981@0.00, #34D399@0.50, #FBBF24@1.00]
+              FRAME 'Right Channel Bar' 10.0x744.0 r=2.0 pad[1.0,1.0,1.0,1.0] AL(VERTICAL,gap=None) fill=#171717@0.90 stroke=#FFFFFF@0.10 w=1.0
+                RECTANGLE 'Simulated Signal Fill' 6.0x148.08999633789062 r=1.0 fill=GRAD[#10B981@0.00, #34D399@0.50, #FBBF24@1.00]
+            FRAME 'Channel Labels (L / R)' 63.0x20.0 AL(HORIZONTAL,gap=8.0) stroke=#FFFFFF@0.05 w=1.0
+              FRAME 'Container' 6.0x15.0 AL(VERTICAL,gap=None)
+                TEXT 'Text' 6.0x15.0 fill=#A3A3A3 [Nimbus Mono PS w700 10.0px] text='L'
+              FRAME 'Container' 6.0x15.0 AL(VERTICAL,gap=None)
+                TEXT 'Text' 6.0x15.0 fill=#A3A3A3 [Nimbus Mono PS w700 10.0px] text='R'

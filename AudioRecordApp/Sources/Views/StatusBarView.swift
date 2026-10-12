@@ -93,11 +93,8 @@ class StatusBarView: NSView {
         statusLabel.textColor = IndustrialColors.primary
         statusLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .semibold)
         
-        // 组装 stackView（精简：只保留核心信息）
-        stackView.addArrangedSubview(statusIndicator)
-        stackView.addArrangedSubview(makeSpacerView(width: 6))
-        stackView.addArrangedSubview(statusLabel)
-        stackView.addArrangedSubview(makeSeparator())
+        // 组装 stackView——UI-003: 状态圆点与状态文字移除（老板裁决②：底部无状态文字）；
+        // 保留 48kHz / 格式小字 + 转写语言选择
         stackView.addArrangedSubview(sampleRateLabel)
         stackView.addArrangedSubview(makeSeparator())
         stackView.addArrangedSubview(formatLabel)
@@ -111,7 +108,7 @@ class StatusBarView: NSView {
         localePopup.selectItem(at: saved == "en-US" ? 1 : (saved == "zh-CN" ? 2 : 0))
         localePopup.target = self
         localePopup.action = #selector(localeChanged)
-        stackView.addArrangedSubview(makeSeparator())
+        stackView.addArrangedSubview(makeSpacerView(width: 10))
         stackView.addArrangedSubview(localePopup)
 
         // 尾部弹性空间
