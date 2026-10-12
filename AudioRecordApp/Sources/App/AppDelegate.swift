@@ -71,18 +71,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         logger.info("已设置 NSApp 策略为 regular。当前窗口数: \(NSApp.windows.count)")
 
-        // 设置应用 Dock 图标（从 Resources 加载 assets/AudioRecordLogo.png）
-        if let iconURL = Bundle.main.url(forResource: "AudioRecordLogo", withExtension: "png") {
-            if let iconImage = NSImage(contentsOf: iconURL) {
-                NSApp.applicationIconImage = iconImage
-                logger.info("应用图标已设置: AudioRecordLogo.png")
-            } else {
-                logger.warning("无法加载应用图标图像数据")
-            }
-        } else {
-            logger.warning("未找到应用图标资源 AudioRecordLogo.png")
-        }
-        
+        // UI-007（2026-10-12）：Dock 图标改由 Info.plist CFBundleIconFile=AppIcon（LC 字标 icns）提供。
+        // 旧代码在启动时用 AudioRecordLogo.png 覆盖 NSApp.applicationIconImage，导致 icns 永远不生效，已删。
+
         // 请求音频录制权限
         requestAudioCapturePermissions()
         
