@@ -2,36 +2,35 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleExecutable</key>
-    <string>audio_record_mac</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.voidzhang.audio-record-mac</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>AudioRecordMac</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-    <key>CFBundleDisplayName</key>
-    <string>Tapture</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Microphone access is required to record your voice.</string>
-    <key>NSAudioCaptureUsageDescription</key>
-    <string>System audio capture permission is required to record audio from other apps or the system.</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Loocap</string>
+	<key>CFBundleExecutable</key>
+	<string>audio_record_mac</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.microlab.loocap</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Loocap</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>System audio capture permission is required to record audio from other apps or the system.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access is required to record your voice.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
 </dict>
 </plist>
-

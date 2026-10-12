@@ -15,7 +15,7 @@ class TitleBarView: NSView {
     
     // MARK: - UI Components
     private let appTitleLabel: NSTextField = {
-        let label = NSTextField(labelWithString: "AudioRecord")
+        let label = NSTextField(labelWithString: "Loocap")
         label.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
         label.textColor = IndustrialColors.onSurface.withAlphaComponent(0.8)
         label.translatesAutoresizingMaskIntoConstraints = false

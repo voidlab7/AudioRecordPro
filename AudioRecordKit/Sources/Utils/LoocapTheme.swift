@@ -1,8 +1,8 @@
 import Cocoa
 
-// MARK: - Tapture Theme
-/// Tapture 全局设计系统 — 颜色、字体、圆角常量
-enum TaptureTheme {
+// MARK: - Loocap Theme
+/// Loocap 全局设计系统 — 颜色、字体、圆角常量
+enum LoocapTheme {
 
     // MARK: - Colors
     enum Color {

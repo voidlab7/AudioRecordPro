@@ -13,7 +13,7 @@
 "切换侧边栏" = "Toggle Sidebar";
 
 /* Window */
-"音频录制工具" = "Tapture";
+"音频录制工具" = "Loocap";
 
 /* Status bar */
 "就绪" = "Ready";
@@ -302,7 +302,7 @@
 "已拒绝" = "Denied";
 "未确定" = "Not Determined";
 "受限制" = "Restricted";
-"麦克风权限设置：\n1. 打开 系统偏好设置 > 安全性与隐私 > 隐私\n2. 选择左侧的「麦克风」\n3. 勾选「音频录制工具」应用" = "Microphone permission setup:\n1. Open System Settings > Privacy & Security > Privacy\n2. Select \"Microphone\" on the left\n3. Check the \"Tapture\" app";
+"麦克风权限设置：\n1. 打开 系统偏好设置 > 安全性与隐私 > 隐私\n2. 选择左侧的「麦克风」\n3. 勾选「音频录制工具」应用" = "Microphone permission setup:\n1. Open System Settings > Privacy & Security > Privacy\n2. Select \"Microphone\" on the left\n3. Check the \"\"Loocap\" app";
 "系统音频捕获权限设置：\n1. 当系统弹出「允许录制系统音频」对话框时，点击「允许」\n2. 如被拒绝，可重启应用再次触发或在'隐私'中重置权限" = "System audio capture permission setup:\n1. When the system shows the \"Allow system audio recording\" dialog, click \"Allow\"\n2. If denied, restart the app to trigger it again or reset the permission in Privacy";
 "切分 @ %@s" = "Split @ %@s";
 "点击 ● 开始录制" = "Click ● to start recording";

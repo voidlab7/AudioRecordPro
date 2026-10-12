@@ -1,4 +1,4 @@
 /* Simplified Chinese Info.plist localization (base plist values are English) */
-"CFBundleDisplayName" = "Tapture";
+"CFBundleDisplayName" = "Loocap";
 "NSMicrophoneUsageDescription" = "需要访问麦克风以录制您的声音。";
 "NSAudioCaptureUsageDescription" = "需要系统音频捕获权限以录制其他应用或系统声音。";

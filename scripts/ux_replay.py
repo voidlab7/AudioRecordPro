@@ -8,7 +8,7 @@
   python3 scripts/ux_replay.py --type input,module # 只看指定类型
   python3 scripts/ux_replay.py --out timeline.md   # 落盘为 markdown
 
-事件文件位置: 沙盒 ~/Library/Containers/com.voidzhang.audio-record-mac/Data/
+事件文件位置: 沙盒 ~/Library/Containers/com.microlab.loocap/Data/
   Documents/AudioRecordings/Logs/UXEvents/uxevents_*.jsonl
 """
 import argparse
@@ -19,7 +19,7 @@ import sys
 from collections import Counter
 
 SANDBOX = os.path.expanduser(
-    "~/Library/Containers/com.voidzhang.audio-record-mac/Data/"
+    "~/Library/Containers/com.microlab.loocap/Data/"
     "Documents/AudioRecordings/Logs/UXEvents"
 )
 

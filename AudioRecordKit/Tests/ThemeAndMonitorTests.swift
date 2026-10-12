@@ -3,13 +3,13 @@ import XCTest
 import Cocoa
 import Foundation
 
-/// TaptureTheme 主题系统测试 + LevelMonitor 测试
+/// LoocapTheme 主题系统测试 + LevelMonitor 测试
 final class ThemeAndMonitorTests: XCTestCase {
     
-    // MARK: - TaptureTheme Color Tests
+    // MARK: - LoocapTheme Color Tests
     
     func testColorBgPrimaryIsDark() {
-        let color = TaptureTheme.Color.bgPrimary
+        let color = LoocapTheme.Color.bgPrimary
         let rgb = color.usingColorSpace(.sRGB)!
         
         // 深海军蓝 #0F172A — 应为深色
@@ -31,7 +31,7 @@ final class ThemeAndMonitorTests: XCTestCase {
     }
     
     func testColorAccentIsBlue() {
-        let color = TaptureTheme.Color.accent
+        let color = LoocapTheme.Color.accent
         // 冰蓝 #38BDF8 — 蓝色调
         let blue = color.usingColorSpace(.sRGB)!.blueComponent
         XCTAssertGreaterThan(blue, 0.9) // 蓝通道值很高
@@ -39,22 +39,22 @@ final class ThemeAndMonitorTests: XCTestCase {
     
     func testColorErrorIsRed() {
         // 错误色应为红色调
-        let error = TaptureTheme.Color.error
+        let error = LoocapTheme.Color.error
         let red = error.usingColorSpace(.sRGB)!.redComponent
         XCTAssertGreaterThan(red, 0.9) // 红通道值很高
     }
     
     func testColorSuccessIsGreen() {
         // 成功色应为绿色调
-        let success = TaptureTheme.Color.success
+        let success = LoocapTheme.Color.success
         let green = success.usingColorSpace(.sRGB)!.greenComponent
         XCTAssertGreaterThan(green, 0.7) // 绿通道值较高
     }
 
-    // MARK: - TaptureTheme Font Tests
+    // MARK: - LoocapTheme Font Tests
     
     func testFontTimerProperties() {
-        let font = TaptureTheme.Font.timer
+        let font = LoocapTheme.Font.timer
         
         XCTAssertEqual(font.pointSize, 28)
         // SF Mono Bold 28px — 检查字体特征
@@ -62,21 +62,21 @@ final class ThemeAndMonitorTests: XCTestCase {
     }
     
     func testFontTitleProperties() {
-        let font = TaptureTheme.Font.title
+        let font = LoocapTheme.Font.title
         XCTAssertEqual(font.pointSize, 13)
     }
     
     func testFontBodyProperties() {
-        let font = TaptureTheme.Font.body
+        let font = LoocapTheme.Font.body
         XCTAssertEqual(font.pointSize, 13)
     }
 
-    // MARK: - TaptureTheme Radius Tests
+    // MARK: - LoocapTheme Radius Tests
     
     func testRadiusValues() {
-        XCTAssertGreaterThan(TaptureTheme.Radius.button, 0)
-        XCTAssertGreaterThan(TaptureTheme.Radius.card, 0)
-        XCTAssertEqual(TaptureTheme.Radius.recordButton, 32) // 录制按钮全圆
+        XCTAssertGreaterThan(LoocapTheme.Radius.button, 0)
+        XCTAssertGreaterThan(LoocapTheme.Radius.card, 0)
+        XCTAssertEqual(LoocapTheme.Radius.recordButton, 32) // 录制按钮全圆
     }
 
     // MARK: - NSColor Hex Extension Tests

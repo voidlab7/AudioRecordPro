@@ -21,7 +21,7 @@ from pathlib import Path
 
 PROJ = Path(__file__).resolve().parent.parent
 ART_DIR = PROJ / "e2e" / "artifacts" / f"TC-011-{datetime.now().strftime('%Y%m%d')}"
-UXEVENTS_DIR = Path.home() / "Library/Containers/com.voidzhang.audio-record-mac/"
+UXEVENTS_DIR = Path.home() / "Library/Containers/com.microlab.loocap/"
 UXEVENTS_DIR /= "Data/Documents/AudioRecordings/Logs/UXEvents"
 
 # 窗口内坐标（AppKit 底左原点，窗口固定 1200x750）
