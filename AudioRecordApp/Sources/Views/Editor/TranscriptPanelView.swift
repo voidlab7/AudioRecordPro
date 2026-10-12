@@ -221,7 +221,24 @@ final class TranscriptPanelView: NSView {
                 md += "- **\(String(format: "%02d:%02d", m, s))** \(segment.text)\n"
             }
         }
-        md += "\n---\n*由 Tapture 本机转写生成*\n"
+        md += "\n---\n*由 Loocap 本机转写生成*\n"
         return md
+    }
+
+    /// FEAT-002: Transcript → 纯文本（txt 导出格式，无 Markdown 语法标记）
+    static func plainText(for transcript: Transcript, fileName: String) -> String {
+        var txt = "\(fileName)\n"
+        txt += "转写引擎：\(transcript.engine) ｜ 语言：\(transcript.locale) ｜ 生成于 \(transcript.createdAt.formatted(date: .abbreviated, time: .shortened))\n"
+        txt += String(repeating: "─", count: 24) + "\n\n"
+        txt += "【全文】\n\(transcript.fullText)\n"
+        if transcript.segments.count > 1 {
+            txt += "\n【分段】\n"
+            for segment in transcript.segments where !segment.text.isEmpty {
+                let m = Int(segment.start) / 60, s = Int(segment.start) % 60
+                txt += "[\(String(format: "%02d:%02d", m, s))] \(segment.text)\n"
+            }
+        }
+        txt += "\n── 由 Loocap 本机转写生成 ──\n"
+        return txt
     }
 }

@@ -845,21 +845,31 @@ extension EditorViewController: TranscriptPanelDelegate {
     func transcriptPanelDidTapExport(_ panel: TranscriptPanelView) {
         guard let transcript = TranscriptionService.shared.loadTranscript(for: file.url) else { return }
         let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .utf8PlainText]
+        // FEAT-002: txt 与 md 双格式，面板底部下拉可选；默认 txt（老板主诉求）
+        let txtType = UTType(filenameExtension: "txt") ?? .plainText
+        let mdType = UTType(filenameExtension: "md") ?? .utf8PlainText
+        savePanel.allowedContentTypes = [txtType, mdType]
         let baseName = file.name.replacingOccurrences(of: ".", with: "_")
-        savePanel.nameFieldStringValue = "\(baseName).md"
+        savePanel.nameFieldStringValue = "\(baseName).txt"
         savePanel.begin { [weak self] response in
             guard response == .OK, let target = savePanel.url else { return }
-            let md = TranscriptPanelView.markdown(for: transcript, fileName: self?.file.name ?? baseName)
+            // 按所选扩展名分派格式（面板格式下拉决定扩展名）
+            let isTxt = target.pathExtension.lowercased() != "md"
+            let content: String
+            if isTxt {
+                content = TranscriptPanelView.plainText(for: transcript, fileName: self?.file.name ?? baseName)
+            } else {
+                content = TranscriptPanelView.markdown(for: transcript, fileName: self?.file.name ?? baseName)
+            }
             do {
-                try md.write(to: target, atomically: true, encoding: .utf8)
+                try content.write(to: target, atomically: true, encoding: .utf8)
                 // 硬验证：读回确认内容非空且含全文
                 let readBack = try String(contentsOf: target, encoding: .utf8)
                 let ok = readBack.contains(transcript.fullText.prefix(20))
-                UXEventLog.shared.module("Editor", "transcript_export", ok: ok, detail: ["path": target.lastPathComponent, "bytes": readBack.utf8.count])
+                UXEventLog.shared.module("Editor", "transcript_export", ok: ok, detail: ["path": target.lastPathComponent, "format": isTxt ? "txt" : "md", "bytes": readBack.utf8.count])
                 // 反馈显示在文稿面板内（嵌入模式 statusBar 隐藏不可见——S2 老板报障点）
                 self?.transcriptPanel.showStatus(ok ? "已导出: %@".localized(target.lastPathComponent) : "导出校验失败".localized)
-                self?.logger.info("文稿导出成功: \(target.path) (\(readBack.utf8.count) bytes)")
+                self?.logger.info("文稿导出成功: \(target.path) (\(readBack.utf8.count) bytes, \(isTxt ? "txt" : "md"))")
             } catch {
                 UXEventLog.shared.module("Editor", "transcript_export", ok: false, detail: ["error": error.localizedDescription])
                 self?.transcriptPanel.showStatus("导出失败: %@".localized(error.localizedDescription))

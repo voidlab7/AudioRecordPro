@@ -47,7 +47,7 @@ targets:
         optional: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.voidzhang.audio-record-mac
+        PRODUCT_BUNDLE_IDENTIFIER: com.microlab.loocap
         PRODUCT_NAME: AudioRecordMac
         EXECUTABLE_NAME: audio_record_mac
         INFOPLIST_FILE: Info.plist
@@ -65,7 +65,7 @@ targets:
       - path: AudioRecordMacUITests
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.voidzhang.audio-record-mac.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: com.microlab.loocap.uitests
         TEST_TARGET_NAME: AudioRecordMac
         GENERATE_INFOPLIST_FILE: true
     dependencies:
@@ -77,6 +77,7 @@ targets:
     deploymentTarget: "13.0"
     sources:
       - path: AudioRecordMacSnapshotTests
+      - path: AudioRecordApp/Sources/Views/Editor/TranscriptPanelView.swift
       - path: AudioRecordApp/Sources/Views/ControlPanelView.swift
       - path: AudioRecordApp/Sources/Views/IndustrialControls.swift
       - path: AudioRecordApp/Sources/Views/TimerLabel.swift
@@ -84,7 +85,7 @@ targets:
       - path: AudioRecordKit/Sources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.voidzhang.audio-record-mac.snapshottests
+        PRODUCT_BUNDLE_IDENTIFIER: com.microlab.loocap.snapshottests
         GENERATE_INFOPLIST_FILE: true
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG SNAPSHOT_TESTING
     dependencies:
