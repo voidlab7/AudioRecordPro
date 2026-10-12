@@ -31,6 +31,10 @@ class MainWindowView: NSView {
     private let trackPanelView = TrackPanelView()
     private let levelMeterCardView = LevelMeterCardView()
     private var trackPanelWidthConstraint: NSLayoutConstraint!
+    // UI-006 R2（2026-10-12 老板打回「顶部留白」）：中间区域顶部约束常量随模式切换——
+    // idle/录制态 editToolbar 隐藏时不占位（0，画布顶到标题栏）；编辑态恢复工具栏高度占位
+    private var middleAreaTopConstraint: NSLayoutConstraint!
+    private let editToolbarHeight: CGFloat = 36
     
     // 录制模式内容
     private let recordingContentView = NSView()
@@ -236,11 +240,11 @@ class MainWindowView: NSView {
     
     // MARK: - Constraints (V2.0 新布局)
     private func setupConstraints() {
-        let editToolbarHeight: CGFloat = 36
         let controlPanelHeight: CGFloat = 90
         let statusBarHeight: CGFloat = 32
         let levelMeterWidth: CGFloat = 80
         trackPanelWidthConstraint = trackPanelView.widthAnchor.constraint(equalToConstant: 0)  // 初始隐藏态为 0
+        middleAreaTopConstraint = middleAreaView.topAnchor.constraint(equalTo: recordingContentView.topAnchor, constant: 0)  // 初始 idle：不占工具栏位
         
         NSLayoutConstraint.activate([
             // 标题栏（窗口顶部 38px）
@@ -261,8 +265,8 @@ class MainWindowView: NSView {
             editToolbarView.trailingAnchor.constraint(equalTo: recordingContentView.trailingAnchor),
             editToolbarView.heightAnchor.constraint(equalToConstant: editToolbarHeight),
             
-            // 中间区域（编辑工具栏 ~ 控制面板之间）
-            middleAreaView.topAnchor.constraint(equalTo: editToolbarView.bottomAnchor),
+            // 中间区域（编辑工具栏 ~ 控制面板之间）；顶部常量随模式切换（UI-006 R2）
+            middleAreaTopConstraint,
             middleAreaView.leadingAnchor.constraint(equalTo: recordingContentView.leadingAnchor),
             middleAreaView.trailingAnchor.constraint(equalTo: recordingContentView.trailingAnchor),
             middleAreaView.bottomAnchor.constraint(equalTo: controlPanelView.topAnchor, constant: -IndustrialSpacing.xs),
@@ -279,8 +283,8 @@ class MainWindowView: NSView {
             levelMeterCardView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor, constant: -IndustrialSpacing.sm),
             levelMeterCardView.widthAnchor.constraint(equalToConstant: levelMeterWidth),
             
-            // 波形视图（轨道板和电平表之间）
-            waveformView.topAnchor.constraint(equalTo: middleAreaView.topAnchor, constant: IndustrialSpacing.sm),
+            // 波形视图（轨道板和电平表之间）；顶部 0 让网格顶到标题栏边界（UI-006：满铺）
+            waveformView.topAnchor.constraint(equalTo: middleAreaView.topAnchor),
             waveformView.leadingAnchor.constraint(equalTo: trackPanelView.trailingAnchor, constant: IndustrialSpacing.xs),
             waveformView.trailingAnchor.constraint(equalTo: levelMeterCardView.leadingAnchor, constant: -IndustrialSpacing.xs),
             waveformView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor, constant: -IndustrialSpacing.sm),
@@ -478,6 +482,7 @@ class MainWindowView: NSView {
             // 录制准备态：隐藏编辑能力，只展示录制相关 UI
             editToolbarView.setEnabled(false)
             editToolbarView.isHidden = true
+            middleAreaTopConstraint.constant = 0  // UI-006 R2: 工具栏隐藏不占位，画布顶到标题栏
             trackPanelView.isHidden = true
             trackPanelWidthConstraint.constant = 0
             titleBarView.setExportEnabled(false)
@@ -490,6 +495,7 @@ class MainWindowView: NSView {
             // 录制进行态：隐藏编辑能力，显示实时波形
             editToolbarView.setEnabled(false)
             editToolbarView.isHidden = true
+            middleAreaTopConstraint.constant = 0  // UI-006 R2: 同 idle
             trackPanelView.isHidden = true
             trackPanelWidthConstraint.constant = 0
             titleBarView.setExportEnabled(false)
@@ -501,6 +507,7 @@ class MainWindowView: NSView {
             // 编辑态：进入 EditorViewController（REQ-2.0-05）
             editToolbarView.setEnabled(true)
             editToolbarView.isHidden = false
+            middleAreaTopConstraint.constant = editToolbarHeight  // UI-006 R2: 工具栏可见恢复占位
             trackPanelView.isHidden = false
             trackPanelWidthConstraint.constant = TrackPanelView.panelWidth
             titleBarView.setExportEnabled(true)        }
