@@ -482,3 +482,51 @@
 - 附带修复：project.yml 三 target bundle id、scripts/tc011 与 ux_replay 旧 id、xcodegen 重生成 pbxproj
 - 证据：`docs/证据/INFRA-003-主界面Loocap标题-2026-10-12.png`、`docs/证据/INFRA-003-标题栏Loocap-2026-10-12.png`
 - commit：2764790（改名主体）、3509595（残留修复+证据）
+
+### FIX-005 拖动窗口右缘出现漂移白条 | P2 | M | [done] ✅ 2026-10-13 11:45 老板签收
+
+> 来源（2026-10-13 11:25 老板截图）：拖动窗口时出现「漂移」——窗口右缘露出一条浅色竖条，DB METER 刻度列贴到窗口最右缘。
+> 证据：`docs/证据/2026-10-13-FIX005-拖动窗口右缘漂移白条.png`
+
+**根因与修复**（10-13 11:38，`AppDelegate.createMainWindow`）：
+- **根因**：白条 = `NSWindow` 默认浅色背景层（`windowBackgroundColor`）。窗口服务器拖动/合成时把窗口帧对齐到物理像素，自绘内容层与窗口帧错位的 1px 露出背景层——暗色 App 上即白色竖条，随拖动「漂移」。
+- **修复（根因消除，非裁剪补丁）**：`window.backgroundColor = IndustrialColors.surface` + `window.isOpaque = true`——边缘错位时露出的也是 App 暗色 surface，视觉无缝。Chromium/AudioCap 类自绘窗口同款标准做法。
+
+**验收情况**：
+- [x] 结构性验证：新构建窗口截图右缘 3 列 max 亮度 18、底缘 3 行 max 28（白条特征=亮度>100）——像素级全暗
+- [x] `build-app.sh` exit 0
+- [x] 老板签收：真实拖动手感复验通过（10-13 11:45）
+- 教训：自绘窗口 App 的 NSWindow 背景色必须与内容底色同源——默认浅色背景是暗色 App 的隐形地雷（拖动/resize 边缘露出才现形）
+
+### UI-011 DB METER 标签字体优化（B 仪表标准式，老板已选） | P3 | S | [done] ✅ 2026-10-13 11:45 老板签收
+
+> 来源（2026-10-13 11:24 老板截图）：DB METER 标签「有点丑」。四方案对比已出，老板 11:25 选定 B，标准 11:33 签。
+> 丑的根因三件叠加：9pt 渲染发虚、全大写无字距挤成一团、灰度发闷。**不是字体家族问题**。
+
+**实施记录**（10-13 11:40，只动 `LevelMeterCardView.drawTitle()` 一处）：
+1. 字体：9pt mono medium → **10pt `systemFont(ofSize:weight:.semibold)`**
+2. 字距：`kern: 3.5`（NSAttributedString）
+3. 颜色：#A3A3A3@0.9 → **#C2C2C2**
+4. 居中：`(bounds.width - (size.width - kern)) / 2` 扣掉末尾多余字距
+
+**验收标准**：
+- [x] 实拍：标签清晰不发虚、字距均匀（放大裁切无裁剪）——`docs/证据/2026-10-13-UI011-UI012-待录制态-标签B方案网格零空隙.png`
+- [x] 视觉水平居中（含 kern 补偿）
+- [x] `build-app.sh` exit 0
+- [x] 老板签收（10-13 11:45）
+
+### UI-012 网格铺满整个画布、与底部面板间零空隙 | P2 | S | [done] ✅ 2026-10-13 11:45 老板签收
+
+> 来源（2026-10-13 11:29 老板参考图 + 指令）：「网格线和下面的面板，没有过多的空格。网格线要铺得更满一些。」参考图：`docs/证据/2026-10-13-UI012-参考-网格直通分割线紧贴面板.png`。
+> 关联：UI-006 已解决画布内满铺；本单处理画布与底部控制面板之间的过渡带。
+
+**实施记录**（10-13 11:40，`MainWindowView.setupConstraints` 两处约束归零）：
+- `middleAreaView.bottom = controlPanelView.top` 间距 `-xs` → `0`
+- `waveformView.bottom = middleAreaView.bottom` 间距 `-sm` → `0`
+- 网格绘制本身已满铺 bounds（UI-006），空隙全来自这两段布局留白
+
+**验收标准**：
+- [x] 实拍：网格直通分割线——像素扫描：网格线（y=1067/1127/1187，间隔 60px@2x）序列的下一条正好落在分割线（y=1248）位置，画布与面板间仅隔一条分割线、无空白带
+- [x] 画布四边无网格外裸区
+- [x] `build-app.sh` exit 0
+- [x] 老板签收（10-13 11:45）
