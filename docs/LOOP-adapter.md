@@ -23,8 +23,8 @@
 
 | 命令 | 判据 / 基线 | 豁免 |
 |---|---|---|
-| `bash scripts/test_sdk.sh` | 77/77 PASS（基线 2026-10-12） | |
-| selftest（App 内置触发器） | 按单声明（如 `N mix` 开麦混录 / `N mixmid` 录音中切麦） | |
+| `bash scripts/test_sdk.sh` | 77/77 PASS（基线 2026-10-12）。**worktree 内首跑必挂 SPM manifest sandbox 死点（无 .build 缓存）→ 用 `cd AudioRecordKit && swift test --disable-sandbox` 直跑** | |
+| selftest（App 内置触发器） | 按单声明（如 `N mix` 开麦混录 / `N mixmid` 录音中切麦）；波形自验：容器 tmp 放 `fix008_trigger` 文件后冷启（见 WaveformView 钩子） | |
 | ~~`scripts/test-snapshot.sh`~~ | **已停用**（2026-10-13 LOOP-05：SnapshotTesting 包引擎沙箱死点，包已摘除；源码保留 `AudioRecordMacSnapshotTests/`） | 整层豁免 |
 | ~~`scripts/test-ui.sh`（XCUITest）~~ | **blocked**（LOOP-05：runner bootstrap 死点，等外部终端验证） | 整层豁免，禁试 |
 
@@ -67,6 +67,7 @@
 ## 9. 本工程的历史教训（通用教训见内核 references/反面案例.md）
 
 - 2026-10-11：当天 6 张单全部堆在工作树未提交，事后补拆 4 个提交——催生 Git 纪律与 worktree 隔离
+- **沙箱 App 取证铁律（2026-10-13 FIX-008 实证）**：Loocap 是 App Sandbox 应用——①直启二进制必 SIGTRAP，只能 `open` 拉起；②WorkBuddy 会话内 `open --args` / `open --env` **双双不透传**；③App 写绝对 `/tmp` 被沙箱拒绝或容器化，落盘一律用 `NSTemporaryDirectory()`（= 宿主 `~/Library/Containers/com.microlab.loocap/Data/tmp/`，宿主可读写）；④TCC 辅助功能表为空 → 合成键盘/点击（CGEventPost/AX）全失效，UI 交互驱动只能走「文件触发钩子 + 冷启」模式
 - FIX-006：报障场景没复现就定性 = 坑（曾误定性「场景 B」返工一轮）；先复现再定性
 - BUG-1 遗留：录制器层修复要查三处同构接线（MicrophoneRecorder / CoreAudioProcessTapRecorder / MixedAudioRecorder），当年只改两处漏一处
 - UI-014：速度/观感类主观需求，先做最保守档位试探，不一步到位
