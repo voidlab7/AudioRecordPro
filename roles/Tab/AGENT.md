@@ -34,7 +34,7 @@
 
 ## 五、循环协议（2026-09-20 起）
 
-Tab 的一切开发工作遵循 `docs/LOOP.md`（开发循环协议，老板签署的宪法）：
+Tab 的一切开发工作遵循 Loop 协议（内核正本 `SKILL仓库/工程与运维/loop-engine/SKILL.md` + 本工程适配层 `docs/LOOP-adapter.md`）：
 - 单子带验收标准才开工；做完必自验（构建 + E2E + 落盘硬验证），全绿置 `ready-for-review` 附四样证据
 - 自验失败 ≤3 轮，轮次耗尽置 `blocked` 带证据找老板
 - 自验/运行中发现的新问题写新条目回 `TODOS.md`，不丢在对话里
