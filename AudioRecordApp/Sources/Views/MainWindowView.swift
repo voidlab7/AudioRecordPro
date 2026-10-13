@@ -267,10 +267,11 @@ class MainWindowView: NSView {
             editToolbarView.heightAnchor.constraint(equalToConstant: editToolbarHeight),
             
             // 中间区域（编辑工具栏 ~ 控制面板之间）；顶部常量随模式切换（UI-006 R2）
+            // UI-012（2026-10-13）：底部零空隙——网格直通到底部分割线，不留空白带
             middleAreaTopConstraint,
             middleAreaView.leadingAnchor.constraint(equalTo: recordingContentView.leadingAnchor),
             middleAreaView.trailingAnchor.constraint(equalTo: recordingContentView.trailingAnchor),
-            middleAreaView.bottomAnchor.constraint(equalTo: controlPanelView.topAnchor, constant: -IndustrialSpacing.xs),
+            middleAreaView.bottomAnchor.constraint(equalTo: controlPanelView.topAnchor, constant: 0),
             
             // 轨道板（中间区域左侧）
             trackPanelView.topAnchor.constraint(equalTo: middleAreaView.topAnchor),
@@ -285,10 +286,11 @@ class MainWindowView: NSView {
             levelMeterCardView.widthAnchor.constraint(equalToConstant: levelMeterWidth),
             
             // 波形视图（轨道板和电平表之间）；顶部 0 让网格顶到标题栏边界（UI-006：满铺）
+            // UI-012：底部 0 贴控制栏顶缘——网格画到分割线处，分割线直接压在网格收尾上
             waveformView.topAnchor.constraint(equalTo: middleAreaView.topAnchor),
             waveformView.leadingAnchor.constraint(equalTo: trackPanelView.trailingAnchor, constant: IndustrialSpacing.xs),
             waveformView.trailingAnchor.constraint(equalTo: levelMeterCardView.leadingAnchor, constant: -IndustrialSpacing.xs),
-            waveformView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor, constant: -IndustrialSpacing.sm),
+            waveformView.bottomAnchor.constraint(equalTo: middleAreaView.bottomAnchor, constant: 0),
             waveformView.heightAnchor.constraint(greaterThanOrEqualToConstant: 160),
             
             // 控制面板（满宽，无左右间距）

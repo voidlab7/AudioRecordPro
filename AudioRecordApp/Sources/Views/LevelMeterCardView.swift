@@ -180,15 +180,19 @@ class LevelMeterCardView: NSView {
     
     // MARK: - Title
     
-    /// UI-003 v3: DB METER title — 9px mono #A3A3A3 centered at top (Figma §3)
+    /// UI-011（2026-10-13 老板选 B 仪表标准式）：10pt semibold + kern 3.5 + 提亮 #C2C2C2。
+    /// 根因三件叠加：9pt 发虚 / 全大写无字距挤团 / 灰度发闷——非字体家族问题。
     private func drawTitle() {
+        let kern: CGFloat = 3.5
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .medium),
-            .foregroundColor: NSColor(hex: "#A3A3A3").withAlphaComponent(0.9)
+            .font: NSFont.systemFont(ofSize: 10, weight: .semibold),
+            .foregroundColor: NSColor(hex: "#C2C2C2"),
+            .kern: kern
         ]
         let text = "DB METER"
+        // kern 会在末尾多出一个字距宽度，视觉居中需扣掉
         let size = (text as NSString).size(withAttributes: attrs)
-        (text as NSString).draw(at: NSPoint(x: (bounds.width - size.width) / 2,
+        (text as NSString).draw(at: NSPoint(x: (bounds.width - (size.width - kern)) / 2,
                                             y: bounds.height - size.height - 6), withAttributes: attrs)
     }
     

@@ -302,6 +302,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 一体化标题栏：透明 + 隐藏标题 → 内容直达窗口顶部
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
+
+        // FIX-005（2026-10-13）：拖动窗口时右缘「漂移白条」= NSWindow 默认浅色背景层。
+        // 窗口服务器拖动/合成时把窗口帧对齐到物理像素，自绘内容层与窗口帧错位的
+        // 1px 会露出 window.backgroundColor（默认系统浅灰）——暗色 App 上即白色竖条。
+        // 根因修复：背景染成 App 暗色 surface + opaque，边缘错位时视觉无缝（不靠裁剪补丁）。
+        window.backgroundColor = IndustrialColors.surface
+        window.isOpaque = true
         
         // 全屏时保持标题栏和红绿灯按钮始终可见
         window.collectionBehavior = [.fullScreenPrimary, .fullScreenAllowsTiling]
