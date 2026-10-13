@@ -215,7 +215,7 @@
 
 ---
 
-### UI-016 App 图标换新 logo（L 箭头 + C 声波 + 录音点） | P2 | M | [blocked · 2026-10-13 23:47 并发冲突——另一会话正在同 worktree 改 logo-v2.svg，执行侧让路收工]
+### UI-016 App 图标换新 logo（L 箭头 + C 声波 + 录音点） | P2 | M | [ready-for-review · 2026-10-13 23:55 worktree loop/UI-016 999f2cf，待老板签收]
 
 > **2026-10-13 23:45 夜跑会话置 blocked 证据（并发冲突）**：
 > - 夜跑会话 23:40 建 worktree `.worktrees/UI-016`、写 `logo-v2.svg` 初版（#1B3A6B/#4FB8CF/#F26B3A，手测几何）+ `render_svg.swift`（NSImage SVG 渲染器）+ 重写 `make_appicon.sh`（SVG→渲染→1024 底板合成→iconset→icns 管线，旧版备份 make_appicon-lc-legacy.sh），23:41 跑通管线 EXIT=0 生成 AppIcon.icns。
@@ -223,6 +223,13 @@
 > - 执行侧按 user_query 防并发冲突铁律让路：**不覆盖对方文件、不重跑管线抢产物、worktree 现场原样保留**。
 > - 现场状态：worktree `.worktrees/UI-016` 分支 loop/UI-016（基于 master 8580613），含夜跑会话交付（make_appicon.sh v2 + render_svg.swift + 初版 SVG 已被对方版本覆盖）+ 另一会话的优化版 SVG；AppIcon.icns 为夜跑版（旧 SVG 渲染，几何有偏差，**签收前须用现场 SVG 重跑 make_appicon.sh**）。全部未 commit。
 > - **解除路径**：等另一会话收工后（SVG 不再被改写），任一会话重跑 `bash scripts/make_appicon.sh` + `bash build-app.sh` 即可继续验收流程；若另一会话已完整交付，本单状态由需求台裁决接续。
+>
+> **2026-10-13 23:55 接续收口（主会话 =「另一会话」本体，老板 23:38 派单）**：
+> - 并发真相：夜跑会话与本主会话同晚接了同一单——主会话 23:38 起单，用位图正本**像素测量+参数扫描**重写了 SVG（比夜跑手测版精度高一个量级，三色掩膜 IoU 0.85-0.91）并重写 make_appicon.sh（rsvg-convert 矢量直出，替掉 NSImage 方案）；夜跑 23:47 撞见后让路收工，处置合规。
+> - 夜跑担心的「icns 是旧 SVG 渲染」已消除：主会话 23:48 用定版 SVG 重跑了全管线（icns 137115B，时间戳晚于定版 SVG）。
+> - 交付 commit：aee4468（SVG 正本+管线+icns+证据五张）+ 999f2cf（位图正本入库）；build-app.sh exit 0；运行时代码零旧引用；32px 声波/圆点可辨，无需小档简化。
+> - render_svg.swift 为夜跑遗留工具（未 commit，已被 rsvg-convert 方案取代，留现场不删）。
+> - **留老板验收**：Dock 实拍一眼（App 已带新图标运行、Dock 已刷新；会话内 Dock 图标层截图不完整，实拍最直接）。
 
 > 来源（2026-10-13 21:50 老板指令 + 新 logo 图）：「logo 按照这个实现。」
 > 正本：`docs/设计稿/logo-v2-L箭头C声波-正本-2026-10-13.png`（800×630 RGBA，米白底）
