@@ -38,6 +38,22 @@ class WaveformView: NSView {
     private var barWidth: CGFloat = 1.2
     private var barSpacing: CGFloat = 2.2
     private var maxBarHeight: CGFloat = 118.0
+
+    // MARK: UI-010: 录音态渲染风格（旧橙色包络保留可切，不做物理删除）
+    enum RenderStyle {
+        case envelope       // 旧方案：橙色填充包络（备用）
+        case roundedBars    // 新方案：绿色圆头竖条（参考图定版）
+    }
+    /// 切换渲染风格：改这一行即可回退旧包络
+    private static let renderStyle: RenderStyle = .roundedBars
+    /// 圆头竖条参数（参考图实测 @2x：条宽≈间隙≈3-4px → 1x 各 2pt）
+    private let vbBarWidth: CGFloat = 2.0
+    private let vbBarGap: CGFloat = 2.0
+    /// 竖条渐变（顶部亮薄荷 → 根部品牌绿），复用单实例
+    private lazy var barGradient: NSGradient = NSGradient(
+        starting: NSColor(hex: "#8FF0CF"),
+        ending: NSColor(hex: "#13BBA3")
+    )!
     
     // 录制时长跟踪（用于动态时间刻度）
     private var recordingStartTime: Date?
@@ -383,9 +399,56 @@ class WaveformView: NSView {
                 drawStaticWaveform(in: bounds, data: data)
             }
         } else if !waveformData.isEmpty {
-            drawWaveform(in: bounds)
-            drawPlayhead(in: bounds)
+            switch Self.renderStyle {
+            case .envelope:
+                drawWaveform(in: bounds)
+                drawPlayhead(in: bounds)
+            case .roundedBars:
+                drawRoundedBars(in: bounds)
+            }
         }
+    }
+
+    /// UI-010: 绿色圆头竖条渲染——上下对称镜像、条宽≈间隙、轻光晕、顶部微渐变。
+    /// 静音/小信号收缩为中线上的最小圆点行（不整体消失，与 FIX-004 呼应）。
+    private func drawRoundedBars(in rect: NSRect) {
+        let timelineInsetX: CGFloat = 84
+        let timelineRect = NSRect(
+            x: timelineInsetX,
+            y: 42,
+            width: max(1, rect.width - timelineInsetX * 2),
+            height: max(1, rect.height - 88)
+        )
+        let centerY = rect.midY
+        let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
+        let step = vbBarWidth + vbBarGap
+        let maxVisibleBars = Int(floor(timelineRect.width / step))
+
+        // 左起右滚：最新数据在右端
+        let startIndex = max(0, waveformData.count - maxVisibleBars)
+        let visibleData = Array(waveformData[startIndex...])
+        guard !visibleData.isEmpty else { return }
+
+        NSGraphicsContext.current?.saveGraphicsState()
+        // 轻光晕：品牌绿低透明泛光
+        let glow = NSShadow()
+        glow.shadowColor = NSColor(hex: "#13BBA3").withAlphaComponent(0.5)
+        glow.shadowBlurRadius = 3
+        glow.shadowOffset = .zero
+        glow.set()
+
+        for (offset, level) in visibleData.enumerated() {
+            let x = timelineRect.minX + CGFloat(offset) * step
+            guard x <= timelineRect.maxX else { break }
+            // 最小半径 1pt → 静音时为 2pt 圆点行（圆头天然成点）
+            let amplitude = max(1.0, CGFloat(max(0, level)) * drawHeight * 0.48)
+            let barRect = NSRect(x: x, y: centerY - amplitude, width: vbBarWidth, height: amplitude * 2)
+            let barPath = NSBezierPath(roundedRect: barRect, xRadius: vbBarWidth / 2, yRadius: vbBarWidth / 2)
+            // 顶端亮 → 根部深（-90°：从上到下）
+            barGradient.draw(in: barPath, angle: -90)
+        }
+
+        NSGraphicsContext.current?.restoreGraphicsState()
     }
 
     // MARK: - v3.1 Idle 均衡器动效（Figma 规格：5 柱脉冲）
