@@ -349,3 +349,51 @@
 - 注：老板 14:40 报障截图未落盘，当前窗口尺寸（960/1200×750）实测均无穿入——修复以约束贴齐 + 浮层删除两验收项为准
 - commit：791213c（R0 贴齐+删浮层）、58f9e46（R1 下沉）、16489e1（R2 全高右栏）
 - 教训：①视觉贴边验收看绘制内容不看 frame；②报障截图标注的方向性（指「想要的」还是「不想要的」）开工前必须确认——本单因方向读反返工一轮
+
+### FEAT-002 转写导出 txt（实时翻译砍掉） | P1 | S | [done] ✅ 2026-10-13 10:34 老板签收
+
+> 来源（2026-10-12 20:04 老板口述）：「实时翻译」这个功能（含其弹窗 UI 设想）**先不带了**；重点是转文字——**转完可以直接看到**，然后**可以导出成 txt**。
+> 现状盘点：①代码/资源层无任何翻译功能实现（grep 翻译/translation 零命中）——实时翻译属规划砍单，无删除工作量；②转写结果已内嵌编辑器 TranscriptPanelView 直接可见（FEAT-001 交付）；③当前导出仅 Markdown 格式（FEAT-001），**txt 导出为本单主要工作量**。
+
+**做什么**：①导出格式增加 **.txt**（纯文本：标题 + 逐段时间戳 + 正文，无 Markdown 语法标记），与现有 MD 导出并列可选；②验收确认「转写完成即所见」链路（TranscriptPanelView 转完直接显示，无需打开文件）。
+
+**不做什么**：不做实时翻译（含弹窗/浮窗 UI，老板明确砍掉）；不动 MD 导出；不动转写引擎（SpeechAnalyzer 双引擎）
+
+**实施记录**（2026-10-12 23:45）：
+- `TranscriptPanelView.swift` 新增 `static func plainText(for:fileName:)`：标题行 + 引擎/语言/时间元信息行 + 【全文】 + 【分段】[MM:SS] 时间戳（空段跳过、单段省略分段区块）+ Loocap 署名，零 Markdown 标记
+- `EditorViewController.transcriptPanelDidTapExport`：NSSavePanel `allowedContentTypes = [txt, md]`，默认文件名 `.txt`，按保存扩展名分派 plainText/markdown；UXEventLog detail 增加 format 字段
+- 常驻单测 `AudioRecordMacSnapshotTests/TranscriptExportTests.swift`（3 用例：无 MD 标记/结构断言/单段省略）；project.yml SnapshotTests target 加入 TranscriptPanelView.swift 源 + xcodegen 重生成
+- 环境注记：本会话 xcodebuild test / swift test 直跑均被 WorkBuddy 沙箱嵌套 seatbelt 禁令拦截（LOOP-05 同根因）；SwiftPM 加 `--disable-sandbox` 可跑通
+- 追改（10-13 09:59）：导出按钮文案「导出 MD」→「导出」（双格式后旧文案失义），L10n 废弃 key `"导出 MD"` 已删
+
+**验收标准**：
+- [x] 导出的 .txt 无任何 Markdown 标记，结构完整（标题 + 时间戳分段 + 正文）——plainText 真函数 swiftc 编译硬验证 **14/14 PASS**（无 `**`/`---`/`- `/`#`，时间戳 63s→[01:03]，空段跳过，CJK 无空格拼接），MD 格式对照 PASS（证明两格式分派生效）
+- [x] MD 导出不回退——markdown() 未改动，对照组断言 PASS；SavePanel 双格式并存
+- [x] 转写完成即所见——FEAT-001 已交付（TranscriptPanelView 转完直接显示），本单未动该链路
+- [x] `build-app.sh` exit 0；SDK 单测 **77/77 PASS**（`swift test --disable-sandbox`）
+- [x] 老板签收实测（10-13 10:34）
+- commit：b48dc82（txt 导出主体）、0ffdce9（按钮文案修正）
+- 教训：改导出格式时按钮文案等 UI 语义要同步过一遍——「导出 MD」在双格式后失义
+
+### UI-009 Dock 图标观感偏小（可见边界调大） | P2 | S | [done] ✅ 2026-10-13 10:34 老板签收
+
+> 来源（2026-10-12 20:05 老板截图）：Dock 里 LC 图标与其他 App 并排时**明显小一圈**（截图实测：邻居 tile 宽 ~105px，LC ~80px，小 ~24%）。
+> **实测排查（20:10）**：icns 各档方框占比 512 档 97% / 128 档 96% / 32 档 91%，四角 alpha=255 无透明边距——**图标文件本身没做小**。观感偏小主因：LC 暗底（#1A1A1C）在深色 Dock 背景上**边缘融合**，可见边界只剩灰描边方框内缩一圈；邻居 App 亮色满铺边缘清晰故显大。
+
+**做什么**：提升图标的**可见边界尺寸与对比**——①灰描边加亮/加粗（如 #C0C0C0、2px→3px）或描边外加一圈微亮晕（低透明度白边），让暗底在深色 Dock 上有清晰外缘；②必要时主体（LC 字母 + 描边方框）再放大 3-5% 满铺画布。改 `scripts/make_appicon.sh`（可复跑管线）实现，不改设计稿正本。
+
+**不做什么**：不改 LC 字标设计本身；不动正本 jpg；不动 Dock 相关代码（纯资源层）
+
+**实施记录**（2026-10-13 00:05，改 `scripts/make_appicon.sh`）：
+- 主体放大：crop 余量 +2% → −2%（主体放大约 6%），方框满铺 1024 画布（实测占比 99.9%，四角保持不透明 #212226）
+- 描边提亮+加粗：外圈 8% 环带内描边像素按比例提亮（实测均亮 161→205 ≈ #C8C8C8），MaxFilter 5x5 向外膨胀 2px 加粗；内部 LC 字标不触碰（环带限定）
+- 管线重跑 → icns 更新 → build exit 0 → 重启 App + killall Dock 刷新
+
+**验收标准**：
+- [x] Dock 实拍：LC 可见 tile 宽度与邻居基本等宽（实拍 retina 量测 LC 暗底 295px，左邻绿 tile 同级；修复前老板截图测得小 ~24%）——`docs/证据/UI-009-Dock实拍-描边亮边-2026-10-13.png`
+- [x] 图标外缘清晰可辨：亮描边 #C8C8C8 在深色 Dock 上有明显亮边（对比实拍图）
+- [x] 方框占比 ≥ 95%，四角不透明：实测 99.9% / 四角 #212226 alpha=255
+- [x] `make_appicon.sh` 重跑生效；`build-app.sh` exit 0
+- [x] 老板签收 Dock 观感（10-13 10:34）
+- commit：164c301（描边提亮+主体满铺）
+- 教训：「观感偏小」类报障先用像素量测分清「文件真小」还是「视觉融合」——本单文件本身 97% 满铺，修的是对比度与边界，不是尺寸
