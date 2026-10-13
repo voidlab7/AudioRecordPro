@@ -61,6 +61,11 @@ class MainViewController: NSViewController {
 
     // FEAT-001 S1: 实时转写面板（录制中显示在主窗口下方）
     private lazy var liveTranscriptPanel = LiveTranscriptPanel()
+
+    /// FEAT-003 (2026-10-13 老板指令「实时翻译要下掉先」)：实时转写浮窗开关。
+    /// false = 浮窗不弹（本单交付态）；true = 恢复 FEAT-001 S1 原行为。
+    /// 转写主链路（识别→落盘 .atranscript.json→导出 txt）与本开关无关，始终运行。
+    private static let enableLiveTranscriptPanel = false
     
     // LOOP-05: UI 测试 mock 模式（XCUITest 以 --ui-testing 启动参数拉起）
     private let isUITesting = ProcessInfo.processInfo.arguments.contains("--ui-testing")
@@ -332,14 +337,20 @@ class MainViewController: NSViewController {
             // FEAT-001 S1: 实时转写——预热会话 + 展示 live 文本条
             if #available(macOS 26.0, *) {
                 let coordinator = LiveTranscriptionCoordinator.shared
-                coordinator.onLiveText = { [weak self] finalized, volatile in
-                    self?.liveTranscriptPanel.update(finalized: finalized, volatile: volatile)
+                // FEAT-003: 实时转写浮窗下掉（改回 true 一键恢复），转写主链路不受影响——
+                // coordinator 照常跑，文稿仍随录音落盘 <uuid>.atranscript.json（导出 txt 数据源）
+                if Self.enableLiveTranscriptPanel {
+                    coordinator.onLiveText = { [weak self] finalized, volatile in
+                        self?.liveTranscriptPanel.update(finalized: finalized, volatile: volatile)
+                    }
                 }
                 coordinator.onError = { [weak self] message in
                     self?.mainWindowView.updateStatus("实时转写不可用: %@".localized(message))
                 }
                 coordinator.start()
-                self.liveTranscriptPanel.show(for: self.view.window)
+                if Self.enableLiveTranscriptPanel {
+                    self.liveTranscriptPanel.show(for: self.view.window)
+                }
                 UXEventLog.shared.module("Transcription", "live_start", detail: ["locale": "auto"])
             }
             

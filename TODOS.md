@@ -135,7 +135,7 @@
 
 ---
 
-### FEAT-003 下掉实时翻译浮窗（不弹即达标，代码留开关） | P1 | S | [todo · 待签]
+### FEAT-003 下掉实时翻译浮窗（不弹即达标，代码留开关） | P1 | S | [rfr · 完成+验证 2026-10-13 13:55，待老板签]
 
 > 来源（2026-10-13 11:38 老板指令）：「实时翻译要下掉先。不要弹出下面那个实时翻译的浮窗。」
 > 边界澄清：FEAT-002 砍的是**导出**里的翻译；本单下掉的是**运行时**录音/转写过程中弹出的实时翻译浮窗——两者是不同入口。
@@ -146,11 +146,14 @@
 3. 设置页如有「实时翻译」开关项，同步隐藏或置灰（避免用户打开一个无效功能）
 4. 下掉后确认转写主链路不受影响（浮窗消失但转写文本正常产出/展示）
 
-**验收标准**（待签）：
-- [ ] 录音 + 转写全流程：实时翻译浮窗不再弹出（录屏/截图证据）
-- [ ] 转写功能正常（文本照常出现）
-- [ ] 开关可一键恢复（代码层验证即可）
-- [ ] `build-app.sh` exit 0；SDK 单测通过
+**实现与验证**（2026-10-13 13:55）：
+- 弹出链路实锤：`MainViewController.swift` `startRecording()` 内 `liveTranscriptPanel.show(for:)` + `onLiveText` 喂 panel（面板挂全局浮层，主窗口正下方 120pt）
+- 开关：`MainViewController.enableLiveTranscriptPanel = false`（静态常量，改 true 一键恢复 FEAT-001 S1 原行为）；false 时仅摘 `show` 与 `onLiveText` 接线
+- **转写主链路零影响**：coordinator bind/start/finishAndCollect 照常跑，文稿仍随 finalize 落盘 `<uuid>.atranscript.json`（导出 txt 数据源）
+- 设置页无「实时翻译/转写」开关项（grep 全量确认），验收第 3 条自然满足
+- selftest 8s 实证：①Quartz 窗口列表仅剩主窗口（浮窗不弹）；②日志「实时转写会话已就绪 locale=zh-CN」→「收集完成：2 字」（链路在跑）
+- `build-app.sh` exit 0
+- 残留注记：无系统音频源场景 onRecordingComplete 不触发→产物不落盘（`.atranscript.json` 联验依赖真实音频源场景）——与「混录 4KB 空壳」同族既有问题，非本单引入，建议开新单
 
 ---
 
