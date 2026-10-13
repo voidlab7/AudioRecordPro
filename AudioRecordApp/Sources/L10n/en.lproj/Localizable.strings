@@ -329,3 +329,14 @@
 "转写语言（实时出字与导出文稿共用）" = "Transcription language (live captions & export)";
 "转写完成: %d 字" = "Transcribed: %d chars";
 "导出校验失败" = "Export verification failed";
+
+/* UI-015: 麦克风设备选择交互重构 */
+"跟随系统默认" = "Follow System Default";
+"输入设备" = "Input Device";
+"聚合· " = "Aggregate· ";
+"聚合设备 #" = "Aggregate Device #";
+"未检测到" = "Not Detected";
+"未检测到麦克风" = "No microphone detected";
+"未启用" = "Off";
+"已混入" = "Mixed In";
+"所选设备已失效，已回退系统默认" = "Selected device offline, fell back to system default";
