@@ -215,54 +215,6 @@
 
 ---
 
-### UI-016 App 图标换新 logo（L 箭头 + C 声波 + 录音点） | P2 | M | [ready-for-review · 2026-10-13 23:55 worktree loop/UI-016 999f2cf，待老板签收]
-
-> **2026-10-13 23:45 夜跑会话置 blocked 证据（并发冲突）**：
-> - 夜跑会话 23:40 建 worktree `.worktrees/UI-016`、写 `logo-v2.svg` 初版（#1B3A6B/#4FB8CF/#F26B3A，手测几何）+ `render_svg.swift`（NSImage SVG 渲染器）+ 重写 `make_appicon.sh`（SVG→渲染→1024 底板合成→iconset→icns 管线，旧版备份 make_appicon-lc-legacy.sh），23:41 跑通管线 EXIT=0 生成 AppIcon.icns。
-> - 自验 PIL bbox 检测发现 C 弧 large/sweep flag 解析偏差（C 弧被画大、内弧凸向反）正要修时，**23:43:35 logo-v2.svg 被外部改写**——色值/几何全部重调（#1B3A61/#57BCC9/#E6663E/#F9F9F7，描边统一 46px，「参数扫描定版 + 三色掩膜 IoU navy≈0.90/teal≈0.89/orange≈0.91」定量叠图，注释注明沿用 make_appicon.sh 合成底板）——**另一会话正在做同一单，且版本质量更高**。
-> - 执行侧按 user_query 防并发冲突铁律让路：**不覆盖对方文件、不重跑管线抢产物、worktree 现场原样保留**。
-> - 现场状态：worktree `.worktrees/UI-016` 分支 loop/UI-016（基于 master 8580613），含夜跑会话交付（make_appicon.sh v2 + render_svg.swift + 初版 SVG 已被对方版本覆盖）+ 另一会话的优化版 SVG；AppIcon.icns 为夜跑版（旧 SVG 渲染，几何有偏差，**签收前须用现场 SVG 重跑 make_appicon.sh**）。全部未 commit。
-> - **解除路径**：等另一会话收工后（SVG 不再被改写），任一会话重跑 `bash scripts/make_appicon.sh` + `bash build-app.sh` 即可继续验收流程；若另一会话已完整交付，本单状态由需求台裁决接续。
->
-> **2026-10-13 23:55 接续收口（主会话 =「另一会话」本体，老板 23:38 派单）**：
-> - 并发真相：夜跑会话与本主会话同晚接了同一单——主会话 23:38 起单，用位图正本**像素测量+参数扫描**重写了 SVG（比夜跑手测版精度高一个量级，三色掩膜 IoU 0.85-0.91）并重写 make_appicon.sh（rsvg-convert 矢量直出，替掉 NSImage 方案）；夜跑 23:47 撞见后让路收工，处置合规。
-> - 夜跑担心的「icns 是旧 SVG 渲染」已消除：主会话 23:48 用定版 SVG 重跑了全管线（icns 137115B，时间戳晚于定版 SVG）。
-> - 交付 commit：aee4468（SVG 正本+管线+icns+证据五张）+ 999f2cf（位图正本入库）；build-app.sh exit 0；运行时代码零旧引用；32px 声波/圆点可辨，无需小档简化。
-> - render_svg.swift 为夜跑遗留工具（未 commit，已被 rsvg-convert 方案取代，留现场不删）。
-> - **留老板验收**：Dock 实拍一眼（App 已带新图标运行、Dock 已刷新；会话内 Dock 图标层截图不完整，实拍最直接）。
-
-> 来源（2026-10-13 21:50 老板指令 + 新 logo 图）：「logo 按照这个实现。」
-> 正本：`docs/设计稿/logo-v2-L箭头C声波-正本-2026-10-13.png`（800×630 RGBA，米白底）
-> 关系：**整体替换 UI-007 的 LC 字标图标**（旧正本 `logo-lc-正本-1024.jpg` 与旧管线逻辑保留不删，备用）。
-
-**新 logo 构成（需求台读图）**：
-- **L 形主体**：深海军蓝（~#1B3A6B）粗圆头线条——竖笔顶端内弯成钩并向下收成**向下箭头**（录入/下载隐喻），底笔转折处**青色段**（~#4FB8CF）与海军蓝段拼接
-- **C/D 形外弧**：深海军蓝大半圆弧，开口朝左，与 L 底笔相连成「LC」合体
-- **内层声波**：青色同心小弧 + 中心**橙色圆点**（~#F26B3A，录音红点/声源）
-- 底：米白（~#F7F7F5）
-
-**现状与难点（已实测）**：
-- App 内**无 logo 绘制点**，只有 `AudioRecordApp/Resources/Assets/AppIcon.icns`；图标管线 `scripts/make_appicon.sh`（UI-007 版，逻辑是「像素定位灰描边+暗底 #212226 满铺」，**专为旧 LC 暗底图写的，对新图不适用，须重写**）
-- 正本仅 800×630 且带压缩杂边，**直接放大到 1024 会糊**
-
-**做什么**：
-1. **矢量重绘为 SVG 正本**（`docs/设计稿/logo-v2.svg`）：几何全是圆头描边路径（L 钩+箭头、外弧、内弧、圆点），按图手工建模，与正本叠图比对误差 ≤ 2% 视觉；SVG 作为此后所有尺寸的单一真源
-2. **重写 `make_appicon.sh`**：SVG → 1024 母版 → 10 档 iconset → icns；旧 UI-007 管线逻辑整体替换（旧版 `make_appicon.sh` 先备份为 `make_appicon-lc-legacy.sh`）
-3. **底板规格**：logo 居中置于 **macOS 标准图标网格**（1024 画布，圆角方块 824×824、圆角 ~185），底色用**米白/白**（navy 线条在深底上对比不足，与正本一致；不再用 #212226 暗底）；logo 主体占方块 ~64-70%，四周留呼吸
-4. 重启 App + `killall Dock` 刷新；Dock/⌘Tab/关于窗口/DMG（`make_dmg.sh` 如引用图标）一并换
-5. 小尺寸（16/32px）细节检查：内层声波弧+圆点在 32px 下是否糊成一团，必要时小档位做线宽加粗/简化（只简化最小两档）
-
-**不做什么**：官网 `microv.site/loocap/` 的 favicon/页面 logo 不在本单（是 MicroVSite 另一个工程，需要换另开单）；不改 App 内任何界面布局（现无 logo 绘制点）
-
-**验收标准**（待签）：
-- [ ] Dock 实拍：图标为新 logo，与邻居 App 并排大小观感一致（沿用 UI-009 的「可见 tile 宽度与邻居等宽」口径）
-- [ ] 与正本叠图比对：形状/配色/比例无明显走样（并排对比图）
-- [ ] 16/32/128/512 四档实拍或预览均清晰可辨（小档不糊）
-- [ ] `make_appicon.sh` 重跑可复现；SVG 正本入库；`build-app.sh` exit 0
-- [ ] 全仓 grep 旧 LC 图标引用：运行时代码无残留（旧正本文件保留备用，不算残留）
-
----
-
 ## done 索引（正文见 `docs/归档/TODOS-done-2026-10.md`）
 
 | 单号               | 标题                             | 签收         |
