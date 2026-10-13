@@ -229,13 +229,16 @@
 > **R1 交付**：设备枚举 + 侧栏选择行 + UserDefaults 持久化 + 失效回退（老板选临时聚合设备消失后实测回退成功）。
 > **R2 拆出**：按所选设备实际采集（见 FEAT-004R2）。R1 期间选择仅持久化，录音仍走系统默认输入。
 
-### FEAT-004R2 麦克风按所选设备采集（自建 AUHAL input unit） | P2 | M | [todo · 标准草案待签]
+### FEAT-004R2 麦克风按所选设备采集（自建 AUHAL input unit） | P2 | M | [rfr · 完成+单机硬验证 2026-10-13 15:15，待老板签（≥2设备对质留老板）]
 
 > 来源：FEAT-004 R1 实施中实锤的架构死路（2026-10-13 14:05 CLI 七连实验）。
 > **根因证据链**：macOS AVAudioEngine 的 inputNode 与 outputNode 是**同一个 IO AUHAL unit**（`inputNode.audioUnit === outputNode.audioUnit`，CLI 实测）。
 > 对 inputNode set `kAudioOutputUnitProperty_CurrentDevice` = 把整个引擎的 IO 设备换成麦克风 → 扬声器侧 `outputHWFormat` 失配 → `engine.start()` 必报 **-10875**（`IsFormatSampleRateAndChannelCountValid(outputHWFormat)`）。
 > 已否决姿势：start 前 set（-10875）/ running 态 set（-10851）/ stop 后 set（-10851）/ set 后 AudioUnitUninitialize（无效）。与时机无关，是共用 unit 的架构死路。
 > **方案（OBS/QuickTime 同款）**：自建 `kAudioUnitSubType_HALOutput` input unit：initialize 前 set CurrentDevice（纯 AU 层无缓存问题，CLI 已证 set 本身 noErr）→ render callback 出 Float32 PCM → 喂现有 handleMicrophoneData / ring buffer 路径。三处接线：MicrophoneRecorder / MixedAudioRecorder / FIX-007 注入引擎。
+>
+> **实施补录（2026-10-13 15:15 完成）**：实施中再踩一坑——HALOutput 的输入回调必须用 **`kAudioOutputUnitProperty_SetInputCallback`**（Global/0），用常规 `SetRenderCallback` 时属性设置 noErr 但 IOProc 永不被调度（0 callbacks，CLI 骨架实验实锤）；且客户端格式必须设 **`kAudioUnitProperty_StreamFormat` on Output scope element 1**（输入数据出口端）。正确配方五步：EnableIO(Input/1)=1 → EnableIO(Output/0)=0 → CurrentDevice(Global/0) → StreamFormat(Output/1) → SetInputCallback(Global/0)，回调内 AudioUnitRender(bus 1)。
+> **硬验证**：单机模拟「选了非默认设备」（defaults 注入内建麦 UID 走 unit 路径）——unit 绑定成功（ID=109, 48kHz×1ch）、render proc 持续调度（6s 内 500+ 回调）、数据持续写环零欠载、混录产物 2.3MB/5.98s 健康（对比 4KB 空壳时代）；tap 路径回归同轮通过（无偏好时原路径 2.3MB 落盘）。≥2 设备的真对质（换设备录音音色区分）留老板外接验证。
 
 **验收标准**（待签）：
 - [ ] 下拉选非默认麦克风 → 录音落盘数据来自所选设备（对质：换设备录两次，音色/电平可区分）

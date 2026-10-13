@@ -19,6 +19,8 @@ class MixedAudioRecorder: BaseAudioRecorder {
     // 麦克风录制组件 (AVAudioEngine)
     private let micEngine = AVAudioEngine()
     private var micTapCallCount = 0  // 麦克风Tap回调计数器
+    /// FEAT-004R2: 用户选择非默认麦克风时，改用自建 AUHAL unit 采集（AVAudioEngine 换设备是 -10875 死路）
+    private let micCaptureUnit = MicCaptureUnit()
     
     // 音频格式
     private var commonFormat: AudioStreamBasicDescription?
@@ -267,6 +269,23 @@ class MixedAudioRecorder: BaseAudioRecorder {
         let startTime = Date()
         logger.info("🎤 启动麦克风捕获...")
 
+        // FEAT-004R2: 用户选择了非默认麦克风 → 自建 AUHAL unit 采集（数据与 engine tap 同构 AVAudioPCMBuffer，
+        // 直接喂 handleMicrophoneData，环形缓冲/混音链路零改动）。micEngine 整个不启动。
+        if let preferred = MicDeviceManager.shared.resolvedPreferredDevice() {
+            logger.info("🎤 [FEAT004R2] 使用所选麦克风设备: \(preferred.name) (ID=\(preferred.deviceID))")
+            micCaptureUnit.onBuffer = { [weak self] buffer in
+                guard let self = self else { return }
+                self.micTapCallCount += 1
+                if self.micTapCallCount <= 5 || self.micTapCallCount % 100 == 0 {
+                    self.logger.info("🎤 麦克风Unit回调[\(self.micTapCallCount)]: frameLength=\(buffer.frameLength), channels=\(buffer.format.channelCount)")
+                }
+                self.handleMicrophoneData(buffer: buffer)
+            }
+            try micCaptureUnit.start(deviceID: preferred.deviceID)
+            logger.info("✅ 麦克风捕获已启动（自建unit，耗时: \(String(format: "%.2f", Date().timeIntervalSince(startTime)))秒）")
+            return
+        }
+
         // 获取麦克风输入节点
         let inputNode = micEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
@@ -317,6 +336,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
     }
     
     private func stopMicrophoneCapture() {
+        micCaptureUnit.stop()  // FEAT-004R2: 自建unit路径（幂等，未启动即no-op）
         if micEngine.isRunning {
             micEngine.inputNode.removeTap(onBus: 0)  // 移除数据tap
             micEngine.mainMixerNode.removeTap(onBus: 0)  // 移除驱动tap

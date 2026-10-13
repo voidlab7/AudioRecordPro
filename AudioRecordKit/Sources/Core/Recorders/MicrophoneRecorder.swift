@@ -11,6 +11,8 @@ class MicrophoneRecorder: BaseAudioRecorder {
     private var mixerFormat: AVAudioFormat?
     private var totalFramesWritten: AVAudioFrameCount = 0
     private var lastStatsLogTime: TimeInterval = 0
+    /// FEAT-004R2: 所选非默认麦克风走自建 AUHAL unit
+    private var micCaptureUnit: MicCaptureUnit?
     // 调试用：强制使用PCM(WAV)参数写入，验证输入链路（与输入buffer格式一致，避免编码干扰）
     private let forcePCMForDebug: Bool = true
     
@@ -71,12 +73,14 @@ class MicrophoneRecorder: BaseAudioRecorder {
     override func stopRecording() {
         // Stop microphone recording specific components
         if isRunning {
+            micCaptureUnit?.stop()  // FEAT-004R2: unit 路径（幂等，未启动即 no-op）
+            micCaptureUnit = nil
             engine.inputNode.removeTap(onBus: 0)
             recordMixer.removeTap(onBus: 0)
             engine.stop()
             logger.info("麦克风录制引擎已停止")
         }
-        
+
         // Call parent implementation
         super.stopRecording()
     }
@@ -162,56 +166,81 @@ class MicrophoneRecorder: BaseAudioRecorder {
     }
     
     private func installMicrophoneRecordingTap() {
+        // FEAT-004R2: 用户选择了非默认麦克风 → 自建 AUHAL unit 采集（AVAudioEngine 换设备是 -10875 死路），
+        // 数据处理与 tap 路径完全同构（processMicRecordingBuffer），engine 侧不装 input tap。
+        if let preferred = MicDeviceManager.shared.resolvedPreferredDevice() {
+            logger.info("🎤 [FEAT004R2] 纯麦录制改用所选设备: \(preferred.name) (ID=\(preferred.deviceID))")
+            let unit = MicCaptureUnit()
+            unit.onBuffer = { [weak self] buffer in
+                self?.processMicRecordingBuffer(buffer)
+            }
+            do {
+                try unit.start(deviceID: preferred.deviceID)
+            } catch {
+                logger.error("🎤 [FEAT004R2] unit启动失败: \(error.localizedDescription)")
+                return
+            }
+            micCaptureUnit = unit
+            logger.info("麦克风录制监听已安装（MicCaptureUnit）")
+            return
+        }
+
         // 直接在 inputNode 上安装 tap（使用其安全格式抓取）
         let input = engine.inputNode
         let inputFormat = getSafeInputFormat()
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, time in
-            guard let self = self, let file = self.audioFile else { return }
-            
-            // Write to audio file
-            do {
-                try file.write(from: buffer)
-                self.totalFramesWritten += buffer.frameLength
-            } catch {
-                self.logger.error("写入麦克风音频失败: \(error.localizedDescription)")
-            }
-
-            // FEAT-001 S1: 实时转写旁路（音频回调线程，消费方保证线程安全）
-            self.onAudioBuffer?(buffer)
-            
-            // Calculate and update level
-            let level = self.calculateRMSLevel(from: buffer)
-            
-            // Calculate peak level for waveform
-            let peakLevel: Float = {
-                guard let channelData = buffer.floatChannelData else { return 0.0 }
-                let fc = Int(buffer.frameLength)
-                let cc = Int(buffer.format.channelCount)
-                guard fc > 0 else { return 0.0 }
-                var peak: Float = 0.0
-                for ch in 0..<cc {
-                    for i in 0..<fc {
-                        let s = abs(channelData[ch][i])
-                        if s > peak { peak = s }
-                    }
-                }
-                return peak
-            }()
-            
-            // 统计日志：每10秒打印一次累计帧数
-            let now = CFAbsoluteTimeGetCurrent()
-            if now - self.lastStatsLogTime > 10.0 {
-                self.lastStatsLogTime = now
-                logger.info("📊 麦克风录制统计: 累计写入 \(self.totalFramesWritten) 帧")
-            }
-            Task { @MainActor in
-                self.onLevel?(level)
-                self.onPeakLevel?(peakLevel)
-            }
+            guard let self = self else { return }
+            self.processMicRecordingBuffer(buffer)
         }
-        
+
         logger.info("麦克风录制监听已安装（inputNode）")
+    }
+
+    /// FEAT-004R2: tap/unit 两路径共用的麦克风数据处理（写文件+转写旁路+电平回调）
+    private func processMicRecordingBuffer(_ buffer: AVAudioPCMBuffer) {
+        guard let file = audioFile else { return }
+
+        // Write to audio file
+        do {
+            try file.write(from: buffer)
+            totalFramesWritten += buffer.frameLength
+        } catch {
+            logger.error("写入麦克风音频失败: \(error.localizedDescription)")
+        }
+
+        // FEAT-001 S1: 实时转写旁路（音频回调线程，消费方保证线程安全）
+        onAudioBuffer?(buffer)
+
+        // Calculate and update level
+        let level = calculateRMSLevel(from: buffer)
+
+        // Calculate peak level for waveform
+        let peakLevel: Float = {
+            guard let channelData = buffer.floatChannelData else { return 0.0 }
+            let fc = Int(buffer.frameLength)
+            let cc = Int(buffer.format.channelCount)
+            guard fc > 0 else { return 0.0 }
+            var peak: Float = 0.0
+            for ch in 0..<cc {
+                for i in 0..<fc {
+                    let s = abs(channelData[ch][i])
+                    if s > peak { peak = s }
+                }
+            }
+            return peak
+        }()
+
+        // 统计日志：每10秒打印一次累计帧数
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastStatsLogTime > 10.0 {
+            lastStatsLogTime = now
+            logger.info("📊 麦克风录制统计: 累计写入 \(totalFramesWritten) 帧")
+        }
+        Task { @MainActor in
+            self.onLevel?(level)
+            self.onPeakLevel?(peakLevel)
+        }
     }
     
     private func startAudioEngine() throws {

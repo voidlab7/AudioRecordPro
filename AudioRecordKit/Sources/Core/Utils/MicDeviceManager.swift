@@ -85,6 +85,17 @@ final class MicDeviceManager {
         }
     }
 
+    /// FEAT-004R2: 解析偏好设备为可用设备（在线校验）
+    /// 返回 nil = 无偏好或偏好已失效（调用方回退系统默认输入）
+    func resolvedPreferredDevice() -> MicDeviceInfo? {
+        guard let uid = preferredDeviceUID, !uid.isEmpty else { return nil }
+        let match = listMicrophones().first { $0.uid == uid }
+        if match == nil {
+            logger.warning("MicDeviceManager: 偏好设备 UID=\(uid) 当前不在线，回退系统默认")
+        }
+        return match
+    }
+
 
     // MARK: - 热插拔监听
 

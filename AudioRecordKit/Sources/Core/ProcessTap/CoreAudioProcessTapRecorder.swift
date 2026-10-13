@@ -31,6 +31,8 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     private let micStateLock = NSLock()
     private var micMixEnabled = false
     private var micEngine: AVAudioEngine?
+    /// FEAT-004R2: 所选非默认麦克风走自建 AUHAL unit（AVAudioEngine 换设备是 -10875 死路）
+    private var micCaptureUnit: MicCaptureUnit?
     private var micRingBuffer: [Float] = []
     private var micMaxRingSize = 192000  // 48kHz×2ch×2s，启动麦克风时按实际采样率校正
     private var micWritePos = 0
@@ -86,8 +88,54 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     /// 懒启动麦克风采集引擎（input tap → 环形缓冲，与 MixedAudioRecorder 同构）
     private func startMicEngineIfNeeded() {
         micStateLock.lock()
-        if micEngine != nil { micStateLock.unlock(); return }
+        if micEngine != nil || micCaptureUnit != nil { micStateLock.unlock(); return }
         micStateLock.unlock()
+
+        // FEAT-004R2: 用户选择了非默认麦克风 → 自建 AUHAL unit 采集，写同一环形缓冲（消费方 takeMicSamples 零改动）
+        if let preferred = MicDeviceManager.shared.resolvedPreferredDevice() {
+            logger.info("🎤 [FEAT004R2] 注入引擎改用所选设备: \(preferred.name) (ID=\(preferred.deviceID))")
+            let unit = MicCaptureUnit()
+            unit.onBuffer = { [weak self] buffer in
+                guard let self = self, let chData = buffer.floatChannelData else { return }
+                let frames = Int(buffer.frameLength)
+                let channels = Int(buffer.format.channelCount)
+                guard frames > 0, channels > 0 else { return }
+                // FIX-007 打点（一次性）：首帧实测峰值——证明麦克风真的在收音（unit 路径独立打点）
+                struct UnitFirstShot { static var done = false }
+                if !UnitFirstShot.done {
+                    UnitFirstShot.done = true
+                    var peak: Float = 0
+                    for f in 0..<frames { let v = abs(chData[0][f]); if v > peak { peak = v } }
+                    self.logger.info("🎤 [FEAT004R2] unit首帧: frames=\(frames), peak=\(peak)")
+                }
+                self.micStateLock.lock()
+                defer { self.micStateLock.unlock() }
+                // 环惰性初始化（按 unit 实际采样率，2秒×2声道）
+                if self.micMaxRingSize == 0 {
+                    self.micMaxRingSize = Int(buffer.format.sampleRate) * 2 * 2
+                    self.micRingBuffer = [Float](repeating: 0, count: self.micMaxRingSize)
+                    self.micWritePos = 0
+                    self.micReadPos = 0
+                }
+                for f in 0..<frames {
+                    for ch in 0..<2 {
+                        let sample = chData[min(ch, channels - 1)][f]
+                        self.micRingBuffer[self.micWritePos] = sample
+                        self.micWritePos = (self.micWritePos + 1) % self.micMaxRingSize
+                    }
+                }
+            }
+            do {
+                try unit.start(deviceID: preferred.deviceID)
+            } catch {
+                logger.error("🎤 [FEAT004R2] unit启动失败: \(error.localizedDescription)")
+                return
+            }
+            micStateLock.lock()
+            micCaptureUnit = unit
+            micStateLock.unlock()
+            return
+        }
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
@@ -149,7 +197,14 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         micStateLock.lock()
         let engine = micEngine
         micEngine = nil
+        let captureUnit = micCaptureUnit
+        micCaptureUnit = nil
         micStateLock.unlock()
+        if let captureUnit = captureUnit {
+            captureUnit.stop()  // FEAT-004R2: unit 路径清理
+            logger.info("🎤 [FIX007] 麦克风注入引擎已停止（unit）")
+            return
+        }
         guard let engine = engine else { return }
         engine.inputNode.removeTap(onBus: 0)
         engine.mainMixerNode.removeTap(onBus: 0)
