@@ -530,3 +530,31 @@
 - [x] 画布四边无网格外裸区
 - [x] `build-app.sh` exit 0
 - [x] 老板签收（10-13 11:45）
+
+### FIX-006 开麦混录说话无电平（原口径「播放 QQ 音乐时电平不启动」） | P2 | M | [done] ✅ 2026-10-13 12:12 老板签收
+
+> 来源（10-13 11:30 老板口述「播放 QQ 音乐电平不启动」→ **11:53 老板纠正真实场景**：开了麦克风、正在对麦克风说话，没有电平显示）。
+> 11:45 曾误定性为「场景 B 未录音态置灰（UI-008 设计）」——该定性作废，真实场景是真 bug。
+> 复现钩子：selftest 触发器扩展「N mix」（开麦克风混录自测 N 秒），`SidebarView.setMicrophoneMixEnabled` 编程开混录。
+
+**根因（三层叠加，全部实锤）**：
+1. **MixedAudioRecorder 从未调用 `callOnRecordingStarted()`**（MicrophoneRecorder:232 / CoreAudioProcessTapRecorder:294 均有，唯独混录器漏）→ UI 永不进录制态 → `isCaptureRunning=false` → `updateLevel/updatePeakLevel` 的 guard 把电平显示**全部吞掉**——「说话电平表不动」的直接原因
+2. **麦克风环形缓冲被系统时钟抽干**：系统 IO 每 ~10ms 消费 1024 样本，麦克风每 ~105ms 到货 9600 样本，持续欠载时旧逻辑**填静音**——语音在混音里被顶掉（修复前日志：`麦克风数据不足 需要1024 可用0` 刷屏）
+3. 混录器独立 Tap 栈未接 FIX-004 静音保活（系统全静音时整场零 IO，同 FIX-004 根因）
+
+**修复**（`MixedAudioRecorder.swift`）：
+1. 管线启动成功尾部补 `callOnRecordingStarted()`
+2. 欠载补偿：hold 最后采样值代替静音填充（`lastMicSample`），波形连续、语音保持在场，时钟漂移由环形覆盖自然消化
+3. 补 `silentKeepAlive`（启动先于 Tap / 停止与失败路径撤除）
+
+**验收标准**：
+- [x] 开麦混录录音中：UI 进入 REC 态（计时走、波形绘制）——实拍 `docs/证据/2026-10-13-FIX006-修复后-混录电平表.png`（REC · System Audio + 计时 00:02.50 + 测试音波形 + DB METER 绿色电平条亮起）
+- [x] 说话/出声时电平表实时动（DB METER 实拍亮起；峰值链路 maxPeakDuringRecording 恢复累积）
+- [x] 落盘硬验证：修复前混录文件被「拦截无效录音」安全删除；修复后 14s 混录完整加密存活（`0A387B29.arlock`），解密逐秒峰值有声段 0.06-0.28
+- [x] `build-app.sh` exit 0
+- [x] 老板签收：实际开麦说话看电平（10-13 12:12）
+- 实施记录：`MixedAudioRecorder.swift`（callOnRecordingStarted + hold 补偿 + 保活）/ `SidebarView`+`MainWindowView`+`MainViewController`+`AppDelegate`（selftest「N mix」钩子，LOOP-05 e2e 可复用）
+- commit：c5c010d
+- 教训：①报障场景没复现就定性=坑（本单先误定性「场景 B」返工一轮）；②「同时录入麦克风」走 MixedAudioRecorder 独立栈，录制器层修复要查三处（Microphone/CoreAudioProcessTap/Mixed）是否同构接线——BUG-1 的 callOnRecordingStarted 修复当年只改了两处，漏了第三处
+
+> 附注：同日起草的 UI-013（未录音态实时电平监听）系误定性产物，前提不成立，未签即删（2026-10-13 12:12）。
