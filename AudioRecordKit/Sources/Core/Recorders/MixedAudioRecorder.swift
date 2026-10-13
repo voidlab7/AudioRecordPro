@@ -30,6 +30,12 @@ class MixedAudioRecorder: BaseAudioRecorder {
     private var micWritePosition = 0
     private var micReadPosition = 0
     private let bufferLock = NSLock()
+    // FIX-006: 欠载 hold 补偿用的最后采样值（双声道交错，取最后一对）
+    private var lastMicSample: Float = 0.0
+
+    // FIX-006: 静音保活——混音链路的系统 IO 回调是混音/电平/落盘的唯一驱动源，
+    // 系统静音时输出设备休眠 = 整场零回调（FIX-004 同根因，CoreAudioProcessTapRecorder 已修，本类独立栈补齐）
+    private let silentKeepAlive = SilentOutputKeepAlive()
     
     // 文件管理
     private var audioToolboxFileManager: AudioToolboxFileManager?
@@ -89,12 +95,18 @@ class MixedAudioRecorder: BaseAudioRecorder {
                 
                 isRunning = true
                 onStatus?("正在录制 (系统音频 + 麦克风混音)...".localized)
+                // FIX-006: 混音管线真正启动后才通知 UI 进录制态。
+                // 此前本类从未调用（MicrophoneRecorder:232 / CoreAudioProcessTapRecorder:294 均有），
+                // 导致开麦混录时 UI 永远停在待录制态、isCaptureRunning=false，
+                // updateLevel/updatePeakLevel 的 guard 把电平显示全部吞掉——「说话电平表不动」。
+                callOnRecordingStarted()
                 logger.info("✅ 融合录音启动成功")
                 
             } catch {
                 let errorMsg = "融合录音启动失败: \(error.localizedDescription)"
                 logger.error(errorMsg)
                 onStatus?(errorMsg)
+                silentKeepAlive.stop()  // FIX-006: 失败路径撤除保活
                 cleanup()
             }
         }
@@ -172,7 +184,10 @@ class MixedAudioRecorder: BaseAudioRecorder {
     
     private func startSystemAudioCapture() async throws {
         logger.info("🔊 启动系统音频捕获 (Process Tap)...")
-        
+
+        // FIX-006: 静音保活先于 Tap 创建（FIX-004 同款，本类独立 Tap 栈需单独接线）
+        silentKeepAlive.start()
+
         // 解析目标进程对象ID
         let processObjectIDs = try await resolveProcessObjectIDs()
         
@@ -232,6 +247,9 @@ class MixedAudioRecorder: BaseAudioRecorder {
     }
     
     private func stopSystemAudioCapture() {
+        // FIX-006: 撤除静音保活
+        silentKeepAlive.stop()
+
         aggregateDeviceManager?.stopAndDestroy()
         aggregateDeviceManager = nil
         
@@ -411,17 +429,17 @@ class MixedAudioRecorder: BaseAudioRecorder {
         
         // 从环形缓冲区读取麦克风数据
         var micData = [Float](repeating: 0, count: sampleCount)
-        
+
         bufferLock.lock()
-        
+
         // 初始化环形缓冲区（如果需要）
         if micRingBuffer.isEmpty {
             micRingBuffer = [Float](repeating: 0, count: maxRingBufferSize)
         }
-        
+
         // 检查可用数据量
         let availableSamples = (micWritePosition - micReadPosition + maxRingBufferSize) % maxRingBufferSize
-        
+
         if availableSamples >= sampleCount {
             // 有足够的麦克风数据，读取
             for i in 0..<sampleCount {
@@ -429,17 +447,28 @@ class MixedAudioRecorder: BaseAudioRecorder {
                 micReadPosition = (micReadPosition + 1) % maxRingBufferSize
             }
         } else {
-            // 麦克风数据不足，用静音填充
-            logger.debug("⚠️ 麦克风数据不足: 需要\(sampleCount), 可用\(availableSamples)")
-            // micData 已经初始化为0（静音）
-            
-            // 读取可用的数据
-            for i in 0..<min(sampleCount, availableSamples) {
-                micData[i] = micRingBuffer[micReadPosition]
-                micReadPosition = (micReadPosition + 1) % maxRingBufferSize
+            // FIX-006: 欠载补偿——hold 最后采样值而不是填静音。
+            // 根因：系统 IO 时钟与麦克风时钟无共享时钟源，消费速率略高于生产速率时
+            // 环形缓冲被持续抽干，旧逻辑填 0 等于把语音顶成静音（说话电平表不动）。
+            // hold 上一采样：波形连续、语音保持在场，漂移由环形覆盖自然消化。
+            struct UnderrunCounter {
+                static var count = 0
+            }
+            UnderrunCounter.count += 1
+            if UnderrunCounter.count <= 3 {
+                logger.info("⚠️ 麦克风数据欠载: 需要\(sampleCount), 可用\(availableSamples)——hold 上一采样补偿")
+            }
+            for i in 0..<sampleCount {
+                if i < availableSamples {
+                    micData[i] = micRingBuffer[micReadPosition]
+                    micReadPosition = (micReadPosition + 1) % maxRingBufferSize
+                } else {
+                    micData[i] = i > 0 ? micData[i - 1] : lastMicSample
+                }
             }
         }
-        
+        lastMicSample = micData.last ?? lastMicSample
+
         bufferLock.unlock()
         
         // 混音

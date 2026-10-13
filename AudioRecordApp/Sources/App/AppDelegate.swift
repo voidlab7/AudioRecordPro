@@ -115,11 +115,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 之所以不用 argv：沙盒环境下 open --args 不可靠、直接 exec 会被宿主回收。
         let triggerURL = logger.getLogDirectoryURL().deletingLastPathComponent().appendingPathComponent("selftest-record.txt")
         if let raw = try? String(contentsOf: triggerURL, encoding: .utf8),
-           let secs = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)), secs > 0 {
+           !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             try? FileManager.default.removeItem(at: triggerURL)
-            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s")
+            // FIX-004 诊断基建扩展（FIX-006）：支持 "N mix" —— 开启麦克风混录后自测 N 秒
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            let parts = trimmed.split(separator: " ").map(String.init)
+            guard let secs = Int(parts.first ?? ""), secs > 0 else { return }
+            let mixMic = parts.count > 1 && parts[1].lowercased() == "mix"
+            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.mainViewController?.runSelftestRecording(seconds: secs)
+                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic)
             }
         }
     }

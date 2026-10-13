@@ -447,6 +447,11 @@ class MainWindowView: NSView {
     func isMicrophoneSourceSelected() -> Bool {
         return sidebarView.isMicrophoneSourceSelected()
     }
+
+    /// FIX-006 自测钩子：转发麦克风混录开关（selftest 触发器用）
+    func setMicrophoneMixEnabled(_ enabled: Bool) {
+        sidebarView.setMicrophoneMixEnabled(enabled)
+    }
     
     func addRecordedFile(_ file: RecordedFileInfo) {
         sidebarView.addRecordedFile(file)

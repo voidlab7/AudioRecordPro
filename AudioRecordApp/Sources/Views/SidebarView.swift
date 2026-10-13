@@ -343,6 +343,12 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     func isMicrophoneSourceSelected() -> Bool {
         return microphonePanel.isSelected
     }
+
+    /// FIX-006 自测钩子：编程开关「同时录入麦克风」（selftest 触发器用，等价于手点该行）
+    func setMicrophoneMixEnabled(_ enabled: Bool) {
+        microphonePanel.isSelected = enabled
+        microphoneInputChanged(enabled: enabled)
+    }
     
     func getSelectedProcesses() -> [AudioProcessInfo] {
         return availableProcesses.filter { selectedPIDs.contains($0.pid) }
