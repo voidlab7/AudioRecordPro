@@ -215,7 +215,14 @@
 
 ---
 
-### UI-016 App 图标换新 logo（L 箭头 + C 声波 + 录音点） | P2 | M | [todo · ✅ 标准 2026-10-13 21:50 老板签（「logo 按照这个实现」）]
+### UI-016 App 图标换新 logo（L 箭头 + C 声波 + 录音点） | P2 | M | [blocked · 2026-10-13 23:47 并发冲突——另一会话正在同 worktree 改 logo-v2.svg，执行侧让路收工]
+
+> **2026-10-13 23:45 夜跑会话置 blocked 证据（并发冲突）**：
+> - 夜跑会话 23:40 建 worktree `.worktrees/UI-016`、写 `logo-v2.svg` 初版（#1B3A6B/#4FB8CF/#F26B3A，手测几何）+ `render_svg.swift`（NSImage SVG 渲染器）+ 重写 `make_appicon.sh`（SVG→渲染→1024 底板合成→iconset→icns 管线，旧版备份 make_appicon-lc-legacy.sh），23:41 跑通管线 EXIT=0 生成 AppIcon.icns。
+> - 自验 PIL bbox 检测发现 C 弧 large/sweep flag 解析偏差（C 弧被画大、内弧凸向反）正要修时，**23:43:35 logo-v2.svg 被外部改写**——色值/几何全部重调（#1B3A61/#57BCC9/#E6663E/#F9F9F7，描边统一 46px，「参数扫描定版 + 三色掩膜 IoU navy≈0.90/teal≈0.89/orange≈0.91」定量叠图，注释注明沿用 make_appicon.sh 合成底板）——**另一会话正在做同一单，且版本质量更高**。
+> - 执行侧按 user_query 防并发冲突铁律让路：**不覆盖对方文件、不重跑管线抢产物、worktree 现场原样保留**。
+> - 现场状态：worktree `.worktrees/UI-016` 分支 loop/UI-016（基于 master 8580613），含夜跑会话交付（make_appicon.sh v2 + render_svg.swift + 初版 SVG 已被对方版本覆盖）+ 另一会话的优化版 SVG；AppIcon.icns 为夜跑版（旧 SVG 渲染，几何有偏差，**签收前须用现场 SVG 重跑 make_appicon.sh**）。全部未 commit。
+> - **解除路径**：等另一会话收工后（SVG 不再被改写），任一会话重跑 `bash scripts/make_appicon.sh` + `bash build-app.sh` 即可继续验收流程；若另一会话已完整交付，本单状态由需求台裁决接续。
 
 > 来源（2026-10-13 21:50 老板指令 + 新 logo 图）：「logo 按照这个实现。」
 > 正本：`docs/设计稿/logo-v2-L箭头C声波-正本-2026-10-13.png`（800×630 RGBA，米白底）
