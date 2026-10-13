@@ -37,7 +37,7 @@ class WaveformView: NSView {
     // UI-014: 波形滚动降速——每 100ms 落一根条（10 条/秒，剪映/录音笔观感档），
     // 一根条代表 100ms 音频的峰值 max（窗口内聚合，不丢瞬时峰值）。
     // 注意：displayTimer(0.05) 仅驱动重绘刷新，与数据落杆频率解耦——只改它会出现两根条并跳。
-    private static let barInterval: TimeInterval = 0.10
+    private static let barInterval: TimeInterval = 0.075  // ≈13.3 条/秒（原 20，慢 1/3）
     private var lastBarTimestamp: TimeInterval = 0
     private var currentWindowPeak: Float = 0
     
@@ -448,10 +448,11 @@ class WaveformView: NSView {
         let step = vbBarWidth + vbBarGap
         let maxVisibleBars = Int(floor(timelineRect.width / step))
 
-        // 左起右滚：最新数据在右端
+        // 右端锚定：最新数据恒在最右，旧条向左推；画布未满时条从右端向左生长（第一条从右边出来）
         let startIndex = max(0, waveformData.count - maxVisibleBars)
         let visibleData = Array(waveformData[startIndex...])
         guard !visibleData.isEmpty else { return }
+        let rightPad = maxVisibleBars - visibleData.count
 
         NSGraphicsContext.current?.saveGraphicsState()
         // 轻光晕：品牌绿低透明泛光
@@ -462,7 +463,7 @@ class WaveformView: NSView {
         glow.set()
 
         for (offset, level) in visibleData.enumerated() {
-            let x = timelineRect.minX + CGFloat(offset) * step
+            let x = timelineRect.minX + CGFloat(offset + rightPad) * step
             guard x <= timelineRect.maxX else { break }
             // 最小半径 1pt → 静音时为 2pt 圆点行（圆头天然成点）
             let amplitude = max(1.0, CGFloat(max(0, level)) * drawHeight * 0.48)
