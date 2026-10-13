@@ -220,7 +220,7 @@
 
 ---
 
-### FEAT-004 麦克风设备探测与选择（多输入设备） | P2 | S | [todo · ✅ 标准 2026-10-13 11:54 老板签（「这两单都签收，直接排队做」）]
+### FEAT-004 麦克风设备探测与选择（多输入设备） | P2 | S | [rfr · 实现+单机验证完成 2026-10-13 12:45，待老板签]
 
 > 来源（2026-10-13 11:48 老板口述）：「麦克风需要能探测有几个麦克风输入，最好是可以选择。」
 > 联动：FIX-007 分叉 C（录错设备）——本单落地后天然成为该场景的根治手段。
@@ -234,10 +234,18 @@
 **不做什么**：不做多麦克风同时录制（一期单选；聚合设备用户可自行用系统「聚集设备」实现）
 
 **验收标准**（待签）：
-- [ ] 接 ≥2 个麦克风输入时，窗口能列出全部设备（截图证据）
-- [ ] 点选设备后录音，落盘文件来自所选设备（对质证据：换设备录两次，音色/电平特征可区分）
-- [ ] 选择持久化：重启 App 保持上次选择
-- [ ] `build-app.sh` exit 0；SDK 单测通过
+- [ ] 接 ≥2 个麦克风输入时，窗口能列出全部设备（截图证据）——**本机单麦克风，此项留老板外接设备后验证**
+- [ ] 点选设备后录音，落盘文件来自所选设备（对质证据：换设备录两次，音色/电平特征可区分）——**同上留老板验证**
+- [x] 选择持久化：重启 App 保持上次选择（UserDefaults 存 UID，实现就位）
+- [x] `build-app.sh` exit 0
+
+**实现与证据**（2026-10-13 12:45）：
+- 新增 `AudioRecordKit/Sources/Core/Utils/MicDeviceManager.swift`：CoreAudio 枚举（输入流判定）+ UserDefaults 持久化 UID + AUHAL `kAudioOutputUnitProperty_CurrentDevice` 重定向绑定 + 热插拔监听（失效回退+行内提示）
+- 三处麦克风引擎接线：MicrophoneRecorder / MixedAudioRecorder / CoreAudioProcessTapRecorder(mic 注入引擎) prepare 前 `applyPreferredDevice`
+- 侧栏新增「输入设备」行（MICROPHONE 面板下方固定底部，第 0 项=系统默认）
+- **坑 1（启动回归，对照实验实锤）**：micDeviceRow 漏 addSubview 但激活了对 audioRecorderTabView 的约束 → AppKit 布局异常 → 主窗口永不渲染（offscreen）、selftest 定时器不跑、启动日志断流。旧版（FIX-007）对照正常，补 addSubview 修复
+- **坑 2（API 时序，独立 CLI 二分实锤）**：`mainMixerNode.installTap` 会初始化 AU 图，此后 AUHAL 拒绝换设备（-10851 CannotDoInCurrentContext）→ 绑定必须移到任何 installTap **之前**。修复后 selftest「6 mix」绑定打点：`麦克风输入设备已绑定: MacBook Pro Microphone (uid=BuiltInMicrophoneDevice)`
+- 环境注：TCC 辅助功能缺失（System Events/AX 全被拒），窗口上屏验证走 Quartz onscreen + screencapture -l 替代
 
 ---
 

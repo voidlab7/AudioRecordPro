@@ -266,7 +266,11 @@ class MixedAudioRecorder: BaseAudioRecorder {
     private func startMicrophoneCapture() throws {
         let startTime = Date()
         logger.info("🎤 启动麦克风捕获...")
-        
+
+        // FEAT-004: 绑定用户所选麦克风设备（未选择则跟随系统默认）
+        // ⚠️ 必须在任何 installTap 之前：tap 安装会初始化 AU 图，此后 AUHAL 拒绝换设备（-10851 CannotDoInCurrentContext）
+        MicDeviceManager.shared.applyPreferredDevice(to: micEngine)
+
         // 获取麦克风输入节点
         let inputNode = micEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
@@ -291,7 +295,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
             self.handleMicrophoneData(buffer: buffer)
         }
         logger.info("⏱️ 在inputNode上安装数据Tap完成，耗时: \(String(format: "%.2f", Date().timeIntervalSince(startTime)))秒")
-        
+
         // 关键：在mainMixerNode上安装空tap，让引擎持续运行！
         // 使用 mainMixerNode 的输出格式（而不是 inputFormat）
         let mainFormat = micEngine.mainMixerNode.outputFormat(forBus: 0)
@@ -300,7 +304,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
             // 空tap，只是为了让引擎持续运行
         }
         logger.info("⏱️ 在mainMixerNode上安装驱动Tap完成")
-        
+
         // 准备引擎（重要！）
         micEngine.prepare()
         logger.info("⏱️ 引擎准备完成")

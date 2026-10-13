@@ -44,6 +44,11 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     private let appsScroll = NSScrollView()
     private let appsStack = NSStackView()
     private let microphonePanel = IndustrialMicrophoneRowView()
+
+    // FEAT-004: 麦克风输入设备选择行
+    private let micDeviceRow = NSView()
+    private let micDevicePopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let micDeviceHintLabel = NSTextField(labelWithString: "")
     
     // 已录制文件Tab的组件
     private let recordedFilesView = RecordedFilesView()
@@ -115,6 +120,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         audioRecorderTabView.addSubview(appsScroll)
         audioRecorderTabView.addSubview(micHeader)
         audioRecorderTabView.addSubview(microphonePanel)
+        audioRecorderTabView.addSubview(micDeviceRow)
         
         // 创建Tab
         let audioRecorderTab = TabItem(
@@ -179,6 +185,97 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         microphonePanel.translatesAutoresizingMaskIntoConstraints = false
         microphonePanel.onChange = { [weak self] enabled in
             self?.microphoneInputChanged(enabled: enabled)
+        }
+
+        // FEAT-004: 麦克风输入设备选择行
+        setupMicDeviceRow()
+    }
+
+    /// FEAT-004: 设备选择行构建 + 热插拔刷新
+    private func setupMicDeviceRow() {
+        micDeviceRow.wantsLayer = true
+        micDeviceRow.translatesAutoresizingMaskIntoConstraints = false
+
+        let titleLabel = NSTextField(labelWithString: "输入设备".localized)
+        titleLabel.font = IndustrialTypography.small
+        titleLabel.textColor = IndustrialColors.textTertiary
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        micDeviceRow.addSubview(titleLabel)
+
+        micDevicePopup.font = IndustrialTypography.small
+        micDevicePopup.bezelStyle = .rounded
+        micDevicePopup.translatesAutoresizingMaskIntoConstraints = false
+        micDevicePopup.target = self
+        micDevicePopup.action = #selector(micDevicePopupChanged)
+        micDeviceRow.addSubview(micDevicePopup)
+
+        micDeviceHintLabel.font = IndustrialTypography.small
+        micDeviceHintLabel.textColor = IndustrialColors.statusWarning
+        micDeviceHintLabel.translatesAutoresizingMaskIntoConstraints = false
+        micDeviceHintLabel.isHidden = true
+        micDeviceRow.addSubview(micDeviceHintLabel)
+
+        NSLayoutConstraint.activate([
+            titleLabel.leadingAnchor.constraint(equalTo: micDeviceRow.leadingAnchor, constant: 2),
+            titleLabel.centerYAnchor.constraint(equalTo: micDeviceRow.centerYAnchor),
+
+            micDevicePopup.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
+            micDevicePopup.centerYAnchor.constraint(equalTo: micDeviceRow.centerYAnchor),
+            micDevicePopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 150),
+
+            micDeviceHintLabel.leadingAnchor.constraint(greaterThanOrEqualTo: micDevicePopup.trailingAnchor, constant: 8),
+            micDeviceHintLabel.trailingAnchor.constraint(equalTo: micDeviceRow.trailingAnchor),
+            micDeviceHintLabel.centerYAnchor.constraint(equalTo: micDeviceRow.centerYAnchor),
+        ])
+
+        refreshMicDeviceList()
+        MicDeviceManager.shared.onDevicesChanged { [weak self] in
+            self?.refreshMicDeviceList()
+        }
+    }
+
+    /// 刷新设备列表：第 0 项=跟随系统默认；选中态按持久化 UID 恢复；所选设备失效时行内提示
+    private func refreshMicDeviceList() {
+        let devices = MicDeviceManager.shared.listMicrophones()
+        let preferred = MicDeviceManager.shared.preferredDeviceUID
+        let preferredValid = preferred == nil || devices.contains { $0.uid == preferred }
+
+        micDevicePopup.removeAllItems()
+        micDevicePopup.addItem(withTitle: "系统默认".localized)
+        for d in devices {
+            micDevicePopup.addItem(withTitle: d.isSystemDefault ? "\(d.name)（默认）" : d.name)
+        }
+
+        if let uid = preferred, let idx = devices.firstIndex(where: { $0.uid == uid }) {
+            micDevicePopup.selectItem(at: idx + 1)
+        } else {
+            micDevicePopup.selectItem(at: 0)
+        }
+
+        // 所选设备失效：清除持久化 + 行内提示（不弹窗，不打断）
+        if let uid = preferred, !preferredValid {
+            MicDeviceManager.shared.preferredDeviceUID = nil
+            micDeviceHintLabel.stringValue = "所选麦克风已拔出，已回退系统默认".localized
+            micDeviceHintLabel.isHidden = false
+            logger.warning("🎤 [FEAT004] 所选设备失效已回退: uid=\(uid)")
+        } else if devices.isEmpty {
+            micDeviceHintLabel.stringValue = "未检测到麦克风输入设备".localized
+            micDeviceHintLabel.isHidden = false
+        } else {
+            micDeviceHintLabel.isHidden = true
+        }
+    }
+
+    @objc private func micDevicePopupChanged() {
+        let devices = MicDeviceManager.shared.listMicrophones()
+        let idx = micDevicePopup.indexOfSelectedItem
+        if idx <= 0 {
+            MicDeviceManager.shared.preferredDeviceUID = nil
+            logger.info("🎤 [FEAT004] 麦克风设备 → 跟随系统默认")
+        } else if idx <= devices.count {
+            let device = devices[idx - 1]
+            MicDeviceManager.shared.preferredDeviceUID = device.uid
+            logger.info("🎤 [FEAT004] 麦克风设备 → \(device.name) (uid=\(device.uid))")
         }
     }
     
@@ -263,8 +360,14 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             
             microphonePanel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
             microphonePanel.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
-            microphonePanel.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12),
-            microphonePanel.heightAnchor.constraint(equalToConstant: 44)
+            microphonePanel.bottomAnchor.constraint(equalTo: micDeviceRow.topAnchor, constant: -6),
+            microphonePanel.heightAnchor.constraint(equalToConstant: 44),
+
+            // FEAT-004: 麦克风输入设备选择行（固定最底）
+            micDeviceRow.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
+            micDeviceRow.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
+            micDeviceRow.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12),
+            micDeviceRow.heightAnchor.constraint(equalToConstant: 30)
         ])
     }
     

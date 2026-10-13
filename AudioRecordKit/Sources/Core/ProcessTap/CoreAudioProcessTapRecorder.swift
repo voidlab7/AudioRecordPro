@@ -128,6 +128,9 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         }
         // 主混音器空 tap 驱动渲染循环（与 MicrophoneRecorder 同款），输出音量压到近零防啸叫
         engine.mainMixerNode.outputVolume = 0.01
+        // FEAT-004: 绑定用户所选麦克风设备（未选择则跟随系统默认）
+        // ⚠️ 必须在任何 installTap 之前：tap 安装会初始化 AU 图，此后 AUHAL 拒绝换设备（-10851）
+        MicDeviceManager.shared.applyPreferredDevice(to: engine)
         let mainFmt = engine.mainMixerNode.outputFormat(forBus: 0)
         engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: mainFmt) { _, _ in }
         engine.prepare()

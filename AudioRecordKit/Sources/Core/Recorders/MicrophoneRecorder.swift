@@ -215,18 +215,22 @@ class MicrophoneRecorder: BaseAudioRecorder {
     }
     
     private func startAudioEngine() throws {
+        // FEAT-004: 绑定用户所选麦克风设备（未选择则跟随系统默认）
+        // ⚠️ 必须在任何 installTap 之前：tap 安装会初始化 AU 图，此后 AUHAL 拒绝换设备（-10851 CannotDoInCurrentContext）
+        MicDeviceManager.shared.applyPreferredDevice(to: engine)
+
         // 为避免啸叫，主混音器音量保持很低但不为0以驱动pull
         engine.mainMixerNode.outputVolume = 0.01
-        
+
         // 录制链路已将 input 直连 mainMixer，这里无需再接 recordMixer
         logger.info("麦克风链路：input -> mainMixer 建立")
-        
+
         // 在主混音器安装一个空tap，强制驱动渲染循环
         let mainFmt = engine.mainMixerNode.outputFormat(forBus: 0)
         engine.mainMixerNode.removeTap(onBus: 0)
         engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: mainFmt) { _, _ in }
         engine.prepare()
-        
+
         try engine.start()
         logger.info("麦克风录制引擎启动成功")
         callOnRecordingStarted()  // BUG-1 修复：引擎真正启动后才通知
