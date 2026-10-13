@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  UI-016: Loocap logo v2 矢量正本（L 箭头 + C 声波 + 录音点）
+  与位图正本 logo-v2-L箭头C声波-正本-2026-10-13.png（800×630）叠图比对建模，
+  经参数扫描定版（三色掩膜 IoU：navy≈0.90 / teal≈0.89 / orange≈0.91，源图含 JPEG 噪边为 IoU 上限）。
+  SVG 为此后所有尺寸的单一真源；底板（macOS 标准图标网格）由 scripts/make_appicon.sh 合成。
+
+  颜色（位图实测均值）：
+    深海军蓝 #1B3A61（L 主体 + C 外弧）
+    青色     #57BCC9（L 下段拼接 + 内层声波弧）
+    橙色     #E6663E（中心录音点）
+    底米白   #F9F9F7（底板，本 SVG 不含底板）
+
+  几何（像素测量 + 网格扫描定版；描边统一 46px）：
+    左竖中心线 x=176；顶横中心线 y=98；底横中心线 y=580；箭头竖杆中心线 x=335
+    navy/teal 对接点：左竖 y=349、底横 x=283（齐平对接）
+    箭头 chevron：翼帽 (291,356)/(379,356)，尖点 (335,406)
+    C 外弧：圆心 (467,347) 中心线半径 233，与底横相切于 (467,580)，顶端帽 (455,114) ≈-93°
+    内声波弧：圆心 (461,344) 中心线半径 106，帽角 ±93°（帽点 (455,238)/(455,450)）
+    录音点：圆心 (453,342) 半径 22
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 630" width="800" height="630">
+  <g fill="none" stroke-width="46">
+    <!-- 箭头 chevron（圆头圆角，竖杆末端藏入其腋窝） -->
+    <path d="M 291 356 L 335 406 L 379 356" stroke="#1B3A61" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- 竖杆 + 顶横杆 + 左上圆角弯 + 左竖 navy 段（末端平头对接 teal） -->
+    <path d="M 335 395 L 335 143 Q 335 98 290 98 L 221 98 Q 176 98 176 143 L 176 349" stroke="#1B3A61" stroke-linecap="butt" stroke-linejoin="round"/>
+    <!-- 左竖 teal 段 + 左下圆角弯 + 底横 teal 段（两端平头对接） -->
+    <path d="M 176 349 L 176 535 Q 176 580 221 580 L 283 580" stroke="#57BCC9" stroke-linecap="butt" stroke-linejoin="round"/>
+    <!-- 底横 navy 段 + C 大弧（与底横相切，顶端圆头帽） -->
+    <path d="M 283 580 L 467 580 A 233 233 0 1 0 455 114" stroke="#1B3A61" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- 内层青弧（声波，两端圆头帽） -->
+    <path d="M 455 238 A 106 106 0 1 1 455 450" stroke="#57BCC9" stroke-linecap="round"/>
+  </g>
+  <!-- 中心橙色录音点 -->
+  <circle cx="453" cy="342" r="22" fill="#E6663E"/>
+</svg>

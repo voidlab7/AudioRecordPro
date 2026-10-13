@@ -1,78 +1,61 @@
 #!/bin/bash
-# UI-007: 从 1024 正本生成 Loocap LC 图标 AppIcon.icns（可复跑）
-# 用法: make_appicon.sh [正本路径]
+# UI-016: 从 SVG 矢量正本生成 Loocap 新 logo AppIcon.icns（可复跑）
+# 管线：docs/设计稿/logo-v2.svg → 合成 1024 母版（macOS 标准网格圆角方块 + 米白底）→ iconset 10 档 → icns
+# 旧 LC 暗底管线备份在 make_appicon-lc-legacy.sh（UI-007，备用不删）
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="${1:-$ROOT/docs/设计稿/logo-lc-正本-1024.jpg}"
+SVG="$ROOT/docs/设计稿/logo-v2.svg"
+MASTER_SVG="$ROOT/build/AppIcon-master.svg"
 OUT_PNG="$ROOT/build/AppIcon-1024.png"
 ICNS_OUT="$ROOT/AudioRecordApp/Resources/Assets/AppIcon.icns"
 ICONSET="$ROOT/build/AppIcon.iconset"
 
+command -v rsvg-convert >/dev/null || { echo "need rsvg-convert (brew install librsvg)"; exit 1; }
 command -v iconutil >/dev/null || { echo "need macOS iconutil"; exit 1; }
-[ -f "$SRC" ] || { echo "正本不存在: $SRC"; exit 1; }
+[ -f "$SVG" ] || { echo "SVG 正本不存在: $SVG"; exit 1; }
+mkdir -p "$ROOT/build"
 
-# 1) 像素定位圆角方框主体（灰描边 ~#969696 on 深底 #1A1A1C），裁掉底部 Loocap 文字与边距
-python3 - "$SRC" "$OUT_PNG" <<'PY'
-import sys
-from PIL import Image, ImageFilter
-src, out = sys.argv[1], sys.argv[2]
-im = Image.open(src).convert("RGB")
-W, H = im.size
-px = im.load()
-def is_edge(p):  # 灰描边像素
-    r, g, b = p
-    return r > 100 and abs(r-g) < 20 and abs(g-b) < 20
-minx, miny, maxx, maxy = W, H, 0, 0
-for y in range(0, H, 2):
-    for x in range(0, W, 2):
-        if is_edge(px[x, y]):
-            # 排除底部文字区（Loocap 文字也是灰的，取面积最大的上块：y < H*0.82）
-            if y < H * 0.82:
-                minx, miny = min(minx, x), min(miny, y)
-                maxx, maxy = max(maxx, x), max(maxy, y)
-# 方形化；UI-009：主体放大 4%（+2% 余量改 -2%）让方框贴满画布，压缩深色 Dock 上的边缘融合区
-cx, cy = (minx+maxx)//2, (miny+maxy)//2
-side = max(maxx-minx, maxy-miny) - int(W*0.02)
-half = side//2
-box = (max(0,cx-half), max(0,cy-half), min(W,cx+half), min(H,cy+half))
-icon = im.crop(box).resize((1024,1024), Image.LANCZOS)
-
-# UI-009: 外圈环带描边提亮 ~#A0A0A0 -> ~#C8C8C8 并加粗 2px（只动外圈 8% 环带，不碰内部 LC 字标）
-BAND = int(1024 * 0.08)
-ip = icon.load()
-mask = Image.new("L", icon.size, 0)
-mp = mask.load()
-edge_sum = 0
-edge_cnt = 0
-for y in range(1024):
-    for x in range(1024):
-        near_border = x < BAND or y < BAND or x >= 1024-BAND or y >= 1024-BAND
-        if near_border and is_edge(ip[x, y]):
-            mp[x, y] = 255
-            edge_sum += ip[x, y][0]
-            edge_cnt += 1
-avg = max(1, edge_sum // max(1, edge_cnt))
-boost = min(205, int(avg * 1.28))
-thick = mask.filter(ImageFilter.MaxFilter(5))  # 2px 膨胀（5x5 核）
-tp = thick.load()
-for y in range(1024):
-    for x in range(1024):
-        if tp[x, y] == 255:
-            r, g, b = ip[x, y]
-            if is_edge(ip[x, y]):
-                k = boost / avg
-                ip[x, y] = (min(255,int(r*k)), min(255,int(g*k)), min(255,int(b*k)))
-            else:
-                ip[x, y] = (boost, boost, boost)
-icon.save(out)
-print(f"主体 bbox=({minx},{miny},{maxx},{maxy}) crop={box} -> {out} | 描边均亮 {avg} -> {boost}")
+# 1) 合成 1024 母版：macOS 标准图标网格——圆角方块 824×824（边距 100，圆角 ~185），
+#    米白底 #F9F9F7；logo 内容(bbox 570×526 @ (437,340))缩放 0.95 → 占方块宽 65.7%，居中
+python3 - "$SVG" "$MASTER_SVG" <<'PY'
+import sys, re
+svg_src, out = sys.argv[1], sys.argv[2]
+text = open(svg_src, encoding='utf-8').read()
+m = re.search(r'<svg[^>]*>(.*)</svg>', text, re.S)
+inner = m.group(1)
+# 去掉注释与 xmlns 重复风险：只保留 <g>/<circle> 元素
+body = "\n".join(l for l in inner.splitlines() if not l.strip().startswith('<!--') and '<!--' not in l)
+s = 0.95
+tx, ty = 512 - 437*s, 512 - 340*s
+master = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="#F9F9F7"/>
+  <g transform="translate({tx:.2f},{ty:.2f}) scale({s})">
+{body}
+  </g>
+</svg>
+'''
+open(out,'w').write(master)
+print(f"母版 SVG: tile 824×824 r185 米白, logo scale={s} 居中")
 PY
 
-# 2) 全尺寸 iconset → icns
+# 2) 渲染 1024 母版 PNG
+rsvg-convert -w 1024 -h 1024 "$MASTER_SVG" -o "$OUT_PNG"
+echo "✅ 1024 母版: $OUT_PNG"
+
+# 3) iconset 10 档（直接从母版 SVG 矢量渲染，小尺寸不发糊）
 rm -rf "$ICONSET"; mkdir -p "$ICONSET"
-for spec in "16 icon_16x16" "32 icon_16x16@2x" "32 icon_32x32" "64 icon_32x32@2x" "128 icon_128x128" "256 icon_128x128@2x" "256 icon_256x256" "512 icon_256x256@2x" "512 icon_512x512" "1024 icon_512x512@2x"; do
+for spec in "16 icon_16x16.png" "32 icon_16x16@2x.png" "32 icon_32x32.png" "64 icon_32x32@2x.png" \
+            "128 icon_128x128.png" "256 icon_128x128@2x.png" "256 icon_256x256.png" "512 icon_256x256@2x.png" \
+            "512 icon_512x512.png" "1024 icon_512x512@2x.png"; do
   size=${spec%% *}; name=${spec#* }
-  sips -z "$size" "$size" "$OUT_PNG" --out "$ICONSET/$name.png" >/dev/null
+  rsvg-convert -w "$size" -h "$size" "$MASTER_SVG" -o "$ICONSET/$name"
 done
+echo "✅ iconset 10 档生成"
+
+# 4) icns
 iconutil -c icns "$ICONSET" -o "$ICNS_OUT"
-echo "✅ AppIcon.icns 已更新: $ICNS_OUT"
+echo "✅ icns: $ICNS_OUT"
+
+# 5) 512 预览（验收用）
+rsvg-convert -w 512 -h 512 "$MASTER_SVG" -o "$ROOT/build/AppIcon-512-preview.png"
+echo "完成。预览: $ROOT/build/AppIcon-512-preview.png"
