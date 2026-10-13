@@ -295,7 +295,7 @@ class WaveformView: NSView {
     
     private func seekToMouseLocation(_ event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
-        let timelineInsetX: CGFloat = 84
+        let timelineInsetX: CGFloat = 28
         let timelineWidth = max(1, bounds.width - timelineInsetX * 2)
         let relativeX = location.x - timelineInsetX
         let progress = max(0, min(1, Double(relativeX / timelineWidth)))
@@ -412,7 +412,7 @@ class WaveformView: NSView {
     /// UI-010: 绿色圆头竖条渲染——上下对称镜像、条宽≈间隙、轻光晕、顶部微渐变。
     /// 静音/小信号收缩为中线上的最小圆点行（不整体消失，与 FIX-004 呼应）。
     private func drawRoundedBars(in rect: NSRect) {
-        let timelineInsetX: CGFloat = 84
+        let timelineInsetX: CGFloat = 28
         let timelineRect = NSRect(
             x: timelineInsetX,
             y: 42,
@@ -603,7 +603,7 @@ class WaveformView: NSView {
     
     private func drawNativeTimeline(in rect: NSRect) {
         let centerY = rect.midY
-        let timelineInsetX: CGFloat = 84
+        let timelineInsetX: CGFloat = 28
         let timelineRect = NSRect(
             x: timelineInsetX,
             y: 42,
@@ -669,7 +669,7 @@ class WaveformView: NSView {
         // FIX-004: 录制态全零（静音）也画基线——「在录但静音」必须与「没在录」可区分（不死寂）
         guard waveformData.contains(where: { $0 > 0 }) || isRecording else { return }
         
-        let timelineInsetX: CGFloat = 84
+        let timelineInsetX: CGFloat = 28
         let timelineRect = NSRect(
             x: timelineInsetX,
             y: 42,
@@ -748,7 +748,7 @@ class WaveformView: NSView {
     
     /// 绘制静态波形（已录制文件预览）+ 播放进度游标
     private func drawStaticWaveform(in rect: NSRect, data: [Float]) {
-        let timelineInsetX: CGFloat = 84
+        let timelineInsetX: CGFloat = 28
         let timelineRect = NSRect(
             x: timelineInsetX,
             y: 42,
