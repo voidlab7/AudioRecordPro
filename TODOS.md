@@ -140,7 +140,7 @@
 
 ---
 
-### UI-015 麦克风选择交互重构（弃原生菜单，可读设备名，消歧义） | P2 | M | [todo · ✅ 标准 2026-10-13 20:14 老板签（方案图讲解后「好的」）]
+### UI-015 麦克风选择交互重构（弃原生菜单，可读设备名，消歧义） | P2 | M | [ready-for-review · 2026-10-13 23:30 worktree loop/UI-015 6a3203e，沙箱 GUI 验收留老板]
 
 > 来源（2026-10-13 16:17 老板截图）：「这个选择麦克风的方式有点奇怪，需要更好的交互。」
 > 证据：`docs/证据/2026-10-13-FEAT004R1-麦克风选择原生菜单交互差.png`
@@ -166,7 +166,26 @@
 - [ ] ≥2 设备场景：所有设备名可读可辨，无 hex 串（接聚合设备验证）
 - [ ] 行内可见当前选中设备；「跟随系统默认」副标动态正确
 - [ ] 换设备选择后录音，落盘仍来自所选设备（R2 功能不回归）
-- [ ] `build-app.sh` exit 0
+- [x] `build-app.sh` exit 0（已验 EXIT=0，LoocapDev 稳定签名）
+
+> **交付（worktree `.worktrees/UI-015` 分支 loop/UI-015，commit 6a3203e；master 未动，签收后 merge --no-ff）**：
+> - 弃 NSPopUpButton/NSMenu，引入 `IndustrialMicDeviceSelectorView`（自绘行内选择器）：折叠态常显当前选中设备名 + ▼，展开态 radio 圆点选中态，深底圆角槽工业风（深底色 surfaceContainer / 选中态填充 primaryContainer / 圆点 primaryContainer / 文字 onSurface）
+> - `MicDeviceManager.displayName(for:)` 新增设备名友好化：聚合设备解析子设备名 → 「聚合· A + B」（≤3 设备）/ 「聚合· A + B +N」（>3 设备），失败兜底「聚合设备 #短序号」（取 uid 末段 3-8 位数字，无则 deviceID），严禁裸 hex 串
+> - 修前会话 `aggregateSubDeviceNames` 中 `CFArrayGetValueAtIndex` 返回 `UnsafeRawPointer?` 不能 `as? String` cast 的恒失败 bug——用 `unsafeBitCast → CFTypeRef` + `CFGetTypeID` 分流 CFString/CFDictionary + `Unmanaged<CFString>` 安全提取，子设备解析真正生效（之前永远走 fallback）
+> - 第 0 项「跟随系统默认」+ 动态副标显示当前实际设备；其余设备项不再重复标「（默认）」（消歧义）
+> - `IndustrialMicrophoneRowView` 增加 `setCurrentDeviceName`，开关行常显当前选中设备友好名（选中态显示设备名/未选中态「未启用」）
+> - 选失效状态行内警告（不弹窗不打断）
+> - L10n en.lproj 加 11 个新 key（跟随系统默认/聚合设备/已混入/未启用等）
+>
+> **硬验证证据**：
+> - `bash build-app.sh` EXIT=0（LoocapDev 稳定签名）；SDK `swift test --disable-sandbox` 77/77 PASS（无回归，基线匹配）
+> - 截图 `docs/证据/UI-015-picker-default-2026-10-13.png`（Quartz CGWindowListCreateImage 全屏，Loocap 主窗口 PID 33540 / wid 11227，picker 默认折叠态可见）
+>
+> **留老板外验**（沙箱内 `screencapture -l` / `osascript System Events` 双双被 TCC 拒；GUI 验收 #1-4 不可验）：
+> - #1 截图对比前/后无原生菜单（需老板真机开 App 看 picker）
+> - #2 ≥2 设备场景含聚合设备无 hex 串（老板接外接麦 + 聚合设备验证）
+> - #3 行内可见当前选中设备；副标动态正确
+> - #4 换设备选择后录音落盘仍来自所选设备（R2 不回归，需真录音）
 
 ---
 
