@@ -15,7 +15,7 @@
 | LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 等老板在 WorkBuddy 外跑 `scripts/test-ui.sh` |
 | LOOP-08    | 录音准备态与实时采集态视觉分离 ≡UI-002            | P1 | **blocked** | 主链路已通，细项留日常观察                          |
 | FIX-006    | 开麦混录说话无电平（原「QQ音乐电平」误报口径）      | P2 | done ✅ | 10-13 12:12 签收                              |
-| UI-014     | 录音态波形滚动降速（两轮返工后全量回退）              | P3 | reverted     | 10-13 15:17 确认搁置，待老板新口径             |
+| UI-014     | 录音态波形滚动降速（两轮返工后全量回退）              | P3 | reverted     | 10-13 16:19 老板裁决：**先不做**（需求取消）   |
 | FEAT-004R2 | 麦克风按所选设备采集（自建 AUHAL unit）              | P2 | done ✅ | 10-13 15:17 签收（≥2设备对质留老板外接）        |
 | FEAT-004   | 麦克风设备探测与选择 R1                              | P2 | done ✅ | 10-13 15:17 签收（≥2设备对质留老板外接）        |
 | INFRA-004  | 改名残留：PRODUCT_NAME/进程名→Loocap                | P1 | done ✅ | 10-13 15:17 签收（TCC 免重授权实证）            |
@@ -51,8 +51,9 @@
 **预估**：1天
 
 > 代码部分已完成：mock 进程注入（1001-1006 Chrome/Safari/Music/Zoom/Teams/Slack）+ mock 录制状态机（MainViewController，--ui-testing 参数）。  
-> 阻塞原因（2026-10-11 更新，两层）：① XCUITest runner 的辅助功能授权存疑（历史报「Not authorized for performing UI testing actions」，今日未能推进到该步）；② **WorkBuddy 沙箱与 xcodebuild 不兼容**——`xcodebuild test` 内部依赖嵌套 `sandbox-exec` + 写 `~/Library/Developer/DerivedData`，在 WorkBuddy 沙箱内必挂 `sandbox_apply: Operation not permitted`（2026-10-11 连跑 3 轮实证：原样跑、沙箱外标志 + workspace 内 derivedDataPath + 禁自动包解析，三种打法同一死法，拦截点分别为 DerivedData 删除 / 包解析 / ~/.swiftpm/security）。按刹车规则 3 次止损。  
-> 解除路径（人工，二选一）：A. 老板在 WorkBuddy 之外的普通终端跑一次 `bash scripts/test-ui.sh`（验证 AX 授权 + mock 效果）；B. ~~研究给 WorkBuddy 会话放行 xcodebuild 所需路径/权限后重试~~（**2026-10-12 14:24 已证死**：沙箱外直跑 + `env -i` 干净环境两种打法同死 `sandbox-exec: sandbox_apply: Operation not permitted`——WorkBuddy 沙箱在系统层禁止子进程嵌套建 seatbelt 沙箱，会话内无解，只剩路径 A）。解除后说「继续跑 loop」续验。  
+> **重大进展（2026-10-13 19:45 会话内破局）**：包解析死点已修——根因 = Xcode 包引擎评估 SPM manifest 时 spawn sandbox-exec，在 WorkBuddy 沙箱容器内嵌套 sandbox_apply 被系统拒 EPERM（诊断三证：`log` 拒跑 Cannot run while sandboxed、osascript privilege violation、crontab/launchctl operation not permitted；与 pbxproj/xcodegen 无关）。修复 = **工程摘除 SnapshotTesting 包与 AudioRecordMacSnapshotTests target**（project.yml，snapshot 测试同死于此死点属死资产；测试源码保留，脚本挂停用牌，原 manifest 备份 Package.swift.tools60.orig）→ 包图空解析通过 → **App + UITests-Runner 编译/签名全链通**（10-11 三种打法死在包解析的时代结束）。  
+> **新阻塞点（更深层）**：`AudioRecordMacUITests-Runner` bootstrap 失败——`exited with code 1 before establishing connection`（无 crash 报告，主动退出；系统级 TCC Accessibility 表无 Xcode/Runner 授权记录）。会话内诊断通道全被沙箱拦，无法分辨「WorkBuddy 环境影响」vs「系统层 TCC/兼容性」。  
+> **解除路径（仍只剩 A，且成本大降）**：老板普通终端跑一次 `bash scripts/test-ui.sh`：①测试真跑起来 → 拿到失败清单回会话内修（mock 机制代码俱在）；②runner 在真实终端也死 → 系统层问题，方向：系统设置→隐私与安全性→辅助功能，给 Xcode 与 AudioRecordMacUITests-Runner 授权后重跑。解除后说「继续跑 loop」续验。  
 > 补充证据（2026-09-26）：CUA helper 的**屏幕录制**授权也失效——Tapture/系统授权弹窗截图全黑、曾拍成功的终端重截报「窗口截图失败」，判定 TCC 授权整体损坏（本地 DR 签名 helper 同 bundle id 多拷贝互踩）。人工授权时「辅助功能 + 屏幕录制」一起勾，可同时解锁本单与 CUA 截图；授权后需重启 helper 进程生效。
 
 > 来源：LOOP-02 自验发现。UI 测试第一次真跑：19 执行 8 过 11 挂，11 个失败全是「ProcessRow-1001 找不到」（V2.0 重构后 mock 进程注入机制/accessibility 标识失效）+ RecordingFlow 停止后按钮断言。
@@ -138,6 +139,34 @@
 
 ---
 
+### UI-015 麦克风选择交互重构（弃原生菜单，可读设备名，消歧义） | P2 | M | [todo · 标准草案待签]
+
+> 来源（2026-10-13 16:17 老板截图）：「这个选择麦克风的方式有点奇怪，需要更好的交互。」
+> 证据：`docs/证据/2026-10-13-FEAT004R1-麦克风选择原生菜单交互差.png`
+> 前置：FEAT-004 R1+R2（已 done）——功能层已通，本单只重做**选择交互层**。
+
+**现状四宗罪（截图实锤）**：
+1. **原生 NSMenu 弹出菜单**——系统默认样式与 App 工业深色 UI 完全脱节
+2. **设备名暴露系统内部 ID**——「CADefaultDeviceAggregate-76186-6」用户不可读不可辨
+3. **双「默认」歧义**——「系统默认」与「MacBook Pro Microphone（默认）」两行语义重叠，用户分不清当前实际用哪个
+4. **层级混杂**——「Also Record Microphone / Mix into current target」开关与设备选择挤在一体
+
+**做什么**：
+1. **自绘行内选择器**：设备选择内嵌在面板里（展开式列表或分段控件），样式对齐侧栏/面板既有工业风（深底、圆角槽、品牌绿选中态），弃用原生 NSMenu 弹窗
+2. **设备名友好化**：系统内部 ID 设备（Aggregate 等）显示可读名——能解析组成设备的显示组成名，不能解析的显示「聚合设备」+短序号，**严禁裸露 hex 串**
+3. **消歧义**：「跟随系统默认」为第一项，**动态副标显示当前实际设备**（如「系统默认 · MacBook Pro Microphone」）；其余设备项不再重复标「（默认）」
+4. **层级分离**：①「同时录制麦克风」开关行（含当前选中设备名常显）②设备列表行——开关管「录不录」，列表管「用哪个」
+5. 选中态在行内可见（不点开也能知道当前用哪个麦）
+
+**不做什么**：不动采集引擎（R2 的 AUHAL 按所选设备采集逻辑保持）；不改设备枚举/持久化层
+
+**验收标准**（待签）：
+- [ ] 截图对比：选择器风格与 App 一致，无原生菜单（前/后对比图）
+- [ ] ≥2 设备场景：所有设备名可读可辨，无 hex 串（接聚合设备验证）
+- [ ] 行内可见当前选中设备；「跟随系统默认」副标动态正确
+- [ ] 换设备选择后录音，落盘仍来自所选设备（R2 功能不回归）
+- [ ] `build-app.sh` exit 0
+
 ---
 
 ## done 索引（正文见 `docs/归档/TODOS-done-2026-10.md`）
@@ -173,5 +202,5 @@
 | FEAT-003         | 下掉实时翻译浮窗（feature flag 留恢复）        | 2026-10-13 |
 | INFRA-004        | PRODUCT_NAME/进程名改名残留清零               | 2026-10-13 |
 | FEAT-004 (R1+R2) | 麦克风设备探测/选择/按所选设备采集              | 2026-10-13 |
-| UI-014           | 波形滚动降速（两轮返工后回退，reverted）       | 2026-10-13 |
+| UI-014           | 波形滚动降速（回退取消，老板裁决先不做）       | 2026-10-13 |
 

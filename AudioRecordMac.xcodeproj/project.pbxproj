@@ -9,9 +9,7 @@
 /* Begin PBXBuildFile section */
 		0037AFC9919358E32ABBA856 /* LevelMetersOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00CD061BE600F30EECF89729 /* LevelMetersOverlay.swift */; };
 		003FCC7DAB8CFE0780A0C96D /* SidebarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E14C71965002051D9C8C9376 /* SidebarUITests.swift */; };
-		013EEA49DF4830AF334E98CD /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C3BA579D0629BFF35E9E4F /* PermissionManager.swift */; };
 		021AC6B12D40068A26BFE4FC /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B175BCF760E59B50206F21E /* AppLaunchUITests.swift */; };
-		02E8AC053958B5CE2BBCD54A /* AudioRecordError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DF56A55E5EA14FCEC4B1CB1 /* AudioRecordError.swift */; };
 		054F8F1A9EC2B5AD8667ECF5 /* EditorSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCCAE30A6DF9472B71C44756 /* EditorSession.swift */; };
 		0694F1A6AF7D4393460EAEA5 /* EditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77006048ED8949E4469B5E47 /* EditorViewController.swift */; };
 		0A40AC70EE8BE464187959C6 /* PermissionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C3BA579D0629BFF35E9E4F /* PermissionManager.swift */; };
@@ -24,7 +22,6 @@
 		11E7044CDBA9BD016F31C608 /* AudioUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDD1FCD0BD0E67BB78567E91 /* AudioUtils.swift */; };
 		11FFC1C8995A7379044018B7 /* HorizontalScrollBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FA9697ADD5DCAF8947A960E /* HorizontalScrollBarView.swift */; };
 		129E2C316DF35618C4CA31D0 /* TrimCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = C51A0F191D10F31E10169363 /* TrimCommand.swift */; };
-		131987BCF07B171F92905BF0 /* TranscriptExportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2BE1656ADE1116658D01C8 /* TranscriptExportTests.swift */; };
 		156D5E134A0678F13506A811 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE9BEBA97C837B89C6F1FA0 /* ExportService.swift */; };
 		1800ACB7B0041A4C8C466810 /* NormalizeCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308EAC4A3AC9900082C9CF5D /* NormalizeCommand.swift */; };
 		1A1F8890A843114764070477 /* CoreAudioProcessTapRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3FD0FE9D931E0EDF2BE8220 /* CoreAudioProcessTapRecorder.swift */; };
@@ -35,10 +32,7 @@
 		1E76F0A4A4692A069DBF9066 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E27F9DA681974D661A6487E /* Logger.swift */; };
 		20B4057E7AC05A2FBBC8873B /* TimerLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5C5AA30DA1D792CC3C5C5A /* TimerLabel.swift */; };
 		20BCDE10D8E2B09C712EAC9A /* EditToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF9690CA5FFFDA97BB229868 /* EditToolbarView.swift */; };
-		213D84FDCAC042C21D62879C /* LoocapTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DA4301EEB612CF8CAF164AD /* LoocapTheme.swift */; };
 		22B98FA657054F073371D343 /* EditorToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1E835CA5785C970F6D2D796 /* EditorToolbar.swift */; };
-		22E2B3FD13D5DD5F8BD32130 /* TimerLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B5C5AA30DA1D792CC3C5C5A /* TimerLabel.swift */; };
-		25C6413F5629311EFC6D39CF /* AudioToolboxFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B9198B044D28F6BA7E820D /* AudioToolboxFileManager.swift */; };
 		2772A3D2949C5E0DEFB2110B /* TimelineViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8A39407648DD4A4A47BED3 /* TimelineViewport.swift */; };
 		28BA20AD3DC04C56534CAF6B /* MicrophoneRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4FCA636FEE0F665D7D7336 /* MicrophoneRecorder.swift */; };
 		29940B2248B8ACCDDE707E17 /* MixedAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B7B1C5538C22BC8AB17B28 /* MixedAudioRecorder.swift */; };
@@ -49,84 +43,56 @@
 		31A07D620C4A339EE0A22C9D /* PlayheadOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCE42FEEFA3F732A0CD46A7 /* PlayheadOverlayView.swift */; };
 		330BD7C7B9CDE676B4DF29B3 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = B86CCFF076A02C74D1C60D87 /* L10n.swift */; };
 		38DB7D80C9B32D578393B459 /* EditorNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFACB7D4CB24351CEAA3A7F6 /* EditorNavigationBar.swift */; };
-		3C21FCD18836773CEBB0940A /* CoreAudioProcessTapRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3FD0FE9D931E0EDF2BE8220 /* CoreAudioProcessTapRecorder.swift */; };
-		3E1F1249FB708727EAC602EF /* AudioRecordSDK_C.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2489E92A0884ED9E1E1E1EC /* AudioRecordSDK_C.swift */; };
-		3ED67D4C389B7D4228B9D308 /* testControlPanelRecording.1.png in Resources */ = {isa = PBXBuildFile; fileRef = 37C456B3ACC2713EC0E51D2C /* testControlPanelRecording.1.png */; };
 		3F2806F69A4E26E8083CA13B /* ZoomControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7833D004DD0CA040FFF7E7 /* ZoomControlsView.swift */; };
-		4748CAC1C0B0DDAF3A8E3825 /* AudioRecorderProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD031EAF59E3F259B4CC5DC0 /* AudioRecorderProtocol.swift */; };
 		4B37701E63A020F19F498588 /* AudioProcessEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC465E187C0272F3F7C50E61 /* AudioProcessEnumerator.swift */; };
-		4D7EF181F62CC62DA6C28B89 /* TranscriptionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09FB774582EA9C1949967E20 /* TranscriptionModels.swift */; };
-		4ECD8241081EF75B783475DC /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E27F9DA681974D661A6487E /* Logger.swift */; };
 		5208BDEE958B13F603DF9787 /* MainWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BF2CAAAFD26D3F7108B2C8B /* MainWindowView.swift */; };
 		5240D71268B7A75DB862BB6E /* EditorWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4004AC37D23B62512381DE88 /* EditorWaveformView.swift */; };
-		551639759863789D34B241B7 /* LevelMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97572C1460A7BF63FDA197A4 /* LevelMonitor.swift */; };
 		5549E0B2A3E6AC134110EF8C /* TrackRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457CF46D3B336E4CFA0A3D32 /* TrackRowView.swift */; };
-		575F7D91393B1E73A0019CB5 /* AudioRecordAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 859BFBC7C268A5E245C0FD18 /* AudioRecordAPI.swift */; };
 		57EDFA56A4BDEF7CB71DF998 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9214A70D6372107698EB499 /* SettingsWindowController.swift */; };
-		5FEF44BCB215DA30EDF0286F /* testControlPanelIdle.1.png in Resources */ = {isa = PBXBuildFile; fileRef = A87F6DD2AB2D20950373EBEA /* testControlPanelIdle.1.png */; };
 		650445605C608BFB949A466E /* LevelMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97572C1460A7BF63FDA197A4 /* LevelMonitor.swift */; };
-		66C1CC58B3A14D0450481FE5 /* DeviceFingerprint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 484B2F7C291F6D823DB019E9 /* DeviceFingerprint.swift */; };
-		69F06CBC1539B732A7AEEEB3 /* SecureDelete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137052B745A1A6FA49A26D95 /* SecureDelete.swift */; };
-		6A05F41E9C2488BD805592D0 /* AudioConstraints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29FE9DA9CFE2BB662ADB9836 /* AudioConstraints.swift */; };
-		6DA3B02EA259B90004473E58 /* SwiftProcessTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E180D2D700F97DC1FBB8FFE0 /* SwiftProcessTapManager.swift */; };
 		704BE0ADC6A7A51135429F34 /* LevelMeterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA503E5B1DC32364F89F8D0 /* LevelMeterView.swift */; };
 		70EA44680EAAF5D4CE8E6A79 /* LayoutUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C8DCA1B85202B572D3BD85 /* LayoutUITests.swift */; };
 		72CCE19E5BCA1973EE19C5DF /* assets in Resources */ = {isa = PBXBuildFile; fileRef = FC3C7A1DD132FBFA4E700A30 /* assets */; };
 		72E2DA38A143D25142000415 /* SilenceTrimCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540354AABFBA94185810CEAA /* SilenceTrimCommand.swift */; };
-		734E4BEBC7A1BAEBDF4662B2 /* AudioUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDD1FCD0BD0E67BB78567E91 /* AudioUtils.swift */; };
 		749A3E8A262C79C5FC8CDB21 /* AudioFileEncryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E97E2BA97D856C66457B15 /* AudioFileEncryptor.swift */; };
 		753EFE2F2791606C4EE49099 /* EditorSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9DB96FD949D3AF7C3C2A563 /* EditorSessionManager.swift */; };
 		759B790FF688A2201A20871E /* RecordedFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FB87918AA2059D900407666 /* RecordedFilesView.swift */; };
-		77D6DC64D78762E81E22EACE /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = C90639910640A72019C4A46B /* SnapshotTesting */; };
-		7AFB0EE071C348F71A99F55A /* ProcessTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23B1300527680981672366C /* ProcessTapManager.swift */; };
 		7B327D11F2C0692FA626EFBC /* AudioCryptoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADC0089372E4E7BA1DB31B5F /* AudioCryptoConfig.swift */; };
 		7B9C5B83BCFFA3C9C3A5DC14 /* StatusBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63A582236C844AD77468EAD7 /* StatusBarView.swift */; };
 		7FA73CD8139D9FF04D7D3E9B /* WaveformTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03C2FCF74508B557ED3216B0 /* WaveformTile.swift */; };
 		7FB5202158C32A4A2BC5E9AC /* ControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7D13D2E87191F3EDE4A3E7 /* ControlPanelView.swift */; };
-		80954ACC6A425AA49EFD7517 /* IndustrialControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DE11D1C315E44D56BDE25C /* IndustrialControls.swift */; };
-		814FD5035DBAD179E1B99C0A /* AudioFileEncryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E97E2BA97D856C66457B15 /* AudioFileEncryptor.swift */; };
 		86F7D2D48BAD5927AE26192B /* LiveTranscriptPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACE84164F50921A8EA8D0D09 /* LiveTranscriptPanel.swift */; };
 		878C9DCBE6222C042EA88ED9 /* AppleSpeechEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A538BD546BB6CF942908930 /* AppleSpeechEngine.swift */; };
 		880109D7DD31DE5BB269C46C /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = D15AFEC1CF1F08E33DD65033 /* InfoPlist.strings */; };
 		8A9EE7161D5AD368F3AD8466 /* AudioRecordSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F7C6C7210681E0F8158E6C /* AudioRecordSDK.swift */; };
-		8BEDCC7D3BEDADF8F61869A4 /* ControlPanelSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF89DA32C6DEB778DBA9896C /* ControlPanelSnapshotTests.swift */; };
 		8ED83C6D1831173DC5C004F7 /* IndustrialControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74DE11D1C315E44D56BDE25C /* IndustrialControls.swift */; };
-		8F6EEE7F733CC49ECF9D115F /* MediaStreamTrack.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB7EA64114787A503EA51ED3 /* MediaStreamTrack.swift */; };
 		8F8120D96B12B0B9B2F7E3ED /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286CE49910D2F03ECA77C8C8 /* SidebarView.swift */; };
 		92E5E8C9B042516009BDEF85 /* WaveformTileProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AF8AB476A90CE931F4C5763 /* WaveformTileProvider.swift */; };
-		93B4DC3988401EF29EDAD267 /* ControlPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE7D13D2E87191F3EDE4A3E7 /* ControlPanelView.swift */; };
 		962B14B0DFC3B071042FC34D /* LoocapTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DA4301EEB612CF8CAF164AD /* LoocapTheme.swift */; };
 		984CE9FA1D271CE87A651909 /* TranscriptionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09FB774582EA9C1949967E20 /* TranscriptionModels.swift */; };
 		9DE9F4B40953130283F520C2 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A23C53A9B7EF5BE07C5AD544 /* main.swift */; };
 		9E0EE07A935E17210418F5D7 /* TracksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B165853D9A91C7530D4F7E4E /* TracksView.swift */; };
 		9F886639589A2A0E45C07DC8 /* AudioRecordAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 859BFBC7C268A5E245C0FD18 /* AudioRecordAPI.swift */; };
 		9FE023766DA15CC62FDB14D0 /* RecordingFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA9D98F17EA6FDBCF6EA188 /* RecordingFlowUITests.swift */; };
-		A0D4E5B0B63887B0D1DC5C33 /* AudioProcessEnumerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC465E187C0272F3F7C50E61 /* AudioProcessEnumerator.swift */; };
 		A1A30C59CB09FBF4426D69CF /* PropertiesPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43326B691098626622ABAA2 /* PropertiesPanelView.swift */; };
 		A3F9EAC12010DAB35E1C1546 /* MultiProcessLevelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC1C7693523CCDD89FDEE694 /* MultiProcessLevelView.swift */; };
 		A6AC50422A75DC6B56D9DC54 /* WaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BD37777430AB455C07D99BD /* WaveformView.swift */; };
-		A841CBB2874CBEE9A829DAA0 /* Types.swift in Sources */ = {isa = PBXBuildFile; fileRef = 286928CBBA265EA41AFC8217 /* Types.swift */; };
 		AC7FD8CBD01F3BD941ACF90E /* SwiftProcessTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E180D2D700F97DC1FBB8FFE0 /* SwiftProcessTapManager.swift */; };
 		AD63EB1455B0087E2FBA348F /* AudioRecorderController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E02E13DE4CD287C26DE54DF /* AudioRecorderController.swift */; };
 		AEF0F97B4FD5DC896CBAFFEC /* TracksUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FABCF307FDAE0A813D4CA5 /* TracksUITests.swift */; };
 		B0F585812E1026CEA1D95893 /* FileManagerUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED6C8C3DDBE9E05FCFA94C5 /* FileManagerUtils.swift */; };
 		B266B49A6AE73CAE108D2464 /* AudioRecorderProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD031EAF59E3F259B4CC5DC0 /* AudioRecorderProtocol.swift */; };
-		B4F418637585411FF68D22DF /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = B86CCFF076A02C74D1C60D87 /* L10n.swift */; };
+		B40E318E8BAC67BD5FA3F500 /* SilentOutputKeepAlive.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB9B6D7BD34ED713EFBEF186 /* SilentOutputKeepAlive.swift */; };
 		B5DF278D0778E8FF3A224F96 /* EditCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94243C8C32216DAF637CDFD2 /* EditCommand.swift */; };
 		B6FBD5E24DD82CA0077AC2E6 /* AggregateDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E303503BC16912EA97565 /* AggregateDeviceManager.swift */; };
-		B79CD00EB042767B03E363D4 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEBEEA31818286E4669B6D0 /* TranscriptionEngine.swift */; };
-		B8785421EDD1042A1BFE69F8 /* MixedAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23B7B1C5538C22BC8AB17B28 /* MixedAudioRecorder.swift */; };
+		B70889D702E237DDD7CE207E /* MicDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC4AFFC78600A89431D0D610 /* MicDeviceManager.swift */; };
 		BC248B2E7FEDF09BC3D34CEB /* ControlPanelView.swift.bak in Resources */ = {isa = PBXBuildFile; fileRef = 9D234A2577AC736888A90346 /* ControlPanelView.swift.bak */; };
 		BF0D5755CC47700B435AD28F /* ProcessTapManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F23B1300527680981672366C /* ProcessTapManager.swift */; };
-		C05D9EA92093CDDACA22DF8D /* ScreenCaptureAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FF48A0572CB356055E6836E /* ScreenCaptureAudioRecorder.swift */; };
-		C120D850089EE25EC196B808 /* TranscriptPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961A839846918A53926B220C /* TranscriptPanelView.swift */; };
 		C23B06783AFA1B697F8912FF /* AudioCallbackHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E447474E06A485AD0D4BB1E8 /* AudioCallbackHandler.swift */; };
 		C6952DF9419EEC67D34401C0 /* MediaStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6947B1E4A0BCD736E3901A22 /* MediaStream.swift */; };
 		C76B0A6AE66A0456FDE0DD3D /* PropertiesPanelViewDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4EF6D547F12D73D03E823AA /* PropertiesPanelViewDelegate.swift */; };
 		C855EE2620A60ECD7FE41798 /* ExportCardWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEF42551180D5A1E45400862 /* ExportCardWindowController.swift */; };
-		C98DD4FBA7AE5EA6C5546496 /* AudioCryptoConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADC0089372E4E7BA1DB31B5F /* AudioCryptoConfig.swift */; };
 		CAECEF1955617DB3F8BFD55D /* TabContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0954E697B710F7FA3AEBA7 /* TabContainerView.swift */; };
-		CB58A3F278BCCD8336A6BCDA /* FileManagerUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED6C8C3DDBE9E05FCFA94C5 /* FileManagerUtils.swift */; };
 		CD44B1A9C963D072BC668B50 /* RecordingTracksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0C38351F74971119757601C /* RecordingTracksView.swift */; };
 		CD9AC835393F311409D0C89F /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5B1EBF631592352BA19EE25 /* MainViewController.swift */; };
 		CEB8C36B0E2F566F61E6B387 /* AudioToolboxFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B9198B044D28F6BA7E820D /* AudioToolboxFileManager.swift */; };
@@ -137,19 +103,12 @@
 		D66130E0E7D23B6E5EB2E861 /* TrackPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEA9C4815DF289AEF60BA5D2 /* TrackPanelView.swift */; };
 		DA32BA95507177C2E87EA724 /* SplitAudioClipCommand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57BB13B7E5EEB3D2C521683 /* SplitAudioClipCommand.swift */; };
 		DA95725C1CED48F6018E1BB0 /* ScreenCaptureAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FF48A0572CB356055E6836E /* ScreenCaptureAudioRecorder.swift */; };
-		DFB13A21F1B3BDE8C5DF9259 /* AudioRecording.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C2ABABDCD615083FCA9F22 /* AudioRecording.swift */; };
-		E10A04D298F0A6C7924456B9 /* IndustrialDesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D946891C37A6B81160653C7 /* IndustrialDesignTokens.swift */; };
 		E2219DE642600843C13BC15C /* WaveformDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51509BFF335D2065C1B40856 /* WaveformDiskCache.swift */; };
-		E289949E0F7C7AFDE2650279 /* MediaStream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6947B1E4A0BCD736E3901A22 /* MediaStream.swift */; };
-		E353F7C5CD20E700B118B15E /* AudioCallbackHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = E447474E06A485AD0D4BB1E8 /* AudioCallbackHandler.swift */; };
 		E3A5CC8B62A4D760F50F4666 /* UXEventLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A6043A7D8C62F953020B8F /* UXEventLog.swift */; };
+		E3E74C907B93036361892C42 /* MicCaptureUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA27825C085F088A11BACE4B /* MicCaptureUnit.swift */; };
 		EA89E0A0E23976BAFA9C87E9 /* TranscriptionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAEBEEA31818286E4669B6D0 /* TranscriptionEngine.swift */; };
-		EED4C7C962821FB9B967A0DC /* AudioRecordSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F7C6C7210681E0F8158E6C /* AudioRecordSDK.swift */; };
-		F0C0FC7F92F6E0944B5327F5 /* AggregateDeviceManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA9E303503BC16912EA97565 /* AggregateDeviceManager.swift */; };
 		F121EE78F880B0A242552EC4 /* TranscriptPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961A839846918A53926B220C /* TranscriptPanelView.swift */; };
 		F1D616FEC8ED805CC7215791 /* IndustrialDesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D946891C37A6B81160653C7 /* IndustrialDesignTokens.swift */; };
-		F723BADAD9567D4B3F0ED739 /* MicrophoneRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4FCA636FEE0F665D7D7336 /* MicrophoneRecorder.swift */; };
-		F8EEF718D704CBB6C7DA12FD /* AppleSpeechEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A538BD546BB6CF942908930 /* AppleSpeechEngine.swift */; };
 		FFFB5AA1B004D23FCC95A062 /* AudioSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E67C0060C5C5E4357D2AFB4 /* AudioSource.swift */; };
 /* End PBXBuildFile section */
 
@@ -198,6 +157,7 @@
 		01616F3B10D5A7BB82EFA2F7 /* SecureDelete.swift-2TC5Y4UUJRSVC */ = {isa = PBXFileReference; path = "SecureDelete.swift-2TC5Y4UUJRSVC"; sourceTree = "<group>"; };
 		01646E75CDCF66EC629FE310 /* AudioRecordSDK.dia */ = {isa = PBXFileReference; path = AudioRecordSDK.dia; sourceTree = "<group>"; };
 		01758A44B469CDC94A18B4DE /* SKDocument.h-UJ5M6QHQUV03 */ = {isa = PBXFileReference; path = "SKDocument.h-UJ5M6QHQUV03"; sourceTree = "<group>"; };
+		0175959EB0B983829046D59A /* FIX004-静音录音-全屏原图-2026-10-13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "FIX004-静音录音-全屏原图-2026-10-13.png"; sourceTree = "<group>"; };
 		017639459B48026540155CC5 /* XCTWaiter.h-1SH7331Z52GZA */ = {isa = PBXFileReference; path = "XCTWaiter.h-1SH7331Z52GZA"; sourceTree = "<group>"; };
 		0176A71AA25B8F774E866547 /* fasttrap_isa.h-ZB961V8UL2AW */ = {isa = PBXFileReference; path = "fasttrap_isa.h-ZB961V8UL2AW"; sourceTree = "<group>"; };
 		017AA397A09E9AD73ED4F963 /* NSSliderTouchBarItem.h-2GG1BIFY7ZN97 */ = {isa = PBXFileReference; path = "NSSliderTouchBarItem.h-2GG1BIFY7ZN97"; sourceTree = "<group>"; };
@@ -1220,6 +1180,7 @@
 		29C2A3140E6B68D1348FFB44 /* ptrauth-19KE09ZDXQ6Q3.pcm */ = {isa = PBXFileReference; path = "ptrauth-19KE09ZDXQ6Q3.pcm"; sourceTree = "<group>"; };
 		29C83DE73314A2F5FBD49085 /* AVCaptureMetadataOutput.h-12IMQO4INO516 */ = {isa = PBXFileReference; path = "AVCaptureMetadataOutput.h-12IMQO4INO516"; sourceTree = "<group>"; };
 		29CA9B84EFB7B2AA81859FB4 /* search.h-3T9YDPJL80K06 */ = {isa = PBXFileReference; path = "search.h-3T9YDPJL80K06"; sourceTree = "<group>"; };
+		29DAE9B955BC5713EDA812AF /* FIX004-静音录音-计时走电平活-2026-10-13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "FIX004-静音录音-计时走电平活-2026-10-13.png"; sourceTree = "<group>"; };
 		29EFD9DA836C0A3724F3E58F /* SecureTransport.h-3UW7VKQTYZSL8 */ = {isa = PBXFileReference; path = "SecureTransport.h-3UW7VKQTYZSL8"; sourceTree = "<group>"; };
 		29F22289A661049DEDCD5C77 /* CFFTPStream.h-NPHAV10TCCUR */ = {isa = PBXFileReference; path = "CFFTPStream.h-NPHAV10TCCUR"; sourceTree = "<group>"; };
 		29F434C7298416A9A1E33491 /* Accessibility-RCJSN2GG3RAR.pcm */ = {isa = PBXFileReference; path = "Accessibility-RCJSN2GG3RAR.pcm"; sourceTree = "<group>"; };
@@ -1478,6 +1439,7 @@
 		34975356B538EB6A28ACFD50 /* LASecret.h-OR63I80WKQQ */ = {isa = PBXFileReference; path = "LASecret.h-OR63I80WKQQ"; sourceTree = "<group>"; };
 		349A49840203EA41FAB90E0D /* AudioRecordKit.swiftmodule */ = {isa = PBXFileReference; path = AudioRecordKit.swiftmodule; sourceTree = "<group>"; };
 		34A49BDBE0E3031EB70F142F /* AVPlayerItem.h-2U4JHV0JBF1ND */ = {isa = PBXFileReference; path = "AVPlayerItem.h-2U4JHV0JBF1ND"; sourceTree = "<group>"; };
+		34BF35CFB266D92ADDD8F042 /* 2026-10-13-FIX006-修复后-混录电平表.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-FIX006-修复后-混录电平表.png"; sourceTree = "<group>"; };
 		34C2367549E0A0FD762D11E2 /* OpenGL.h-3ID31A3QB0VR */ = {isa = PBXFileReference; path = "OpenGL.h-3ID31A3QB0VR"; sourceTree = "<group>"; };
 		34D106DDDD80087FD28553BC /* UniformTypeIdentifiers-1OLJP4K3PLM48.pcm */ = {isa = PBXFileReference; path = "UniformTypeIdentifiers-1OLJP4K3PLM48.pcm"; sourceTree = "<group>"; };
 		34D53F6CB45D6F856535AB15 /* matrix.h-Y0VZG6UH08NB */ = {isa = PBXFileReference; path = "matrix.h-Y0VZG6UH08NB"; sourceTree = "<group>"; };
@@ -1498,6 +1460,7 @@
 		3559795E3F46E9091F83FB85 /* ThemeAndMonitorTests.swift.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = ThemeAndMonitorTests.swift.o; sourceTree = "<group>"; };
 		356AC7E53BC94D24396FFBC5 /* NSUserDefaultsController.h-27XTV0L6SI0CZ */ = {isa = PBXFileReference; path = "NSUserDefaultsController.h-27XTV0L6SI0CZ"; sourceTree = "<group>"; };
 		35820231F19555A7CB8755A5 /* MessageComponent.h-186P70OKVUY8R */ = {isa = PBXFileReference; path = "MessageComponent.h-186P70OKVUY8R"; sourceTree = "<group>"; };
+		3582D6DD7661472318BE2B7E /* 2026-10-13-FIX004-录音中计时走波形空.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-FIX004-录音中计时走波形空.png"; sourceTree = "<group>"; };
 		358BC9AA713629897D127F31 /* arm_bf16.h-1NYQITHQXK2X0 */ = {isa = PBXFileReference; path = "arm_bf16.h-1NYQITHQXK2X0"; sourceTree = "<group>"; };
 		3598BA7C9E856D563793BF5B /* BasicImageTypes.h-36ZSEQII45AM5 */ = {isa = PBXFileReference; path = "BasicImageTypes.h-36ZSEQII45AM5"; sourceTree = "<group>"; };
 		35B50A70D3DC3BF6E385E2C2 /* AVMIDIPlayer.h-37VTGWOVGFUZL */ = {isa = PBXFileReference; path = "AVMIDIPlayer.h-37VTGWOVGFUZL"; sourceTree = "<group>"; };
@@ -1549,7 +1512,6 @@
 		37AEF8E5E2BDE73D1369B311 /* DiskArbitration-3LBJF5I58QD8.pcm */ = {isa = PBXFileReference; path = "DiskArbitration-3LBJF5I58QD8.pcm"; sourceTree = "<group>"; };
 		37B39C44A5AFE8F289DD3E9D /* _mbstate_t.h-1DVIOTQDCQD6C */ = {isa = PBXFileReference; path = "_mbstate_t.h-1DVIOTQDCQD6C"; sourceTree = "<group>"; };
 		37BE548033031F675EB0D978 /* NSHelpManager.h-1YT7HVTBODPMY */ = {isa = PBXFileReference; path = "NSHelpManager.h-1YT7HVTBODPMY"; sourceTree = "<group>"; };
-		37C456B3ACC2713EC0E51D2C /* testControlPanelRecording.1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = testControlPanelRecording.1.png; sourceTree = "<group>"; };
 		37C7686C3CB8660BAB69DCDC /* conf.h-317NT1SEZQEDO */ = {isa = PBXFileReference; path = "conf.h-317NT1SEZQEDO"; sourceTree = "<group>"; };
 		37D100F4E6500008D86B1881 /* CoreTransferable.h-31JBUWWJ10GHA */ = {isa = PBXFileReference; path = "CoreTransferable.h-31JBUWWJ10GHA"; sourceTree = "<group>"; };
 		37D1DC3980B4669A2798B824 /* oidsalg.h-1VMBTWO7BACJL */ = {isa = PBXFileReference; path = "oidsalg.h-1VMBTWO7BACJL"; sourceTree = "<group>"; };
@@ -1709,6 +1671,7 @@
 		3DFBA887E007C550412D1080 /* Speech-24KOILGSVNH38.pcm */ = {isa = PBXFileReference; path = "Speech-24KOILGSVNH38.pcm"; sourceTree = "<group>"; };
 		3E02E13DE4CD287C26DE54DF /* AudioRecorderController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorderController.swift; sourceTree = "<group>"; };
 		3E098BD627DDA50BC644D5CC /* ColorSync.h-282BZJH3UXBG0 */ = {isa = PBXFileReference; path = "ColorSync.h-282BZJH3UXBG0"; sourceTree = "<group>"; };
+		3E203850400F20F72F01DC1B /* 2026-10-13-UI010-参考-绿色圆头竖条风格.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-UI010-参考-绿色圆头竖条风格.png"; sourceTree = "<group>"; };
 		3E244B745FE43C2BE0050EA7 /* NSPersonNameComponentsFormatter.h-PPUQQ20KNGGS */ = {isa = PBXFileReference; path = "NSPersonNameComponentsFormatter.h-PPUQQ20KNGGS"; sourceTree = "<group>"; };
 		3E2FEBF470DB44B1307CC86D /* TranscriptionEngine.d */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.dtrace; path = TranscriptionEngine.d; sourceTree = "<group>"; };
 		3E319FC489E107A4D0CFA8B1 /* AudioFileEncryptor.swiftdeps */ = {isa = PBXFileReference; path = AudioFileEncryptor.swiftdeps; sourceTree = "<group>"; };
@@ -3136,6 +3099,7 @@
 		77D03F86DFA5B82323D45F9F /* SecureDelete.dia */ = {isa = PBXFileReference; path = SecureDelete.dia; sourceTree = "<group>"; };
 		77D0EE6169A90A6F560CB34C /* CGDataConsumer.h-14QCQ3F11PQ4T */ = {isa = PBXFileReference; path = "CGDataConsumer.h-14QCQ3F11PQ4T"; sourceTree = "<group>"; };
 		77DFD3101928CCA6D2901764 /* Symbols-3KC1789KJFX94.pcm-1K8FV9UNGXRCZ */ = {isa = PBXFileReference; path = "Symbols-3KC1789KJFX94.pcm-1K8FV9UNGXRCZ"; sourceTree = "<group>"; };
+		77F56BB9AAE48D89F5E843FF /* 2026-10-13-FIX006-录音中播放测试音-电平表.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-FIX006-录音中播放测试音-电平表.png"; sourceTree = "<group>"; };
 		77F5C34416290477C0DF5B60 /* ScreenCaptureAudioRecorder.swift-NY82J8VVY6HM */ = {isa = PBXFileReference; path = "ScreenCaptureAudioRecorder.swift-NY82J8VVY6HM"; sourceTree = "<group>"; };
 		78040ED8C3AA465F6A95F4FF /* XCUIAutomationDefines.h-153UV38EKV6SV */ = {isa = PBXFileReference; path = "XCUIAutomationDefines.h-153UV38EKV6SV"; sourceTree = "<group>"; };
 		78159D1AE507D6663AE40AFE /* NSNetServices.h-1KWBIZAZ8RZPR */ = {isa = PBXFileReference; path = "NSNetServices.h-1KWBIZAZ8RZPR"; sourceTree = "<group>"; };
@@ -3159,6 +3123,7 @@
 		78E725ECC55AA2CA3AB5DDE3 /* HIWindowViews.h-2KBXPH7D3841Z */ = {isa = PBXFileReference; path = "HIWindowViews.h-2KBXPH7D3841Z"; sourceTree = "<group>"; };
 		78F98BD8BFFA17229A9AE39A /* IOBDMediaBSDClient.h-25PFG8RAOWFXI */ = {isa = PBXFileReference; path = "IOBDMediaBSDClient.h-25PFG8RAOWFXI"; sourceTree = "<group>"; };
 		78FBD01F7186D779161FD892 /* AXNotificationConstants.h-3OET3EQ3MCR1Q */ = {isa = PBXFileReference; path = "AXNotificationConstants.h-3OET3EQ3MCR1Q"; sourceTree = "<group>"; };
+		79163ADD558ED668351F9985 /* FIX004-修复后-录音态波形源指示-2026-10-13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "FIX004-修复后-录音态波形源指示-2026-10-13.png"; sourceTree = "<group>"; };
 		79229546C4C8131BA11E9EEE /* NSProxy.h-24PHTNSWT5MFT */ = {isa = PBXFileReference; path = "NSProxy.h-24PHTNSWT5MFT"; sourceTree = "<group>"; };
 		7923ECCA9673BE6D148DADC8 /* NSPressGestureRecognizer.h-2S184FBAGJ0W9 */ = {isa = PBXFileReference; path = "NSPressGestureRecognizer.h-2S184FBAGJ0W9"; sourceTree = "<group>"; };
 		7924933A03D039931F845E1C /* cssmcspi.h-2V96NEAD0WJZ4 */ = {isa = PBXFileReference; path = "cssmcspi.h-2V96NEAD0WJZ4"; sourceTree = "<group>"; };
@@ -3244,6 +3209,7 @@
 		7C5ACA5D3186DBCF9F493925 /* Accessibility-RCJSN2GG3RAR.pcm */ = {isa = PBXFileReference; path = "Accessibility-RCJSN2GG3RAR.pcm"; sourceTree = "<group>"; };
 		7C600435653E035BE44E1E2B /* XCUIElement.h-2SWPZLCC134ZE */ = {isa = PBXFileReference; path = "XCUIElement.h-2SWPZLCC134ZE"; sourceTree = "<group>"; };
 		7C70EA5C94C846A54304F8D9 /* HITheme.h-3F1AOGOSIBBXC */ = {isa = PBXFileReference; path = "HITheme.h-3F1AOGOSIBBXC"; sourceTree = "<group>"; };
+		7C7A7FB3A2EDD15A6B567066 /* FEAT004-设备选择行.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "FEAT004-设备选择行.png"; sourceTree = "<group>"; };
 		7C89EC45C551AC90E5204F12 /* AVCaptureDepthDataOutput.h-1F5EQUJ2P9WRG */ = {isa = PBXFileReference; path = "AVCaptureDepthDataOutput.h-1F5EQUJ2P9WRG"; sourceTree = "<group>"; };
 		7C8B5C657DFB762642680618 /* SFErrors.h-KCLINGJ0PQSR */ = {isa = PBXFileReference; path = "SFErrors.h-KCLINGJ0PQSR"; sourceTree = "<group>"; };
 		7CAEB81B48952E313F0921BE /* IOMedia.h-1KLSC3J8BODF6 */ = {isa = PBXFileReference; path = "IOMedia.h-1KLSC3J8BODF6"; sourceTree = "<group>"; };
@@ -3448,6 +3414,7 @@
 		84CEAAF12BA562C6AF6CD658 /* NSScriptObjectSpecifiers.h-21HLW7U4EHGJV */ = {isa = PBXFileReference; path = "NSScriptObjectSpecifiers.h-21HLW7U4EHGJV"; sourceTree = "<group>"; };
 		84D157F2B9794C4B14E771CF /* device_types.h-3B2Z7K0WZ9JCR */ = {isa = PBXFileReference; path = "device_types.h-3B2Z7K0WZ9JCR"; sourceTree = "<group>"; };
 		84E45446A5633B387F17283F /* NSTextInputClient.h-VSYJC2XYHUK6 */ = {isa = PBXFileReference; path = "NSTextInputClient.h-VSYJC2XYHUK6"; sourceTree = "<group>"; };
+		84EAB7CAD6387342BA48796B /* UI-009-Dock实拍-描边亮边-2026-10-13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "UI-009-Dock实拍-描边亮边-2026-10-13.png"; sourceTree = "<group>"; };
 		84FA75C8689A27CA14CAB473 /* SolveImplementationTyped.h-3QXG5806JDSIK */ = {isa = PBXFileReference; path = "SolveImplementationTyped.h-3QXG5806JDSIK"; sourceTree = "<group>"; };
 		850F9DAA7A90A81AE586B42E /* _OSByteOrder.h-22HWOXDCHH81W */ = {isa = PBXFileReference; path = "_OSByteOrder.h-22HWOXDCHH81W"; sourceTree = "<group>"; };
 		8514E2247B56849A32C7FAA5 /* LAPublicDefines.h-15X0OL6L5OC9T */ = {isa = PBXFileReference; path = "LAPublicDefines.h-15X0OL6L5OC9T"; sourceTree = "<group>"; };
@@ -3729,7 +3696,6 @@
 		8F0F861AD0B4A3704A017563 /* vsock.h-1F8O1WMK9XHUM */ = {isa = PBXFileReference; path = "vsock.h-1F8O1WMK9XHUM"; sourceTree = "<group>"; };
 		8F2377404A19BC3EA637B7C0 /* IOFireWireLibIsoch.h-QP5371C4987M */ = {isa = PBXFileReference; path = "IOFireWireLibIsoch.h-QP5371C4987M"; sourceTree = "<group>"; };
 		8F28A0C907D60D2E013BD252 /* CFHost.h-3JLYPSV9W6QSK */ = {isa = PBXFileReference; path = "CFHost.h-3JLYPSV9W6QSK"; sourceTree = "<group>"; };
-		8F2BE1656ADE1116658D01C8 /* TranscriptExportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptExportTests.swift; sourceTree = "<group>"; };
 		8F350C29C555F84EE7893935 /* MicrophoneRecorder.swift.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = MicrophoneRecorder.swift.o; sourceTree = "<group>"; };
 		8F489FD7A863412A66E1F4EB /* MTLTextureViewPool.h-AME70TZSQ2LA */ = {isa = PBXFileReference; path = "MTLTextureViewPool.h-AME70TZSQ2LA"; sourceTree = "<group>"; };
 		8F4EB35A2EDD8F5A31F78506 /* NSCollectionViewCompositionalLayout.h-G5C6JR8GIF7S */ = {isa = PBXFileReference; path = "NSCollectionViewCompositionalLayout.h-G5C6JR8GIF7S"; sourceTree = "<group>"; };
@@ -3893,7 +3859,6 @@
 		954A94C1001D032AD1B1D2C4 /* NSError.h-2N3XNC7XEY3UW */ = {isa = PBXFileReference; path = "NSError.h-2N3XNC7XEY3UW"; sourceTree = "<group>"; };
 		954F051A46827E3DF3068747 /* Metal-1GCZV9N85NJOH.pcm-1G47KSITA7MGE */ = {isa = PBXFileReference; path = "Metal-1GCZV9N85NJOH.pcm-1G47KSITA7MGE"; sourceTree = "<group>"; };
 		955981D309DDCFE24753DBE4 /* machine.h-3Q8JF8ZO01AOR */ = {isa = PBXFileReference; path = "machine.h-3Q8JF8ZO01AOR"; sourceTree = "<group>"; };
-		956D7C6059ED9EB640790B3E /* AudioRecordMacSnapshotTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AudioRecordMacSnapshotTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		956DC9AEF1AD2FDFAAD1C6D6 /* OSThermalNotification.h-1OO1V3WH636FC */ = {isa = PBXFileReference; path = "OSThermalNotification.h-1OO1V3WH636FC"; sourceTree = "<group>"; };
 		956DF3DC4BD6CA4264394403 /* XCTNSPredicateExpectation.h-3C7FILM8Y8JFK */ = {isa = PBXFileReference; path = "XCTNSPredicateExpectation.h-3C7FILM8Y8JFK"; sourceTree = "<group>"; };
 		95925AECDBE53BA98CF92849 /* times.h-1SZQ0UVJPYQIZ */ = {isa = PBXFileReference; path = "times.h-1SZQ0UVJPYQIZ"; sourceTree = "<group>"; };
@@ -4226,6 +4191,7 @@
 		A1EFE9E25DAB1351758805F1 /* CoreServices-39NCTJOEW7PQ2.pcm */ = {isa = PBXFileReference; path = "CoreServices-39NCTJOEW7PQ2.pcm"; sourceTree = "<group>"; };
 		A1FE86F0242A840501828945 /* _DarwinFoundation1-3N9O4KCIAAEI2.swiftmodule */ = {isa = PBXFileReference; path = "_DarwinFoundation1-3N9O4KCIAAEI2.swiftmodule"; sourceTree = "<group>"; };
 		A20BFE2ED8195D78F2C0F140 /* _pthread_once_t.h-2P5WKU6353VM6 */ = {isa = PBXFileReference; path = "_pthread_once_t.h-2P5WKU6353VM6"; sourceTree = "<group>"; };
+		A211CCF75BAB01D34E0B1560 /* 2026-10-13-UI012-参考-网格直通分割线紧贴面板.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-UI012-参考-网格直通分割线紧贴面板.png"; sourceTree = "<group>"; };
 		A224484F9591257FE80FBF73 /* SecTransform.h-24G7PYY4JZB6S */ = {isa = PBXFileReference; path = "SecTransform.h-24G7PYY4JZB6S"; sourceTree = "<group>"; };
 		A2273BE879FBFD0AC3F48C58 /* AVAudioMix.h-1IIFK1IK2QQ7R */ = {isa = PBXFileReference; path = "AVAudioMix.h-1IIFK1IK2QQ7R"; sourceTree = "<group>"; };
 		A23C53A9B7EF5BE07C5AD544 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -4282,6 +4248,7 @@
 		A42C7A15551FD753824A8D55 /* IOPowerSources.h-3ES43JKFNMY0Y */ = {isa = PBXFileReference; path = "IOPowerSources.h-3ES43JKFNMY0Y"; sourceTree = "<group>"; };
 		A432B3427745464D25C6B6EF /* CIKernel.h-38O7E4MYX0H9I */ = {isa = PBXFileReference; path = "CIKernel.h-38O7E4MYX0H9I"; sourceTree = "<group>"; };
 		A43CE7BFDC2D1AF2BB54CCA8 /* ObjectiveC-1G8H182PQX3QE.pcm */ = {isa = PBXFileReference; path = "ObjectiveC-1G8H182PQX3QE.pcm"; sourceTree = "<group>"; };
+		A445574EC334751D57DADCE1 /* 2026-10-13-UI010-现状-橙色填充包络-保留备用.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-UI010-现状-橙色填充包络-保留备用.png"; sourceTree = "<group>"; };
 		A44863A921F11455CFD68AC4 /* NSPredicateEditorRowTemplate.h-1RW61PH1J70QF */ = {isa = PBXFileReference; path = "NSPredicateEditorRowTemplate.h-1RW61PH1J70QF"; sourceTree = "<group>"; };
 		A45131A9E344FDC6CEA62504 /* AVComposition.h-2PXMDH4A13OZX */ = {isa = PBXFileReference; path = "AVComposition.h-2PXMDH4A13OZX"; sourceTree = "<group>"; };
 		A456B801A6D9C8DF1DF8165F /* MDLabel.h-127N1GPD5V3C1 */ = {isa = PBXFileReference; path = "MDLabel.h-127N1GPD5V3C1"; sourceTree = "<group>"; };
@@ -4375,6 +4342,7 @@
 		A7CA1A45E485CB3BA447A920 /* AudioServices.h-FTZQE34RA9OM */ = {isa = PBXFileReference; path = "AudioServices.h-FTZQE34RA9OM"; sourceTree = "<group>"; };
 		A7D332CB7C77A4E2049956E8 /* posix_sem.h-1XBH79JBQ2075 */ = {isa = PBXFileReference; path = "posix_sem.h-1XBH79JBQ2075"; sourceTree = "<group>"; };
 		A7E66CA199B5B5450779B547 /* CoreAudioProcessTapRecorder.swift-3IR8BKCJST6U8 */ = {isa = PBXFileReference; path = "CoreAudioProcessTapRecorder.swift-3IR8BKCJST6U8"; sourceTree = "<group>"; };
+		A7F5DFBE63076F8E30A71574 /* 2026-10-13-FIX006-录音中播放测试音-电平表-2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-FIX006-录音中播放测试音-电平表-2.png"; sourceTree = "<group>"; };
 		A7FE6E7B6D8F63748D478BB7 /* AudioRecordingModelTests.swiftdeps */ = {isa = PBXFileReference; path = AudioRecordingModelTests.swiftdeps; sourceTree = "<group>"; };
 		A810573EEA3106C8D243CD14 /* _u_int64_t.h-946RWGK2CSO9 */ = {isa = PBXFileReference; path = "_u_int64_t.h-946RWGK2CSO9"; sourceTree = "<group>"; };
 		A82CE82CE701F4D55C0278C9 /* CoreAudioProcessTapRecorder.swift-106VY2BHW23BJ */ = {isa = PBXFileReference; path = "CoreAudioProcessTapRecorder.swift-106VY2BHW23BJ"; sourceTree = "<group>"; };
@@ -4385,7 +4353,6 @@
 		A852FDA8E6E9E1F9DD5FBA13 /* HIMenuView.h-33OZO9EZD0449 */ = {isa = PBXFileReference; path = "HIMenuView.h-33OZO9EZD0449"; sourceTree = "<group>"; };
 		A858550BD26C5A1686C1B9A1 /* _wchar.h-2GKKTOPDETU97 */ = {isa = PBXFileReference; path = "_wchar.h-2GKKTOPDETU97"; sourceTree = "<group>"; };
 		A85E1892ED70AE93551069FC /* CVOpenGLTextureCache.h-1QUG2EGZEME2P */ = {isa = PBXFileReference; path = "CVOpenGLTextureCache.h-1QUG2EGZEME2P"; sourceTree = "<group>"; };
-		A87F6DD2AB2D20950373EBEA /* testControlPanelIdle.1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = testControlPanelIdle.1.png; sourceTree = "<group>"; };
 		A89E1F3A609173BEC44CF32C /* 设计拆解与现状差异分析.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "设计拆解与现状差异分析.md"; sourceTree = "<group>"; };
 		A89FD8E345BE46DE0B7E1BE0 /* bank_types.h-1OS6VZZDZ5LWA */ = {isa = PBXFileReference; path = "bank_types.h-1OS6VZZDZ5LWA"; sourceTree = "<group>"; };
 		A8ACD69A553341A63504D404 /* NSFormCell.h-2V373RG8FJ3GM */ = {isa = PBXFileReference; path = "NSFormCell.h-2V373RG8FJ3GM"; sourceTree = "<group>"; };
@@ -4429,6 +4396,7 @@
 		AA1CD9E348AE009D35B9407C /* XCTKVOExpectation.h-3IZE12QKMHLER */ = {isa = PBXFileReference; path = "XCTKVOExpectation.h-3IZE12QKMHLER"; sourceTree = "<group>"; };
 		AA1DCF6D784BA391B2CEE7D7 /* TranscriptionEngine.dia */ = {isa = PBXFileReference; path = TranscriptionEngine.dia; sourceTree = "<group>"; };
 		AA27069BA4A508037EC40FE5 /* audit_errno.h-2KEF3J00QY89S */ = {isa = PBXFileReference; path = "audit_errno.h-2KEF3J00QY89S"; sourceTree = "<group>"; };
+		AA27825C085F088A11BACE4B /* MicCaptureUnit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicCaptureUnit.swift; sourceTree = "<group>"; };
 		AA343A96B72216B7C5E746AE /* MTLAccelerationStructureTypes.h-23LTMYMIGTK4C */ = {isa = PBXFileReference; path = "MTLAccelerationStructureTypes.h-23LTMYMIGTK4C"; sourceTree = "<group>"; };
 		AA3C31BBE9B69FC4D8BA2331 /* CGPattern.h-3UMCPBB8RLFJT */ = {isa = PBXFileReference; path = "CGPattern.h-3UMCPBB8RLFJT"; sourceTree = "<group>"; };
 		AA4736CF76972C149FA57185 /* IOFireWireLib.h-1WQFO90XYW8N0 */ = {isa = PBXFileReference; path = "IOFireWireLib.h-1WQFO90XYW8N0"; sourceTree = "<group>"; };
@@ -4447,12 +4415,14 @@
 		AAA537287DE59AD33CBB1FC5 /* XCUIApplication.h-6MPPOWCMS69P */ = {isa = PBXFileReference; path = "XCUIApplication.h-6MPPOWCMS69P"; sourceTree = "<group>"; };
 		AAB68D3DA48F5D1609A60D9F /* arm64e-apple-macos.swiftinterface-D62B7OZRUTRP */ = {isa = PBXFileReference; path = "arm64e-apple-macos.swiftinterface-D62B7OZRUTRP"; sourceTree = "<group>"; };
 		AABC276298E9ACFF1AFB0FDD /* reloc.h-3UH16P46OES08 */ = {isa = PBXFileReference; path = "reloc.h-3UH16P46OES08"; sourceTree = "<group>"; };
+		AAC4E0A75715E1769466C970 /* 2026-10-13-FIX006-逐秒峰值分析.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "2026-10-13-FIX006-逐秒峰值分析.txt"; sourceTree = "<group>"; };
 		AADCF3A735687CFA38D6F1FE /* _Builtin_stdatomic-19KE09ZDXQ6Q3.pcm */ = {isa = PBXFileReference; path = "_Builtin_stdatomic-19KE09ZDXQ6Q3.pcm"; sourceTree = "<group>"; };
 		AADFB13141E1C2DE6FD5FFBC /* QuartzCore-1X1P60M6YCYUE.swiftmodule */ = {isa = PBXFileReference; path = "QuartzCore-1X1P60M6YCYUE.swiftmodule"; sourceTree = "<group>"; };
 		AAE30849238D984A5192229D /* CMSampleBuffer.h-JBW1D1YU06GU */ = {isa = PBXFileReference; path = "CMSampleBuffer.h-JBW1D1YU06GU"; sourceTree = "<group>"; };
 		AAE72A2865F4273D24912D16 /* launch.h-1KMHQM2WJJFLH */ = {isa = PBXFileReference; path = "launch.h-1KMHQM2WJJFLH"; sourceTree = "<group>"; };
 		AAEED77C3D51431F087D8BA0 /* vm_param.h-21DLWLXTEKZDY */ = {isa = PBXFileReference; path = "vm_param.h-21DLWLXTEKZDY"; sourceTree = "<group>"; };
 		AB01A8EF9638A5DBF122545C /* CGFunction.h-2NSX6HUC6H1DD */ = {isa = PBXFileReference; path = "CGFunction.h-2NSX6HUC6H1DD"; sourceTree = "<group>"; };
+		AB031E09E9A3401CCB88FBF3 /* 2026-10-13-INFRA003R1-hover残留AudioRecordMac.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-INFRA003R1-hover残留AudioRecordMac.png"; sourceTree = "<group>"; };
 		AB0E10D979999D85F9CF00D5 /* ProcessTapManager.dia */ = {isa = PBXFileReference; path = ProcessTapManager.dia; sourceTree = "<group>"; };
 		AB165D197CCEF6F82BDAD594 /* Math64.h-3TDIM2TXH2KYY */ = {isa = PBXFileReference; path = "Math64.h-3TDIM2TXH2KYY"; sourceTree = "<group>"; };
 		AB1F2730CC9DB89529E1E512 /* AudioRecordAPI.d */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.dtrace; path = AudioRecordAPI.d; sourceTree = "<group>"; };
@@ -4578,7 +4548,6 @@
 		AF4703AEBF370E993B791EA9 /* NSFontManager.h-UIZ7V7TKIA2H */ = {isa = PBXFileReference; path = "NSFontManager.h-UIZ7V7TKIA2H"; sourceTree = "<group>"; };
 		AF5BB483A0AC900F24DDF91A /* CMTag.h-3BHI3OXLH4SFS */ = {isa = PBXFileReference; path = "CMTag.h-3BHI3OXLH4SFS"; sourceTree = "<group>"; };
 		AF64595687E251E5D396493A /* vector.h-BCH01YQPJZFX */ = {isa = PBXFileReference; path = "vector.h-BCH01YQPJZFX"; sourceTree = "<group>"; };
-		AF89DA32C6DEB778DBA9896C /* ControlPanelSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlPanelSnapshotTests.swift; sourceTree = "<group>"; };
 		AF93B83A73ACBA233961E6CC /* CGBitmapContext.h-31L5MG363CHN6 */ = {isa = PBXFileReference; path = "CGBitmapContext.h-31L5MG363CHN6"; sourceTree = "<group>"; };
 		AFA7BCE88B694889FD9761E4 /* attr.h-6LNGWREMUCLT */ = {isa = PBXFileReference; path = "attr.h-6LNGWREMUCLT"; sourceTree = "<group>"; };
 		AFA8C5CC3F92F8CF20BBEB3A /* MTLTextureViewPool.h-AME70TZSQ2LA */ = {isa = PBXFileReference; path = "MTLTextureViewPool.h-AME70TZSQ2LA"; sourceTree = "<group>"; };
@@ -4874,6 +4843,7 @@
 		BB8D5BA501405D73DA43C5CB /* _Builtin_stddef-19KE09ZDXQ6Q3.pcm */ = {isa = PBXFileReference; path = "_Builtin_stddef-19KE09ZDXQ6Q3.pcm"; sourceTree = "<group>"; };
 		BB8EBFDD63EE7CDB2CBD971D /* AVMetrics.h-317S34OSCSV6J */ = {isa = PBXFileReference; path = "AVMetrics.h-317S34OSCSV6J"; sourceTree = "<group>"; };
 		BBA2FB961FA1DDB8F4CAF8A2 /* AppleSpeechEngine.swift.o-398TTK5SI0UA3 */ = {isa = PBXFileReference; path = "AppleSpeechEngine.swift.o-398TTK5SI0UA3"; sourceTree = "<group>"; };
+		BBA459C8AF958A52C4AF1018 /* UI-009-Dock全景-2026-10-13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "UI-009-Dock全景-2026-10-13.png"; sourceTree = "<group>"; };
 		BBBA6386DC38BFA0BED919E6 /* IOHIDTransaction.h-20S7JERGHEZKI */ = {isa = PBXFileReference; path = "IOHIDTransaction.h-20S7JERGHEZKI"; sourceTree = "<group>"; };
 		BBC5A2BA58A781AF55080F8F /* NSISO8601DateFormatter.h-RC8WC1Q85HI8 */ = {isa = PBXFileReference; path = "NSISO8601DateFormatter.h-RC8WC1Q85HI8"; sourceTree = "<group>"; };
 		BBCC000ED8D0D6720D4C93A3 /* NSWritingToolsCoordinatorContext.h-OHKRY2OTF5R0 */ = {isa = PBXFileReference; path = "NSWritingToolsCoordinatorContext.h-OHKRY2OTF5R0"; sourceTree = "<group>"; };
@@ -4990,6 +4960,7 @@
 		C088CE3E11071441D48F95C3 /* AVPlaybackCoordinationMedium.h-12O9A8GJS95II */ = {isa = PBXFileReference; path = "AVPlaybackCoordinationMedium.h-12O9A8GJS95II"; sourceTree = "<group>"; };
 		C0A06DF0C80A07321CFD16A6 /* Foundation-24LYWIP48SHNP.pcm-WIQH7AFUU7Z */ = {isa = PBXFileReference; path = "Foundation-24LYWIP48SHNP.pcm-WIQH7AFUU7Z"; sourceTree = "<group>"; };
 		C0ADC573FCB15BE52C3A6D48 /* in_systm.h-17Z7ZWM3ZU888 */ = {isa = PBXFileReference; path = "in_systm.h-17Z7ZWM3ZU888"; sourceTree = "<group>"; };
+		C0C110A71D904F1050BD27D5 /* 2026-10-13-UI011-UI012-待录制态-标签B方案网格零空隙.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-UI011-UI012-待录制态-标签B方案网格零空隙.png"; sourceTree = "<group>"; };
 		C0C271EAB5AC33F5A6A0D07D /* AudioUtils.d */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.dtrace; path = AudioUtils.d; sourceTree = "<group>"; };
 		C0D92122598269296070E362 /* OSLog-QYW76W2NYRRO.swiftmodule */ = {isa = PBXFileReference; path = "OSLog-QYW76W2NYRRO.swiftmodule"; sourceTree = "<group>"; };
 		C0F35AD644064B588ACFE8DB /* igmp_var.h-2X6D0KW4GTPJP */ = {isa = PBXFileReference; path = "igmp_var.h-2X6D0KW4GTPJP"; sourceTree = "<group>"; };
@@ -5044,6 +5015,7 @@
 		C2BEFFEF6CEEA39C28E86847 /* MediaStreamTrack.dia */ = {isa = PBXFileReference; path = MediaStreamTrack.dia; sourceTree = "<group>"; };
 		C2C0E5A42F6DA9A06BCDCF56 /* sources */ = {isa = PBXFileReference; path = sources; sourceTree = "<group>"; };
 		C2C60AD8F9B966744E817541 /* NSItemBadge.h-2OT9H5468OYU3 */ = {isa = PBXFileReference; path = "NSItemBadge.h-2OT9H5468OYU3"; sourceTree = "<group>"; };
+		C2C94461146159EDD88D53B3 /* 2026-10-13-FEAT004R1-麦克风选择原生菜单交互差.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-FEAT004R1-麦克风选择原生菜单交互差.png"; sourceTree = "<group>"; };
 		C2CC068DB8A9FC004FC50959 /* _locale_posix2008.h-2PBXNCRB4L3UR */ = {isa = PBXFileReference; path = "_locale_posix2008.h-2PBXNCRB4L3UR"; sourceTree = "<group>"; };
 		C2ED65A1E05566F5E3E5BBEA /* L10n.dia */ = {isa = PBXFileReference; path = L10n.dia; sourceTree = "<group>"; };
 		C2F0B567B629EEB846EC1675 /* ndr.h-QP7OJ1TTEOG1 */ = {isa = PBXFileReference; path = "ndr.h-QP7OJ1TTEOG1"; sourceTree = "<group>"; };
@@ -5369,6 +5341,7 @@
 		CE140C397C08FA859F45BA5B /* NSAccessibility.h-2JCICFTA8B0RF */ = {isa = PBXFileReference; path = "NSAccessibility.h-2JCICFTA8B0RF"; sourceTree = "<group>"; };
 		CE18FA41BFC17DB2F7C0E6C6 /* _Builtin_tgmath-19KE09ZDXQ6Q3.pcm-K66EF503M3FV */ = {isa = PBXFileReference; path = "_Builtin_tgmath-19KE09ZDXQ6Q3.pcm-K66EF503M3FV"; sourceTree = "<group>"; };
 		CE28AA2F548C16505A48BB4A /* XCUIDevice.h-1UKSS7IBQ30S3 */ = {isa = PBXFileReference; path = "XCUIDevice.h-1UKSS7IBQ30S3"; sourceTree = "<group>"; };
+		CE3F70648C17F6714CF81BA2 /* 2026-10-13-FIX005-拖动窗口右缘漂移白条.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "2026-10-13-FIX005-拖动窗口右缘漂移白条.png"; sourceTree = "<group>"; };
 		CE5286184D6CE8034D1C50E6 /* AudioRecording.swift-3U6K62B8OLX3J */ = {isa = PBXFileReference; path = "AudioRecording.swift-3U6K62B8OLX3J"; sourceTree = "<group>"; };
 		CE5EBF2711B50F4A0B108553 /* vnode.h-15APJXGN11PLZ */ = {isa = PBXFileReference; path = "vnode.h-15APJXGN11PLZ"; sourceTree = "<group>"; };
 		CE66A896CD47BDCA749C96E5 /* _Builtin_intrinsics-19KE09ZDXQ6Q3.pcm */ = {isa = PBXFileReference; path = "_Builtin_intrinsics-19KE09ZDXQ6Q3.pcm"; sourceTree = "<group>"; };
@@ -5691,6 +5664,7 @@
 		DB952CF4753205ECDA910EAE /* _SwiftConcurrencyShims-2IMTS4WWRU7VJ.pcm */ = {isa = PBXFileReference; path = "_SwiftConcurrencyShims-2IMTS4WWRU7VJ.pcm"; sourceTree = "<group>"; };
 		DB9A8672A3679AE9B137341D /* MicrophoneRecorder.swift-3ELW805FBMSR9 */ = {isa = PBXFileReference; path = "MicrophoneRecorder.swift-3ELW805FBMSR9"; sourceTree = "<group>"; };
 		DB9B653B87DEF8AE1686C63A /* NSHost.h-14XT9CGINGCTF */ = {isa = PBXFileReference; path = "NSHost.h-14XT9CGINGCTF"; sourceTree = "<group>"; };
+		DB9B6D7BD34ED713EFBEF186 /* SilentOutputKeepAlive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilentOutputKeepAlive.swift; sourceTree = "<group>"; };
 		DBB4477B732B4952BB66AEBD /* MTLTensor.h-32HF3LUOV97A5 */ = {isa = PBXFileReference; path = "MTLTensor.h-32HF3LUOV97A5"; sourceTree = "<group>"; };
 		DBBCB78C55AC761AECA343DE /* DiskSpaceRecovery.h-3VVXWO04ITM56 */ = {isa = PBXFileReference; path = "DiskSpaceRecovery.h-3VVXWO04ITM56"; sourceTree = "<group>"; };
 		DBC6406A52B24300BD316F5C /* NSMenuItem.h-2659HEGJYIQX7 */ = {isa = PBXFileReference; path = "NSMenuItem.h-2659HEGJYIQX7"; sourceTree = "<group>"; };
@@ -5711,6 +5685,7 @@
 		DC3B3C284EC908FBF9777109 /* MTLFunctionLog.h-2MB2CRMUZ3NL2 */ = {isa = PBXFileReference; path = "MTLFunctionLog.h-2MB2CRMUZ3NL2"; sourceTree = "<group>"; };
 		DC448A75749B5B1016E96502 /* runner.dia */ = {isa = PBXFileReference; path = runner.dia; sourceTree = "<group>"; };
 		DC467B5DCE9A0D83790DD434 /* KextManager.h-3KKQDSHMMRSQQ */ = {isa = PBXFileReference; path = "KextManager.h-3KKQDSHMMRSQQ"; sourceTree = "<group>"; };
+		DC4AFFC78600A89431D0D610 /* MicDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MicDeviceManager.swift; sourceTree = "<group>"; };
 		DC5EEF330EFC13A6E91A8BDE /* ThemeAndMonitorTests.swift-9DXCIEJL4AR4 */ = {isa = PBXFileReference; path = "ThemeAndMonitorTests.swift-9DXCIEJL4AR4"; sourceTree = "<group>"; };
 		DC6AC0E9A66058FB782166A8 /* CoreDataDefines.h-3VQ1IOD00U6HU */ = {isa = PBXFileReference; path = "CoreDataDefines.h-3VQ1IOD00U6HU"; sourceTree = "<group>"; };
 		DC80051440DDF0B5F5913463 /* AudioRecordError.d */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.dtrace; path = AudioRecordError.d; sourceTree = "<group>"; };
@@ -6446,6 +6421,7 @@
 		FA4D03A592DA646A99F0FCAE /* DeviceFingerprint.swift.o-2R570ES0BUQUX */ = {isa = PBXFileReference; path = "DeviceFingerprint.swift.o-2R570ES0BUQUX"; sourceTree = "<group>"; };
 		FA4D1D4A9631D7E6BC5E73EC /* AVPlayerItemProtectedContentAdditions.h-1R8K0VQG2WWYI */ = {isa = PBXFileReference; path = "AVPlayerItemProtectedContentAdditions.h-1R8K0VQG2WWYI"; sourceTree = "<group>"; };
 		FA4EE2494B50805D7C09D5A5 /* output-file-map.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "output-file-map.json"; sourceTree = "<group>"; };
+		FA513514DD0067DE8E43C054 /* UI010-修复后-录音态绿色圆头竖条-2026-10-13.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "UI010-修复后-录音态绿色圆头竖条-2026-10-13.png"; sourceTree = "<group>"; };
 		FA5D1D2B09C06B79453342C3 /* NSAccessibilityCustomAction.h-3OHNRWQN2440F */ = {isa = PBXFileReference; path = "NSAccessibilityCustomAction.h-3OHNRWQN2440F"; sourceTree = "<group>"; };
 		FA641866D58097B7572F408F /* NSFileCoordinator.h-3OHIJGGJONLLF */ = {isa = PBXFileReference; path = "NSFileCoordinator.h-3OHIJGGJONLLF"; sourceTree = "<group>"; };
 		FA66B0D4E18581F7561698A4 /* DictionaryServices.h-1IDKZFOIKD6Y4 */ = {isa = PBXFileReference; path = "DictionaryServices.h-1IDKZFOIKD6Y4"; sourceTree = "<group>"; };
@@ -6456,7 +6432,6 @@
 		FA9E303503BC16912EA97565 /* AggregateDeviceManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AggregateDeviceManager.swift; sourceTree = "<group>"; };
 		FAA6009524F7C6D8023D25D9 /* LSSharedFileList.h-1E1SXBML3WSEF */ = {isa = PBXFileReference; path = "LSSharedFileList.h-1E1SXBML3WSEF"; sourceTree = "<group>"; };
 		FAA933D58BA491E53873A23D /* CAReplicatorLayer.h-1JWVFRJG0A15M */ = {isa = PBXFileReference; path = "CAReplicatorLayer.h-1JWVFRJG0A15M"; sourceTree = "<group>"; };
-		FAB2F92F681ED9116C4CF9BE /* swift-snapshot-testing */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "swift-snapshot-testing"; path = "swift-snapshot-testing"; sourceTree = SOURCE_ROOT; };
 		FAB6641322B750B4C581253A /* NSBox.h-1W8X62X7BHHXQ */ = {isa = PBXFileReference; path = "NSBox.h-1W8X62X7BHHXQ"; sourceTree = "<group>"; };
 		FAC000DBE15173157B522BD9 /* MacTextEditor.h-3SBHD8VVDQN88 */ = {isa = PBXFileReference; path = "MacTextEditor.h-3SBHD8VVDQN88"; sourceTree = "<group>"; };
 		FAC72A0C0FC62FF1BACDE938 /* fts.h-1DMXB83N9H95D */ = {isa = PBXFileReference; path = "fts.h-1DMXB83N9H95D"; sourceTree = "<group>"; };
@@ -6597,17 +6572,6 @@
 		FFDDDE43D1D160D8046AF1F8 /* IOHIDUserDevice.h-2VMI6B1ZL7L7R */ = {isa = PBXFileReference; path = "IOHIDUserDevice.h-2VMI6B1ZL7L7R"; sourceTree = "<group>"; };
 		FFE73804EC20BACDC8E235F6 /* fnmatch.h-3N5D29XH1OOGC */ = {isa = PBXFileReference; path = "fnmatch.h-3N5D29XH1OOGC"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		66FBEAFBA82354B8CB729DD5 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				77D6DC64D78762E81E22EACE /* SnapshotTesting in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0007CD054E77F0969A723B94 /* MP */ = {
@@ -10791,10 +10755,8 @@
 				FC3C7A1DD132FBFA4E700A30 /* assets */,
 				EDACD0169BA5C99BDF787AB5 /* AudioRecordApp */,
 				356669C07757905FF923A97F /* AudioRecordKit */,
-				7573B2C3A280EC51318CDBFD /* AudioRecordMacSnapshotTests */,
 				085F5C3F620552F6863F013B /* AudioRecordMacUITests */,
 				303CA7B3B8F1E7D1D705DB8A /* docs */,
-				FC6A23574E9E590F6463155A /* Packages */,
 				B1A5A903AE35DE1820A4B9B0 /* scripts */,
 				B66EB40BA9AFCAA07880E6CE /* Products */,
 			);
@@ -12222,6 +12184,22 @@
 				17C9729905F0C55545215CF7 /* 2026-10-11-待录制态-LOOP08视觉证据.png */,
 				E8208CC1D54E97AEA25467EA /* 2026-10-11-待录制态-仅标题-v2.png */,
 				E5FC5FF446F993A959D8B8B4 /* 2026-10-11-待录制态-无文案-v3.png */,
+				C2C94461146159EDD88D53B3 /* 2026-10-13-FEAT004R1-麦克风选择原生菜单交互差.png */,
+				3582D6DD7661472318BE2B7E /* 2026-10-13-FIX004-录音中计时走波形空.png */,
+				CE3F70648C17F6714CF81BA2 /* 2026-10-13-FIX005-拖动窗口右缘漂移白条.png */,
+				34BF35CFB266D92ADDD8F042 /* 2026-10-13-FIX006-修复后-混录电平表.png */,
+				A7F5DFBE63076F8E30A71574 /* 2026-10-13-FIX006-录音中播放测试音-电平表-2.png */,
+				77F56BB9AAE48D89F5E843FF /* 2026-10-13-FIX006-录音中播放测试音-电平表.png */,
+				AAC4E0A75715E1769466C970 /* 2026-10-13-FIX006-逐秒峰值分析.txt */,
+				AB031E09E9A3401CCB88FBF3 /* 2026-10-13-INFRA003R1-hover残留AudioRecordMac.png */,
+				3E203850400F20F72F01DC1B /* 2026-10-13-UI010-参考-绿色圆头竖条风格.png */,
+				A445574EC334751D57DADCE1 /* 2026-10-13-UI010-现状-橙色填充包络-保留备用.png */,
+				C0C110A71D904F1050BD27D5 /* 2026-10-13-UI011-UI012-待录制态-标签B方案网格零空隙.png */,
+				A211CCF75BAB01D34E0B1560 /* 2026-10-13-UI012-参考-网格直通分割线紧贴面板.png */,
+				7C7A7FB3A2EDD15A6B567066 /* FEAT004-设备选择行.png */,
+				79163ADD558ED668351F9985 /* FIX004-修复后-录音态波形源指示-2026-10-13.png */,
+				0175959EB0B983829046D59A /* FIX004-静音录音-全屏原图-2026-10-13.png */,
+				29DAE9B955BC5713EDA812AF /* FIX004-静音录音-计时走电平活-2026-10-13.png */,
 				40B5F9DB159EC37799F03B89 /* INFRA-003-主界面Loocap标题-2026-10-12.png */,
 				7D63CFDC8F4E94759E33E210 /* INFRA-003-标题栏Loocap-2026-10-12.png */,
 				F0AC71FDF8515E06DAB7AC05 /* UI-003-v3批次1-品牌绿圆勾侧栏加宽-2026-10-12.png */,
@@ -12244,6 +12222,9 @@
 				DF04382DED55680923876F5A /* UI-008-R1-底部贴边-2026-10-12.png */,
 				A9473924C9D5D2E0B979C6CF /* UI-008-R2-全高右栏到最底-2026-10-12.png */,
 				284084443515938EAF4CA750 /* UI-008-电平列收进控制栏-浮层已删-2026-10-12.png */,
+				BBA459C8AF958A52C4AF1018 /* UI-009-Dock全景-2026-10-13.png */,
+				84EAB7CAD6387342BA48796B /* UI-009-Dock实拍-描边亮边-2026-10-13.png */,
+				FA513514DD0067DE8E43C054 /* UI010-修复后-录音态绿色圆头竖条-2026-10-13.png */,
 				E7AE2E805838138DB1D03DCF /* feat001-s0 */,
 			);
 			path = "证据";
@@ -18007,16 +17988,6 @@
 			path = 7K;
 			sourceTree = "<group>";
 		};
-		7573B2C3A280EC51318CDBFD /* AudioRecordMacSnapshotTests */ = {
-			isa = PBXGroup;
-			children = (
-				AF89DA32C6DEB778DBA9896C /* ControlPanelSnapshotTests.swift */,
-				8F2BE1656ADE1116658D01C8 /* TranscriptExportTests.swift */,
-				9041347B2E36D0A342A53F7C /* __Snapshots__ */,
-			);
-			path = AudioRecordMacSnapshotTests;
-			sourceTree = "<group>";
-		};
 		75A595371E9272994A09B8CF /* 2A */ = {
 			isa = PBXGroup;
 			children = (
@@ -18610,6 +18581,7 @@
 				FD987F1C35D61F227CC7C7A1 /* ProcessTap */,
 				A0EDF9377347F34E1A425423 /* Protocols */,
 				76E849FFACA8964C17C74594 /* Recorders */,
+				B13F6065060103F64D9168E7 /* Utils */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -20389,14 +20361,6 @@
 			path = RX;
 			sourceTree = "<group>";
 		};
-		9041347B2E36D0A342A53F7C /* __Snapshots__ */ = {
-			isa = PBXGroup;
-			children = (
-				96D8773047135C79D8D85115 /* ControlPanelSnapshotTests */,
-			);
-			path = __Snapshots__;
-			sourceTree = "<group>";
-		};
 		904D79E62B6D19C6987E570B /* PN */ = {
 			isa = PBXGroup;
 			children = (
@@ -20808,15 +20772,6 @@
 				5C5ECA16045A5BA4DCCE9F41 /* NSKeyValueBinding.h-2RKMLFQNY5B6U */,
 			);
 			path = 6U;
-			sourceTree = "<group>";
-		};
-		96D8773047135C79D8D85115 /* ControlPanelSnapshotTests */ = {
-			isa = PBXGroup;
-			children = (
-				A87F6DD2AB2D20950373EBEA /* testControlPanelIdle.1.png */,
-				37C456B3ACC2713EC0E51D2C /* testControlPanelRecording.1.png */,
-			);
-			path = ControlPanelSnapshotTests;
 			sourceTree = "<group>";
 		};
 		97179945EACB42C5B9D3C5D1 /* ET */ = {
@@ -22873,6 +22828,15 @@
 			path = B4;
 			sourceTree = "<group>";
 		};
+		B13F6065060103F64D9168E7 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				AA27825C085F088A11BACE4B /* MicCaptureUnit.swift */,
+				DC4AFFC78600A89431D0D610 /* MicDeviceManager.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
 		B158CC387EBA16AEAB6F12F7 /* KP */ = {
 			isa = PBXGroup;
 			children = (
@@ -23346,7 +23310,6 @@
 			isa = PBXGroup;
 			children = (
 				026317CF0CF61DF69A720045 /* AudioRecordMac.app */,
-				956D7C6059ED9EB640790B3E /* AudioRecordMacSnapshotTests.xctest */,
 				377D0CF82DEC3DB1CDFF9E63 /* AudioRecordMacUITests.xctest */,
 			);
 			name = Products;
@@ -31058,14 +31021,6 @@
 			path = W2;
 			sourceTree = "<group>";
 		};
-		FC6A23574E9E590F6463155A /* Packages */ = {
-			isa = PBXGroup;
-			children = (
-				FAB2F92F681ED9116C4CF9BE /* swift-snapshot-testing */,
-			);
-			name = Packages;
-			sourceTree = "<group>";
-		};
 		FC8BB542641B134ECA0A4074 /* L3 */ = {
 			isa = PBXGroup;
 			children = (
@@ -31175,6 +31130,7 @@
 				40B9198B044D28F6BA7E820D /* AudioToolboxFileManager.swift */,
 				F3FD0FE9D931E0EDF2BE8220 /* CoreAudioProcessTapRecorder.swift */,
 				F23B1300527680981672366C /* ProcessTapManager.swift */,
+				DB9B6D7BD34ED713EFBEF186 /* SilentOutputKeepAlive.swift */,
 				E180D2D700F97DC1FBB8FFE0 /* SwiftProcessTapManager.swift */,
 			);
 			path = ProcessTap;
@@ -31414,26 +31370,6 @@
 			productReference = 026317CF0CF61DF69A720045 /* AudioRecordMac.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E156657C19532AC2FCDFB61B /* AudioRecordMacSnapshotTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = CC48DF3C781E6E40D86704CB /* Build configuration list for PBXNativeTarget "AudioRecordMacSnapshotTests" */;
-			buildPhases = (
-				AF53F7BC0371E22E8A899E92 /* Sources */,
-				075FDCD161CFA7BE585774E4 /* Resources */,
-				66FBEAFBA82354B8CB729DD5 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = AudioRecordMacSnapshotTests;
-			packageProductDependencies = (
-				C90639910640A72019C4A46B /* SnapshotTesting */,
-			);
-			productName = AudioRecordMacSnapshotTests;
-			productReference = 956D7C6059ED9EB640790B3E /* AudioRecordMacSnapshotTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -31452,10 +31388,6 @@
 						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
-					E156657C19532AC2FCDFB61B = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
 				};
 			};
 			buildConfigurationList = 7989E0462B70548372B72739 /* Build configuration list for PBXProject "AudioRecordMac" */;
@@ -31468,31 +31400,18 @@
 			);
 			mainGroup = 31547DFF66CBF19F37438390;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				A918612A5476C05BC90D90A2 /* XCLocalSwiftPackageReference "swift-snapshot-testing" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B66EB40BA9AFCAA07880E6CE /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				6FE988A3F0483D1EE4C7B409 /* AudioRecordMac */,
-				E156657C19532AC2FCDFB61B /* AudioRecordMacSnapshotTests */,
 				3EB4B28D53CDFC44DBC6535B /* AudioRecordMacUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		075FDCD161CFA7BE585774E4 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5FEF44BCB215DA30EDF0286F /* testControlPanelIdle.1.png in Resources */,
-				3ED67D4C389B7D4228B9D308 /* testControlPanelRecording.1.png in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		53884065D72E93C79B9FE2C5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -31561,6 +31480,8 @@
 				5208BDEE958B13F603DF9787 /* MainWindowView.swift in Sources */,
 				C6952DF9419EEC67D34401C0 /* MediaStream.swift in Sources */,
 				0DD63820BE365251E411C8C1 /* MediaStreamTrack.swift in Sources */,
+				E3E74C907B93036361892C42 /* MicCaptureUnit.swift in Sources */,
+				B70889D702E237DDD7CE207E /* MicDeviceManager.swift in Sources */,
 				28BA20AD3DC04C56534CAF6B /* MicrophoneRecorder.swift in Sources */,
 				29940B2248B8ACCDDE707E17 /* MixedAudioRecorder.swift in Sources */,
 				A3F9EAC12010DAB35E1C1546 /* MultiProcessLevelView.swift in Sources */,
@@ -31577,6 +31498,7 @@
 				57EDFA56A4BDEF7CB71DF998 /* SettingsWindowController.swift in Sources */,
 				8F8120D96B12B0B9B2F7E3ED /* SidebarView.swift in Sources */,
 				72E2DA38A143D25142000415 /* SilenceTrimCommand.swift in Sources */,
+				B40E318E8BAC67BD5FA3F500 /* SilentOutputKeepAlive.swift in Sources */,
 				DA32BA95507177C2E87EA724 /* SplitAudioClipCommand.swift in Sources */,
 				7B9C5B83BCFFA3C9C3A5DC14 /* StatusBarView.swift in Sources */,
 				AC7FD8CBD01F3BD941ACF90E /* SwiftProcessTapManager.swift in Sources */,
@@ -31602,54 +31524,6 @@
 				A6AC50422A75DC6B56D9DC54 /* WaveformView.swift in Sources */,
 				3F2806F69A4E26E8083CA13B /* ZoomControlsView.swift in Sources */,
 				9DE9F4B40953130283F520C2 /* main.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		AF53F7BC0371E22E8A899E92 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				F0C0FC7F92F6E0944B5327F5 /* AggregateDeviceManager.swift in Sources */,
-				F8EEF718D704CBB6C7DA12FD /* AppleSpeechEngine.swift in Sources */,
-				E353F7C5CD20E700B118B15E /* AudioCallbackHandler.swift in Sources */,
-				6A05F41E9C2488BD805592D0 /* AudioConstraints.swift in Sources */,
-				C98DD4FBA7AE5EA6C5546496 /* AudioCryptoConfig.swift in Sources */,
-				814FD5035DBAD179E1B99C0A /* AudioFileEncryptor.swift in Sources */,
-				A0D4E5B0B63887B0D1DC5C33 /* AudioProcessEnumerator.swift in Sources */,
-				575F7D91393B1E73A0019CB5 /* AudioRecordAPI.swift in Sources */,
-				02E8AC053958B5CE2BBCD54A /* AudioRecordError.swift in Sources */,
-				EED4C7C962821FB9B967A0DC /* AudioRecordSDK.swift in Sources */,
-				3E1F1249FB708727EAC602EF /* AudioRecordSDK_C.swift in Sources */,
-				4748CAC1C0B0DDAF3A8E3825 /* AudioRecorderProtocol.swift in Sources */,
-				DFB13A21F1B3BDE8C5DF9259 /* AudioRecording.swift in Sources */,
-				25C6413F5629311EFC6D39CF /* AudioToolboxFileManager.swift in Sources */,
-				734E4BEBC7A1BAEBDF4662B2 /* AudioUtils.swift in Sources */,
-				8BEDCC7D3BEDADF8F61869A4 /* ControlPanelSnapshotTests.swift in Sources */,
-				93B4DC3988401EF29EDAD267 /* ControlPanelView.swift in Sources */,
-				3C21FCD18836773CEBB0940A /* CoreAudioProcessTapRecorder.swift in Sources */,
-				66C1CC58B3A14D0450481FE5 /* DeviceFingerprint.swift in Sources */,
-				CB58A3F278BCCD8336A6BCDA /* FileManagerUtils.swift in Sources */,
-				80954ACC6A425AA49EFD7517 /* IndustrialControls.swift in Sources */,
-				E10A04D298F0A6C7924456B9 /* IndustrialDesignTokens.swift in Sources */,
-				B4F418637585411FF68D22DF /* L10n.swift in Sources */,
-				551639759863789D34B241B7 /* LevelMonitor.swift in Sources */,
-				4ECD8241081EF75B783475DC /* Logger.swift in Sources */,
-				213D84FDCAC042C21D62879C /* LoocapTheme.swift in Sources */,
-				E289949E0F7C7AFDE2650279 /* MediaStream.swift in Sources */,
-				8F6EEE7F733CC49ECF9D115F /* MediaStreamTrack.swift in Sources */,
-				F723BADAD9567D4B3F0ED739 /* MicrophoneRecorder.swift in Sources */,
-				B8785421EDD1042A1BFE69F8 /* MixedAudioRecorder.swift in Sources */,
-				013EEA49DF4830AF334E98CD /* PermissionManager.swift in Sources */,
-				7AFB0EE071C348F71A99F55A /* ProcessTapManager.swift in Sources */,
-				C05D9EA92093CDDACA22DF8D /* ScreenCaptureAudioRecorder.swift in Sources */,
-				69F06CBC1539B732A7AEEEB3 /* SecureDelete.swift in Sources */,
-				6DA3B02EA259B90004473E58 /* SwiftProcessTapManager.swift in Sources */,
-				22E2B3FD13D5DD5F8BD32130 /* TimerLabel.swift in Sources */,
-				131987BCF07B171F92905BF0 /* TranscriptExportTests.swift in Sources */,
-				C120D850089EE25EC196B808 /* TranscriptPanelView.swift in Sources */,
-				B79CD00EB042767B03E363D4 /* TranscriptionEngine.swift in Sources */,
-				4D7EF181F62CC62DA6C28B89 /* TranscriptionModels.swift in Sources */,
-				A841CBB2874CBEE9A829DAA0 /* Types.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -31753,7 +31627,7 @@
 				CODE_SIGN_ENTITLEMENTS = AudioRecordMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
-				EXECUTABLE_NAME = audio_record_mac;
+				EXECUTABLE_NAME = Loocap;
 				INFOPLIST_FILE = Info.plist;
 				KNOWN_REGIONS = (
 					Base,
@@ -31836,24 +31710,6 @@
 			};
 			name = Debug;
 		};
-		C15E47977D36EA13FE04C5F5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.microlab.loocap.snapshottests;
-				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SNAPSHOT_TESTING";
-			};
-			name = Release;
-		};
 		D2D3E1A751ADE98FA8A68821 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -31869,24 +31725,6 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.microlab.loocap.uitests;
 				SDKROOT = macosx;
 				TEST_TARGET_NAME = AudioRecordMac;
-			};
-			name = Debug;
-		};
-		DCBDFFF929FEAAF64E085C72 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.microlab.loocap.snapshottests;
-				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SNAPSHOT_TESTING";
 			};
 			name = Debug;
 		};
@@ -31915,7 +31753,7 @@
 				CODE_SIGN_ENTITLEMENTS = AudioRecordMac.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
-				EXECUTABLE_NAME = audio_record_mac;
+				EXECUTABLE_NAME = Loocap;
 				INFOPLIST_FILE = Info.plist;
 				KNOWN_REGIONS = (
 					Base,
@@ -31963,30 +31801,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
-		CC48DF3C781E6E40D86704CB /* Build configuration list for PBXNativeTarget "AudioRecordMacSnapshotTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DCBDFFF929FEAAF64E085C72 /* Debug */,
-				C15E47977D36EA13FE04C5F5 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
 /* End XCConfigurationList section */
-
-/* Begin XCLocalSwiftPackageReference section */
-		A918612A5476C05BC90D90A2 /* XCLocalSwiftPackageReference "swift-snapshot-testing" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = "swift-snapshot-testing";
-		};
-/* End XCLocalSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		C90639910640A72019C4A46B /* SnapshotTesting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SnapshotTesting;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = D30AD38F2B7AE5BF61FFFFE6 /* Project object */;
 }

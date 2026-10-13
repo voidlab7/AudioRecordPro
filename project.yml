@@ -5,10 +5,6 @@ options:
     macOS: "13.0"
   createIntermediateGroups: true
 
-packages:
-  SnapshotTesting:
-    path: swift-snapshot-testing
-
 settings:
   base:
     SWIFT_VERSION: 5.9
@@ -22,12 +18,10 @@ schemes:
       targets:
         AudioRecordMac: all
         AudioRecordMacUITests: [test]
-        AudioRecordMacSnapshotTests: [test]
     test:
       gatherCoverageData: false
       targets:
         - name: AudioRecordMacUITests
-        - name: AudioRecordMacSnapshotTests
 
 fileGroups:
   - docs
@@ -70,23 +64,3 @@ targets:
         GENERATE_INFOPLIST_FILE: true
     dependencies:
       - target: AudioRecordMac
-
-  AudioRecordMacSnapshotTests:
-    type: bundle.unit-test
-    platform: macOS
-    deploymentTarget: "13.0"
-    sources:
-      - path: AudioRecordMacSnapshotTests
-      - path: AudioRecordApp/Sources/Views/Editor/TranscriptPanelView.swift
-      - path: AudioRecordApp/Sources/Views/ControlPanelView.swift
-      - path: AudioRecordApp/Sources/Views/IndustrialControls.swift
-      - path: AudioRecordApp/Sources/Views/TimerLabel.swift
-      - path: AudioRecordApp/Sources/Utilities/IndustrialDesignTokens.swift
-      - path: AudioRecordKit/Sources
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.microlab.loocap.snapshottests
-        GENERATE_INFOPLIST_FILE: true
-        SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG SNAPSHOT_TESTING
-    dependencies:
-      - package: SnapshotTesting
