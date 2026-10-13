@@ -64,6 +64,20 @@ class WaveformView: NSView {
     
     // 动画相关
     private var displayTimer: Timer?
+
+    // FIX-008: 平滑滚动（层驱动连续平移）+ 静态层缓存 + draw() 耗时打点
+    private let barInterval: CFTimeInterval = 0.05          // 20 条/秒（UI-014 裁决口径，本单不动速度）
+    private var lastBarAppendTime: CFAbsoluteTime = 0       // 最近落杆时刻（平移相位锚点）
+    private var translationTimer: Timer?                    // 60Hz：只推条形层位移（GPU 合成），不触发 CPU 重绘
+    private let barsStripLayer = CALayer()                  // 条形内容层：contents = 离屏渲染的条带图
+    private var stripDataCount = -1                         // 已渲染条带对应的数据量（去重，避免 60Hz 重复渲染）
+    private var stripBoundsSize: NSSize = .zero             // 已渲染条带对应的视图尺寸（resize 失效）
+    private var gridCacheImage: CGImage?                    // 网格静态层离屏缓存
+    private var gridCacheSize: NSSize = .zero
+    private let stripGlowPad: CGFloat = 6                   // 条带图两侧光晕余量
+    private var drawStatCount = 0
+    private var drawStatTotalMs: Double = 0
+    private var drawStatMaxMs: Double = 0
     
     // 静态波形展示模式（选中已录制文件时）
     private var staticWaveformData: [Float]?
@@ -82,10 +96,39 @@ class WaveformView: NSView {
         super.init(frame: frameRect)
         setupView()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // FIX-008 自验钩子：合成 20Hz 峰值流驱动录制态动画（无音频采集，离线取证用）。
+        // 触发三通道：--selftest-waveform 参数 / FIX008_SELFTEST=1 环境变量 / 容器 tmp 放 fix008_trigger 文件
+        //（WorkBuddy 会话内 open 的 args/env 均不透传，文件触发为自验主通道）
+        let byEnv = ProcessInfo.processInfo.environment["FIX008_SELFTEST"] == "1"
+        let byArg = ProcessInfo.processInfo.arguments.contains("--selftest-waveform")
+        let triggerPath = NSTemporaryDirectory() + "fix008_trigger"
+        let byTrigger = FileManager.default.fileExists(atPath: triggerPath)
+        if byTrigger { try? FileManager.default.removeItem(atPath: triggerPath) }
+        if window != nil, byEnv || byArg || byTrigger {
+            FileManager.default.createFile(atPath: NSTemporaryDirectory() + "fix008_hook_seen", contents: Data("env=\(byEnv) arg=\(byArg) trigger=\(byTrigger)".utf8))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                self?.startSelftestWaveform()
+            }
+        }
+    }
+
+    private func startSelftestWaveform() {
+        logger.info("🧪 [FIX-008] selftest waveform 启动（合成峰值流）")
+        startRecording()
+        Timer.scheduledTimer(withTimeInterval: barInterval, repeats: true) { [weak self] _ in
+            guard let self = self, self.isRecording else { return }
+            let t = CFAbsoluteTimeGetCurrent()
+            let synthetic = Float(abs(sin(t * 2.1)) * 0.7 + abs(sin(t * 5.3)) * 0.3)
+            self.updatePeakLevel(synthetic)
+        }
     }
     
     private let equalizerContainer = CALayer()
@@ -96,10 +139,16 @@ class WaveformView: NSView {
         // UI-003: 画布背景对齐设计稿实测 #14161A
         layer?.backgroundColor = NSColor(hex: "#14161A").cgColor
         setupEqualizer()
+        // FIX-008: 条形内容层——录制态条形由它承载（draw() 不再逐条重绘），位移走 GPU 合成
+        barsStripLayer.anchorPoint = CGPoint(x: 0, y: 0)
+        barsStripLayer.contentsGravity = .bottomLeft
+        barsStripLayer.masksToBounds = true
+        barsStripLayer.isHidden = true
+        layer?.addSublayer(barsStripLayer)
         layer?.cornerRadius = 4
         layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
-        
+
         waveformData = []
     }
     
@@ -133,6 +182,7 @@ class WaveformView: NSView {
         
         let quantizedLevel = (smoothedLevel * 64).rounded() / 64
         waveformData.append(quantizedLevel)
+        lastBarAppendTime = CFAbsoluteTimeGetCurrent()  // FIX-008: 平移相位锚点
         
         if waveformData.count > maxDataPoints {
             waveformData.removeFirst(waveformData.count - maxDataPoints)
@@ -163,17 +213,19 @@ class WaveformView: NSView {
             let currentMax = rawPeakData.max() ?? 1.0
             if currentMax > 0 {
                 waveformData = rawPeakData.map { $0 / currentMax }
+                stripDataCount = -1  // FIX-008: 值变数量不变，强制条带重渲
             }
         }
-        
+
         if waveformData.count > maxDataPoints {
             waveformData.removeFirst(waveformData.count - maxDataPoints)
         }
         if rawPeakData.count > maxDataPoints {
             rawPeakData.removeFirst(rawPeakData.count - maxDataPoints)
         }
-        
+
         // 已在 main queue，直接触发重绘（避免双重 async 导致丢帧）
+        lastBarAppendTime = CFAbsoluteTimeGetCurrent()  // FIX-008: 平移相位锚点
         needsDisplay = true
     }
     
@@ -188,6 +240,8 @@ class WaveformView: NSView {
         waveformData = Array(repeating: 0.0, count: 0)
         recordingStartTime = Date()
         recordingDuration = 0
+        stripDataCount = -1       // FIX-008: 条带缓存失效
+        lastBarAppendTime = CFAbsoluteTimeGetCurrent()
         startAnimation()
     }
     
@@ -217,6 +271,7 @@ class WaveformView: NSView {
         staticWaveformData = nil
         recordingDuration = 0
         staticFileDuration = 0
+        stripDataCount = -1  // FIX-008: 条带缓存失效
         needsDisplay = true
     }
     
@@ -366,28 +421,45 @@ class WaveformView: NSView {
     
     private func startAnimation() {
         stopAnimation()
+        // 20Hz：时间轴/源标签等 draw() 内容刷新（条形已不在 draw() 里画）
         displayTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             self?.needsDisplay = true
         }
+        // FIX-008: 60Hz 连续平移——只改条形层 position（GPU 合成插值），不触发 CPU 重绘
+        let t = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            self?.updateStripTranslation()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        translationTimer = t
     }
-    
+
     private func stopAnimation() {
         displayTimer?.invalidate()
         displayTimer = nil
+        translationTimer?.invalidate()
+        translationTimer = nil
+        barsStripLayer.isHidden = true
     }
     
     // MARK: - Drawing
     
     override func draw(_ dirtyRect: NSRect) {
+        let drawStart = CFAbsoluteTimeGetCurrent()
+        defer { recordDrawCost(start: drawStart) }
         super.draw(dirtyRect)
         // UI-006: 网格背景所有状态铺满画布（原仅 idle 画，录制态只剩 timelineRect 中线——老板看到的"中间一块"）
-        drawCanvasGrid(in: bounds)
+        // FIX-008: 网格走离屏缓存 blit，不再逐线重画
+        drawGridCached(in: bounds)
         if !isRecording && !isShowingStaticWaveform && waveformData.isEmpty {
             drawIdlePlaceholder(in: bounds)
+            barsStripLayer.isHidden = true
             return
         }
 
         equalizerContainer.isHidden = true
+        // FIX-008: 录制态圆头条形由条形层承载（60Hz 连续平移），draw() 不再逐条重绘
+        let useStripLayer = isRecording && Self.renderStyle == .roundedBars && !waveformData.isEmpty
+        barsStripLayer.isHidden = !useStripLayer
         if isRecording || (isShowingStaticWaveform && staticFileDuration > 0) || recordingDuration > 0 {
             drawNativeTimeline(in: bounds)
         }
@@ -404,8 +476,37 @@ class WaveformView: NSView {
                 drawWaveform(in: bounds)
                 drawPlayhead(in: bounds)
             case .roundedBars:
-                drawRoundedBars(in: bounds)
+                if !useStripLayer {
+                    drawRoundedBars(in: bounds)  // 停止后静态兜底（数据保留场景）
+                }
             }
+        }
+    }
+
+    /// FIX-008: draw() 耗时打点（验收 ≤2ms 证据），每 200 次汇总落日志 + /tmp 文件（取证用）
+    private func recordDrawCost(start: CFAbsoluteTime) {
+        let ms = (CFAbsoluteTimeGetCurrent() - start) * 1000
+        drawStatCount += 1
+        drawStatTotalMs += ms
+        drawStatMaxMs = max(drawStatMaxMs, ms)
+        if drawStatCount >= 200 {
+            let avg = drawStatTotalMs / Double(drawStatCount)
+            logger.info("⏱️ [FIX-008] draw() 近200次: avg=\(String(format: "%.2f", avg))ms max=\(String(format: "%.2f", drawStatMaxMs))ms")
+            // 沙箱应用：写容器内 tmp（绝对 /tmp 会被沙箱拒绝）
+            let line = String(format: "%@ draw近200次 avg=%.2fms max=%.2fms\n",
+                              DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium),
+                              avg, drawStatMaxMs)
+            let path = NSTemporaryDirectory() + "loocap_draw_stats.log"
+            if let fh = FileHandle(forWritingAtPath: path) {
+                fh.seekToEndOfFile()
+                fh.write(line.data(using: .utf8)!)
+                fh.closeFile()
+            } else {
+                FileManager.default.createFile(atPath: path, contents: line.data(using: .utf8))
+            }
+            drawStatCount = 0
+            drawStatTotalMs = 0
+            drawStatMaxMs = 0
         }
     }
 
@@ -449,6 +550,115 @@ class WaveformView: NSView {
         }
 
         NSGraphicsContext.current?.restoreGraphicsState()
+    }
+
+    // MARK: - FIX-008: 条形层连续平移 + 静态层缓存
+
+    private var timelineRectForBars: NSRect {
+        NSRect(x: 28, y: 42, width: max(1, bounds.width - 56), height: max(1, bounds.height - 88))
+    }
+
+    /// 60Hz 驱动：数据有新增才离屏重渲条带（实际 ~20Hz）；每帧只做相位插值推层位移（GPU 合成）。
+    /// 相位锚定最近落杆时刻：满窗后条带以 step/期 连续左移，消除 20Hz 整根跳格。
+    private func updateStripTranslation() {
+        guard isRecording, Self.renderStyle == .roundedBars, !waveformData.isEmpty, bounds.width > 0 else { return }
+        let timelineRect = timelineRectForBars
+        let step = vbBarWidth + vbBarGap
+        let maxVisibleBars = max(2, Int(floor(timelineRect.width / step)))
+
+        if stripDataCount != waveformData.count || !NSEqualSizes(stripBoundsSize, bounds.size) {
+            renderBarsStrip(timelineRect: timelineRect, step: step, maxVisibleBars: maxVisibleBars)
+            stripDataCount = waveformData.count
+            stripBoundsSize = bounds.size
+        }
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        if waveformData.count > maxVisibleBars {
+            // 满窗：条带随相位连续左移（phase∈[0,1) 随时间推进，落杆时归零——像素级连续）
+            let elapsed = max(0, CFAbsoluteTimeGetCurrent() - lastBarAppendTime)
+            let phase = min(0.999, elapsed / barInterval)
+            barsStripLayer.position = CGPoint(x: timelineRect.minX - stripGlowPad - CGFloat(phase) * step, y: 0)
+        } else {
+            // 未满窗：左起填充不滚动（与现行为一致）
+            barsStripLayer.position = CGPoint(x: timelineRect.minX - stripGlowPad, y: 0)
+        }
+        CATransaction.commit()
+    }
+
+    /// 离屏渲染条带：最新条固定在右起第 (maxVisibleBars-1) 槽位（与 drawRoundedBars 满窗布局逐像素一致），
+    /// 平移全交给 layer.position。条形样式（圆头/渐变/光晕）与 UI-010 保持一致。
+    private func renderBarsStrip(timelineRect: NSRect, step: CGFloat, maxVisibleBars: Int) {
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        let stripW = CGFloat(maxVisibleBars) * step + stripGlowPad * 2
+        let stripH = bounds.height
+        let pixelsW = Int(stripW * scale), pixelsH = Int(stripH * scale)
+        guard pixelsW > 0, pixelsH > 0,
+              let cg = CGContext(data: nil, width: pixelsW, height: pixelsH, bitsPerComponent: 8,
+                                 bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        // 顶部原点，与 draw() 坐标语义一致
+        cg.scaleBy(x: scale, y: scale)
+        cg.translateBy(x: 0, y: stripH)
+        cg.scaleBy(x: 1, y: -1)
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: cg, flipped: true)
+        let centerY = bounds.midY
+        let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
+        let startIndex = max(0, waveformData.count - maxVisibleBars)
+        let visibleData = Array(waveformData[startIndex...])
+        let glow = NSShadow()
+        glow.shadowColor = NSColor(hex: "#13BBA3").withAlphaComponent(0.5)
+        glow.shadowBlurRadius = 3
+        glow.shadowOffset = .zero
+        glow.set()
+        for (offset, level) in visibleData.enumerated() {
+            let x = stripGlowPad + CGFloat(offset) * step
+            let amplitude = max(1.0, CGFloat(max(0, level)) * drawHeight * 0.48)
+            let barRect = NSRect(x: x, y: centerY - amplitude, width: vbBarWidth, height: amplitude * 2)
+            let barPath = NSBezierPath(roundedRect: barRect, xRadius: vbBarWidth / 2, yRadius: vbBarWidth / 2)
+            barGradient.draw(in: barPath, angle: -90)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let image = cg.makeImage() else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        barsStripLayer.contentsScale = scale
+        barsStripLayer.bounds = CGRect(x: 0, y: 0, width: stripW, height: stripH)
+        barsStripLayer.contents = image
+        CATransaction.commit()
+    }
+
+    /// FIX-008: 网格静态层——只画一次/resize 重画，draw() 只做位图 blit
+    private func drawGridCached(in rect: NSRect) {
+        if gridCacheImage == nil || !NSEqualSizes(gridCacheSize, rect.size) {
+            gridCacheImage = renderGridImage(rect: rect)
+            gridCacheSize = rect.size
+        }
+        guard let img = gridCacheImage else {
+            drawCanvasGrid(in: rect)  // 兜底：缓存失败走原路
+            return
+        }
+        NSGraphicsContext.current?.cgContext.draw(img, in: rect)
+    }
+
+    private func renderGridImage(rect: NSRect) -> CGImage? {
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        let pixelsW = Int(rect.width * scale), pixelsH = Int(rect.height * scale)
+        guard pixelsW > 0, pixelsH > 0,
+              let cg = CGContext(data: nil, width: pixelsW, height: pixelsH, bitsPerComponent: 8,
+                                 bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        cg.scaleBy(x: scale, y: scale)
+        cg.translateBy(x: 0, y: rect.height)
+        cg.scaleBy(x: 1, y: -1)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: cg, flipped: true)
+        drawCanvasGrid(in: rect)
+        NSGraphicsContext.restoreGraphicsState()
+        return cg.makeImage()
     }
 
     // MARK: - v3.1 Idle 均衡器动效（Figma 规格：5 柱脉冲）
