@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-APP_PATH="$ROOT_DIR/build/AudioRecordMac.app"
+APP_PATH="$ROOT_DIR/build/Loocap.app"
 LOG_FILE="/tmp/audiorecord_e2e_$(date +%Y%m%d_%H%M%S).log"
 SCREENSHOT_BEFORE="/tmp/audiorecord_before.png"
 SCREENSHOT_AFTER="/tmp/audiorecord_after.png"
@@ -28,17 +28,17 @@ open "$APP_PATH"
 sleep 2
 
 # 截取"录制"态
-screencapture -x -o -l $(osascript -e 'tell application "AudioRecordMac" to id of window 1' 2>/dev/null || echo "") "$SCREENSHOT_BEFORE" 2>/dev/null || screencapture -x "$SCREENSHOT_BEFORE"
+screencapture -x -o -l $(osascript -e 'tell application "Loocap" to id of window 1' 2>/dev/null || echo "") "$SCREENSHOT_BEFORE" 2>/dev/null || screencapture -x "$SCREENSHOT_BEFORE"
 echo "📸 before: $SCREENSHOT_BEFORE"
 
 echo ""
 echo "🖱 [4/4] 模拟用户操作（osascript）..."
 osascript <<'EOF' 2>&1 | head -20
-tell application "AudioRecordMac" to activate
+tell application "Loocap" to activate
 delay 0.5
 
 tell application "System Events"
-    tell process "AudioRecordMac"
+    tell process "Loocap"
         -- 点击 "文件" Tab
         try
             click button "文件" of window 1

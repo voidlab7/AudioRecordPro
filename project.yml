@@ -48,8 +48,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.microlab.loocap
-        PRODUCT_NAME: AudioRecordMac
-        EXECUTABLE_NAME: audio_record_mac
+        PRODUCT_NAME: Loocap
+        EXECUTABLE_NAME: Loocap
         INFOPLIST_FILE: Info.plist
         CODE_SIGN_ENTITLEMENTS: AudioRecordMac.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

@@ -7,8 +7,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_DIR="$PROJECT_ROOT/build"
-APP_NAME="AudioRecordMac"
-EXECUTABLE_NAME="audio_record_mac"
+APP_NAME="Loocap"
+EXECUTABLE_NAME="Loocap"
 
 echo "🔨 开始构建 $APP_NAME..."
 echo "项目根目录: $PROJECT_ROOT"

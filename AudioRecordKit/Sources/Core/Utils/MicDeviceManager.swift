@@ -85,51 +85,6 @@ final class MicDeviceManager {
         }
     }
 
-    /// 把引擎的输入节点绑定到首选设备（首选失效时回退系统默认）
-    /// - Returns: 实际绑定的设备名（诊断用）
-    @discardableResult
-    func applyPreferredDevice(to engine: AVAudioEngine) -> String? {
-        let devices = listMicrophones()
-        guard !devices.isEmpty else { return nil }
-
-        var target: MicDeviceInfo?
-        if let uid = preferredDeviceUID {
-            target = devices.first { $0.uid == uid }
-            if target == nil {
-                // 所选设备失效 → 回退默认并清除持久化（界面内提示由调用方呈现）
-                logger.warning("🎤 [FEAT004] 所选麦克风设备已失效（uid=\(uid)），回退系统默认输入")
-                self.preferredDeviceUID = nil
-                target = devices.first { $0.isSystemDefault } ?? devices.first
-            }
-        } else {
-            target = devices.first { $0.isSystemDefault } ?? devices.first
-        }
-        guard let target = target else { return nil }
-        return bindDevice(target, to: engine)
-    }
-
-    /// 底层 AUHAL 设备重定向（AVAudioEngine 无公开选设备 API，走 AudioUnit 属性，macOS 录音 App 惯用方案）
-    private func bindDevice(_ device: MicDeviceInfo, to engine: AVAudioEngine) -> String? {
-        // 引擎 start 前 inputNode.audioUnit 可能尚未实例化，先显式取一次格式触发 AUHAL 创建
-        _ = engine.inputNode.outputFormat(forBus: 0)
-        guard let unit = engine.inputNode.audioUnit else {
-            logger.error("🎤 [FEAT004] inputNode 音频单元未就绪，无法绑定设备，使用系统默认")
-            return nil
-        }
-        var devID = device.deviceID
-        let status = AudioUnitSetProperty(unit,
-                                          kAudioOutputUnitProperty_CurrentDevice,
-                                          kAudioObjectPropertyScopeGlobal,
-                                          0,
-                                          &devID,
-                                          UInt32(MemoryLayout<AudioDeviceID>.size))
-        if status == noErr {
-            logger.info("🎤 [FEAT004] 麦克风输入设备已绑定: \(device.name) (uid=\(device.uid))")
-            return device.name
-        }
-        logger.error("🎤 [FEAT004] 麦克风设备绑定失败 status=\(status)，使用系统默认")
-        return nil
-    }
 
     // MARK: - 热插拔监听
 

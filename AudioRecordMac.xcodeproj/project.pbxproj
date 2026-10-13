@@ -31766,7 +31766,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.microlab.loocap;
-				PRODUCT_NAME = AudioRecordMac;
+				PRODUCT_NAME = Loocap;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -31928,7 +31928,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.microlab.loocap;
-				PRODUCT_NAME = AudioRecordMac;
+				PRODUCT_NAME = Loocap;
 				SDKROOT = macosx;
 			};
 			name = Release;

@@ -7,7 +7,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Loocap</string>
 	<key>CFBundleExecutable</key>
-	<string>audio_record_mac</string>
+	<string>Loocap</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>

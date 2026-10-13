@@ -293,7 +293,7 @@ run_app_smoke_test() {
     add_result "Smoke" "app_bundle_exists" "pass" "0" ""
 
     # Check app binary exists
-    local binary="$app_bundle/Contents/MacOS/audio_record_mac"
+    local binary="$app_bundle/Contents/MacOS/Loocap"
     if [ -f "$binary" ]; then
         add_result "Smoke" "binary_exists" "pass" "0" ""
     else
@@ -313,7 +313,7 @@ run_app_smoke_test() {
     open "$app_bundle"
     sleep 3
 
-    if pgrep -x "audio_record_mac" > /dev/null 2>&1; then
+    if pgrep -x "Loocap" > /dev/null 2>&1; then
         add_result "Smoke" "app_launches" "pass" "3000" "App started successfully"
 
         # Take a screenshot for AI review
@@ -321,7 +321,7 @@ run_app_smoke_test() {
         osascript -e '
             tell application "System Events"
                 try
-                    set frontmost of process "audio_record_mac" to true
+                    set frontmost of process "Loocap" to true
                     delay 0.5
                 end try
             end tell
@@ -330,7 +330,7 @@ run_app_smoke_test() {
         screencapture -x "$OUTPUT_DIR/smoke-screenshot.png" 2>/dev/null || true
 
         # Kill the app
-        pkill -x "audio_record_mac" 2>/dev/null || true
+        pkill -x "Loocap" 2>/dev/null || true
     else
         add_result "Smoke" "app_launches" "fail" "5000" "App did not start within 5s"
     fi

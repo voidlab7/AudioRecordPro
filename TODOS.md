@@ -157,7 +157,7 @@
 
 ---
 
-### INFRA-004 改名残留：PRODUCT_NAME/进程名仍是 AudioRecordMac（hover 提示旧名） | P1 | S | [todo · 待签]
+### INFRA-004 改名残留：PRODUCT_NAME/进程名仍是 AudioRecordMac（hover 提示旧名） | P1 | S | [rfr · 完成 2026-10-13 14:10，待老板签]
 
 > 来源（2026-10-13 11:39 老板 hover 截图）：鼠标悬停 App 提示还显示「**AudioRecordMac**」。老板指令：「全局搜一下，从根本上改」。
 > 证据：`docs/证据/2026-10-13-INFRA003R1-hover残留AudioRecordMac.png`
@@ -223,7 +223,30 @@
 
 ---
 
-### FEAT-004 麦克风设备探测与选择（多输入设备） | P2 | S | [rfr · 实现+单机验证完成 2026-10-13 12:45，待老板签]
+### FEAT-004 麦克风设备探测与选择 R1 | P2 | S | [rfr · 枚举/选择UI/持久化/回退完成 2026-10-13 14:10，待老板签]
+
+> 来源（2026-10-13 11:48 老板口述）：「麦克风需要能探测有几个麦克风输入，最好是可以选择。」
+> **R1 交付**：设备枚举 + 侧栏选择行 + UserDefaults 持久化 + 失效回退（老板选临时聚合设备消失后实测回退成功）。
+> **R2 拆出**：按所选设备实际采集（见 FEAT-004R2）。R1 期间选择仅持久化，录音仍走系统默认输入。
+
+### FEAT-004R2 麦克风按所选设备采集（自建 AUHAL input unit） | P2 | M | [todo · 标准草案待签]
+
+> 来源：FEAT-004 R1 实施中实锤的架构死路（2026-10-13 14:05 CLI 七连实验）。
+> **根因证据链**：macOS AVAudioEngine 的 inputNode 与 outputNode 是**同一个 IO AUHAL unit**（`inputNode.audioUnit === outputNode.audioUnit`，CLI 实测）。
+> 对 inputNode set `kAudioOutputUnitProperty_CurrentDevice` = 把整个引擎的 IO 设备换成麦克风 → 扬声器侧 `outputHWFormat` 失配 → `engine.start()` 必报 **-10875**（`IsFormatSampleRateAndChannelCountValid(outputHWFormat)`）。
+> 已否决姿势：start 前 set（-10875）/ running 态 set（-10851）/ stop 后 set（-10851）/ set 后 AudioUnitUninitialize（无效）。与时机无关，是共用 unit 的架构死路。
+> **方案（OBS/QuickTime 同款）**：自建 `kAudioUnitSubType_HALOutput` input unit：initialize 前 set CurrentDevice（纯 AU 层无缓存问题，CLI 已证 set 本身 noErr）→ render callback 出 Float32 PCM → 喂现有 handleMicrophoneData / ring buffer 路径。三处接线：MicrophoneRecorder / MixedAudioRecorder / FIX-007 注入引擎。
+
+**验收标准**（待签）：
+- [ ] 下拉选非默认麦克风 → 录音落盘数据来自所选设备（对质：换设备录两次，音色/电平可区分）
+- [ ] 未选择时跟随系统默认；选择持久化重启保持
+- [ ] 混录/纯麦/FIX-007 注入三链路均正常（无 -10875/-10851）
+- [ ] `build-app.sh` exit 0
+
+---
+
+### （原 FEAT-004 需求原文存档）
+
 
 > 来源（2026-10-13 11:48 老板口述）：「麦克风需要能探测有几个麦克风输入，最好是可以选择。」
 > 联动：FIX-007 分叉 C（录错设备）——本单落地后天然成为该场景的根治手段。

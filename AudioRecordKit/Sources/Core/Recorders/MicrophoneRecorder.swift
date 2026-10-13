@@ -215,10 +215,6 @@ class MicrophoneRecorder: BaseAudioRecorder {
     }
     
     private func startAudioEngine() throws {
-        // FEAT-004: 绑定用户所选麦克风设备（未选择则跟随系统默认）
-        // ⚠️ 必须在任何 installTap 之前：tap 安装会初始化 AU 图，此后 AUHAL 拒绝换设备（-10851 CannotDoInCurrentContext）
-        MicDeviceManager.shared.applyPreferredDevice(to: engine)
-
         // 为避免啸叫，主混音器音量保持很低但不为0以驱动pull
         engine.mainMixerNode.outputVolume = 0.01
 
@@ -232,6 +228,7 @@ class MicrophoneRecorder: BaseAudioRecorder {
         engine.prepare()
 
         try engine.start()
+        // FEAT-004 注：AVAudioEngine input/output 共用同一 IO AUHAL，set mic 设备会毁掉引擎（-10875），绑定走 FEAT-004R2 自建 AUHAL
         logger.info("麦克风录制引擎启动成功")
         callOnRecordingStarted()  // BUG-1 修复：引擎真正启动后才通知
     }

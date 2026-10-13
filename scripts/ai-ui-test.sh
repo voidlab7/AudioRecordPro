@@ -18,7 +18,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR="$PROJECT_ROOT/test_logs/ui-test-$TIMESTAMP"
-APP_NAME="audio_record_mac"
+APP_NAME="Loocap"
 APP_BUNDLE="$PROJECT_ROOT/build/AudioRecordMac.app"
 BUILD_SCRIPT="$PROJECT_ROOT/AudioRecordApp/build.sh"
 
@@ -46,7 +46,7 @@ ensure_output_dir() {
 get_window_id() {
     osascript -e "
         tell application \"System Events\"
-            tell process \"audio_record_mac\"
+            tell process \"Loocap\"
                 set frontWindow to front window
                 return id of frontWindow
             end tell
@@ -137,11 +137,11 @@ phase_screenshot() {
     osascript -e "
         tell application \"System Events\"
             try
-                set frontmost of process \"audio_record_mac\" to true
+                set frontmost of process \"Loocap\" to true
                 delay 0.5
             on error
                 -- If activation fails, try to launch the app
-                tell application \"audio_record_mac\" to activate
+                tell application \"Loocap\" to activate
                 delay 1
             end try
         end tell
@@ -206,11 +206,11 @@ phase_interact() {
     osascript -e "
         tell application \"System Events\"
             try
-                set frontmost of process \"audio_record_mac\" to true
+                set frontmost of process \"Loocap\" to true
                 delay 0.5
             on error
                 -- If activation fails, try to launch the app
-                tell application \"audio_record_mac\" to activate
+                tell application \"Loocap\" to activate
                 delay 1
             end try
         end tell

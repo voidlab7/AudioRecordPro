@@ -2,8 +2,8 @@
 # 主构建脚本 - 编译 AudioRecordApp（左右分栏版本）
 set -euo pipefail
 
-APP_NAME="audio_record_mac"
-PRODUCT_NAME="AudioRecordMac"
+APP_NAME="Loocap"
+PRODUCT_NAME="Loocap"
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_SRC_DIR="$ROOT_DIR/AudioRecordApp/Sources"
 SDK_SRC_DIR="$ROOT_DIR/AudioRecordKit/Sources"

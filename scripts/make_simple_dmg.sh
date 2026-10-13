@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="AudioRecordMac"
+APP_NAME="Loocap"
 APP_BUNDLE="${APP_NAME}.app"
 BUILD_DIR="$(cd "$(dirname "$0")/.." && pwd)/build"
 APP_PATH="$BUILD_DIR/${APP_BUNDLE}"

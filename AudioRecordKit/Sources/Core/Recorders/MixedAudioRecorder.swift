@@ -267,10 +267,6 @@ class MixedAudioRecorder: BaseAudioRecorder {
         let startTime = Date()
         logger.info("🎤 启动麦克风捕获...")
 
-        // FEAT-004: 绑定用户所选麦克风设备（未选择则跟随系统默认）
-        // ⚠️ 必须在任何 installTap 之前：tap 安装会初始化 AU 图，此后 AUHAL 拒绝换设备（-10851 CannotDoInCurrentContext）
-        MicDeviceManager.shared.applyPreferredDevice(to: micEngine)
-
         // 获取麦克风输入节点
         let inputNode = micEngine.inputNode
         let inputFormat = inputNode.inputFormat(forBus: 0)
@@ -312,6 +308,9 @@ class MixedAudioRecorder: BaseAudioRecorder {
         // 启动引擎 - 这是最耗时的操作
         logger.info("⏱️ 准备启动AVAudioEngine...")
         try micEngine.start()
+        // FEAT-004 注：AVAudioEngine 的 inputNode 与 outputNode 共用同一个 IO AUHAL unit，
+        // 对 input set CurrentDevice 会改掉整个引擎的 IO 设备 → start 报 -10875（outputHWFormat 失配）。
+        // 按所选设备采集需自建独立 AUHAL input unit（FEAT-004R2），此处保持系统默认输入。
         logger.info("⏱️ AVAudioEngine启动完成，耗时: \(String(format: "%.2f", Date().timeIntervalSince(startTime)))秒")
         
         logger.info("✅ 麦克风捕获已启动，总耗时: \(String(format: "%.2f", Date().timeIntervalSince(startTime)))秒")
