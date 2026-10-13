@@ -69,8 +69,10 @@ class WaveformView: NSView {
     private let barInterval: CFTimeInterval = 0.05          // 20 条/秒（UI-014 裁决口径，本单不动速度）
     private var lastBarAppendTime: CFAbsoluteTime = 0       // 最近落杆时刻（平移相位锚点）
     private var translationTimer: Timer?                    // 60Hz：只推条形层位移（GPU 合成），不触发 CPU 重绘
+    private let barsClipLayer = CALayer()                   // 裁剪层：条形只在 timelineRect 内可见（右缘冒头/左缘消失）
     private let barsStripLayer = CALayer()                  // 条形内容层：contents = 离屏渲染的条带图
-    private var stripDataCount = -1                         // 已渲染条带对应的数据量（去重，避免 60Hz 重复渲染）
+    private var dataVersion = 0                             // 数据版本号：每次追加/重置 +1（满窗裁剪后 count 不变，count 判重会冻屏）
+    private var stripDataVersion = -1                       // 已渲染条带对应的数据版本（去重，避免 60Hz 重复渲染）
     private var stripBoundsSize: NSSize = .zero             // 已渲染条带对应的视图尺寸（resize 失效）
     private var gridCacheImage: CGImage?                    // 网格静态层离屏缓存
     private var gridCacheSize: NSSize = .zero
@@ -140,11 +142,15 @@ class WaveformView: NSView {
         layer?.backgroundColor = NSColor(hex: "#14161A").cgColor
         setupEqualizer()
         // FIX-008: 条形内容层——录制态条形由它承载（draw() 不再逐条重绘），位移走 GPU 合成
+        // R2: 条形只在 timelineRect 内可见——右缘冒头、左缘滑出消失（裁剪层包裹）
+        barsClipLayer.anchorPoint = CGPoint(x: 0, y: 0)
+        barsClipLayer.masksToBounds = true
+        barsClipLayer.isHidden = true
+        layer?.addSublayer(barsClipLayer)
         barsStripLayer.anchorPoint = CGPoint(x: 0, y: 0)
         barsStripLayer.contentsGravity = .bottomLeft
         barsStripLayer.masksToBounds = true
-        barsStripLayer.isHidden = true
-        layer?.addSublayer(barsStripLayer)
+        barsClipLayer.addSublayer(barsStripLayer)
         layer?.cornerRadius = 4
         layer?.borderWidth = 0
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
@@ -182,6 +188,7 @@ class WaveformView: NSView {
         
         let quantizedLevel = (smoothedLevel * 64).rounded() / 64
         waveformData.append(quantizedLevel)
+        dataVersion += 1
         lastBarAppendTime = CFAbsoluteTimeGetCurrent()  // FIX-008: 平移相位锚点
         
         if waveformData.count > maxDataPoints {
@@ -206,14 +213,15 @@ class WaveformView: NSView {
         let normalizedPeak: Float = maxPeak > 0 ? peakLevel / maxPeak : 0
         
         waveformData.append(normalizedPeak)
-        
+        dataVersion += 1
+
         // 当 rawPeakData 增长时，重新归一化所有 waveformData（保持全局一致）
         // 每 50 个采样做一次全量归一化（平衡性能和一致性）
         if rawPeakData.count % 50 == 0 {
             let currentMax = rawPeakData.max() ?? 1.0
             if currentMax > 0 {
                 waveformData = rawPeakData.map { $0 / currentMax }
-                stripDataCount = -1  // FIX-008: 值变数量不变，强制条带重渲
+                stripDataVersion = -1  // FIX-008: 值变版本不变，强制条带重渲
             }
         }
 
@@ -240,7 +248,8 @@ class WaveformView: NSView {
         waveformData = Array(repeating: 0.0, count: 0)
         recordingStartTime = Date()
         recordingDuration = 0
-        stripDataCount = -1       // FIX-008: 条带缓存失效
+        dataVersion += 1
+        stripDataVersion = -1     // FIX-008: 条带缓存失效
         lastBarAppendTime = CFAbsoluteTimeGetCurrent()
         startAnimation()
     }
@@ -271,7 +280,8 @@ class WaveformView: NSView {
         staticWaveformData = nil
         recordingDuration = 0
         staticFileDuration = 0
-        stripDataCount = -1  // FIX-008: 条带缓存失效
+        dataVersion += 1
+        stripDataVersion = -1  // FIX-008: 条带缓存失效
         needsDisplay = true
     }
     
@@ -438,7 +448,9 @@ class WaveformView: NSView {
         displayTimer = nil
         translationTimer?.invalidate()
         translationTimer = nil
-        barsStripLayer.isHidden = true
+        // 可见性统一由 clip 层管理（draw() 按 20Hz 翻转）；strip 不单独设 isHidden，
+        // 否则 startAnimation→stopAnimation 置真后无人解开，条带永久隐身（R2 实测踩坑）
+        barsClipLayer.isHidden = true
     }
     
     // MARK: - Drawing
@@ -452,14 +464,14 @@ class WaveformView: NSView {
         drawGridCached(in: bounds)
         if !isRecording && !isShowingStaticWaveform && waveformData.isEmpty {
             drawIdlePlaceholder(in: bounds)
-            barsStripLayer.isHidden = true
+            barsClipLayer.isHidden = true
             return
         }
 
         equalizerContainer.isHidden = true
         // FIX-008: 录制态圆头条形由条形层承载（60Hz 连续平移），draw() 不再逐条重绘
         let useStripLayer = isRecording && Self.renderStyle == .roundedBars && !waveformData.isEmpty
-        barsStripLayer.isHidden = !useStripLayer
+        barsClipLayer.isHidden = !useStripLayer
         if isRecording || (isShowingStaticWaveform && staticFileDuration > 0) || recordingDuration > 0 {
             drawNativeTimeline(in: bounds)
         }
@@ -558,40 +570,44 @@ class WaveformView: NSView {
         NSRect(x: 28, y: 42, width: max(1, bounds.width - 56), height: max(1, bounds.height - 88))
     }
 
-    /// 60Hz 驱动：数据有新增才离屏重渲条带（实际 ~20Hz）；每帧只做相位插值推层位移（GPU 合成）。
-    /// 相位锚定最近落杆时刻：满窗后条带以 step/期 连续左移，消除 20Hz 整根跳格。
+    /// 60Hz 驱动：数据有新增（版本号变化）才离屏重渲条带（实际 ~20Hz）；每帧只做相位插值推层位移（GPU 合成）。
+    /// R2（老板 10-13 口述「从最右边往最左边」）：右端锚定——最新条右缘贴 timeline 右缘冒头，
+    /// 全部历史条随相位连续左移；未满窗/满窗同一公式（追加瞬间 (n-1) 增一且相位归零，两者相抵，像素级连续）。
     private func updateStripTranslation() {
         guard isRecording, Self.renderStyle == .roundedBars, !waveformData.isEmpty, bounds.width > 0 else { return }
         let timelineRect = timelineRectForBars
         let step = vbBarWidth + vbBarGap
         let maxVisibleBars = max(2, Int(floor(timelineRect.width / step)))
 
-        if stripDataCount != waveformData.count || !NSEqualSizes(stripBoundsSize, bounds.size) {
+        if stripDataVersion != dataVersion || !NSEqualSizes(stripBoundsSize, bounds.size) {
+            // 裁剪层对齐 timelineRect（子层坐标系与视图绘制坐标系同向，直接用 origin）
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            barsClipLayer.bounds = CGRect(x: 0, y: 0, width: timelineRect.width, height: timelineRect.height)
+            barsClipLayer.position = CGPoint(x: timelineRect.minX, y: timelineRect.minY)
+            CATransaction.commit()
             renderBarsStrip(timelineRect: timelineRect, step: step, maxVisibleBars: maxVisibleBars)
-            stripDataCount = waveformData.count
+            stripDataVersion = dataVersion
             stripBoundsSize = bounds.size
         }
 
+        let n = CGFloat(min(waveformData.count, maxVisibleBars))
+        let elapsed = max(0, CFAbsoluteTimeGetCurrent() - lastBarAppendTime)
+        let phase = min(0.999, elapsed / barInterval)
+        // 最新条右缘 = 裁剪层右缘 - phase*step；其余历史条在条带图内按 step 排其左
+        let x = timelineRect.width - vbBarWidth - stripGlowPad - (n - 1) * step - CGFloat(phase) * step
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        if waveformData.count > maxVisibleBars {
-            // 满窗：条带随相位连续左移（phase∈[0,1) 随时间推进，落杆时归零——像素级连续）
-            let elapsed = max(0, CFAbsoluteTimeGetCurrent() - lastBarAppendTime)
-            let phase = min(0.999, elapsed / barInterval)
-            barsStripLayer.position = CGPoint(x: timelineRect.minX - stripGlowPad - CGFloat(phase) * step, y: 0)
-        } else {
-            // 未满窗：左起填充不滚动（与现行为一致）
-            barsStripLayer.position = CGPoint(x: timelineRect.minX - stripGlowPad, y: 0)
-        }
+        barsStripLayer.position = CGPoint(x: x, y: 0)
         CATransaction.commit()
     }
 
-    /// 离屏渲染条带：最新条固定在右起第 (maxVisibleBars-1) 槽位（与 drawRoundedBars 满窗布局逐像素一致），
-    /// 平移全交给 layer.position。条形样式（圆头/渐变/光晕）与 UI-010 保持一致。
+    /// 离屏渲染条带：最新条固定在条带图最右槽位（平移公式保证其右缘贴 timeline 右缘冒头），
+    /// 历史条按 step 向左排列，平移全交给 layer.position。条形样式（圆头/渐变/光晕）与 UI-010 保持一致。
     private func renderBarsStrip(timelineRect: NSRect, step: CGFloat, maxVisibleBars: Int) {
         let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
         let stripW = CGFloat(maxVisibleBars) * step + stripGlowPad * 2
-        let stripH = bounds.height
+        let stripH = timelineRect.height
         let pixelsW = Int(stripW * scale), pixelsH = Int(stripH * scale)
         guard pixelsW > 0, pixelsH > 0,
               let cg = CGContext(data: nil, width: pixelsW, height: pixelsH, bitsPerComponent: 8,
@@ -604,7 +620,7 @@ class WaveformView: NSView {
 
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: cg, flipped: true)
-        let centerY = bounds.midY
+        let centerY = stripH / 2
         let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
         let startIndex = max(0, waveformData.count - maxVisibleBars)
         let visibleData = Array(waveformData[startIndex...])
