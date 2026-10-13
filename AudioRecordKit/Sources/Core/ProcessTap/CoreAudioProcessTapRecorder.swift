@@ -26,7 +26,136 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     /// FIX-004: 静音保活——全局 Tap 依附输出设备时钟，系统静音时设备休眠无 IO（落盘 0 帧）
     @available(macOS 14.4, *)
     private let silentKeepAlive = SilentOutputKeepAlive()
-    
+
+    // MARK: FIX-007: 录音中动态麦克风注入（「同时录入麦克风」开关录音中切换即时生效）
+    private let micStateLock = NSLock()
+    private var micMixEnabled = false
+    private var micEngine: AVAudioEngine?
+    private var micRingBuffer: [Float] = []
+    private var micMaxRingSize = 192000  // 48kHz×2ch×2s，启动麦克风时按实际采样率校正
+    private var micWritePos = 0
+    private var micReadPos = 0
+    private var lastMicSample: Float = 0.0
+
+    /// 录音中开/关麦克风注入（UI「同时录入麦克风」开关直通；幂等）
+    func setMicMixEnabled(_ enabled: Bool) {
+        micStateLock.lock()
+        let changed = (micMixEnabled != enabled)
+        micMixEnabled = enabled
+        micStateLock.unlock()
+        guard changed else { return }
+        logger.info("🎤 [FIX007] 录音中麦克风注入开关: \(enabled ? "ON" : "OFF")")
+        if enabled {
+            startMicEngineIfNeeded()
+        } else {
+            stopMicEngineIfNeeded()
+        }
+    }
+
+    /// IO 回调线程调用：取一帧 interleaved 立体声麦克风数据；未开启/数据不足时按 hold 补偿（仅开启时）
+    private func takeMicSamples(frameCount: UInt32) -> [Float]? {
+        micStateLock.lock()
+        let enabled = micMixEnabled
+        micStateLock.unlock()
+        guard enabled else { return nil }
+
+        let needed = Int(frameCount) * 2
+        var out = [Float](repeating: 0, count: needed)
+        micStateLock.lock()
+        let available = (micWritePos - micReadPos + micMaxRingSize) % micMaxRingSize
+        for i in 0..<needed {
+            if i < available {
+                out[i] = micRingBuffer[micReadPos]
+                micReadPos = (micReadPos + 1) % micMaxRingSize
+            } else {
+                // FIX-006 同款欠载 hold：保持最后采样值，语音不被静音顶掉
+                out[i] = i > 0 ? out[i - 1] : lastMicSample
+            }
+        }
+        lastMicSample = out.last ?? lastMicSample
+        micStateLock.unlock()
+        // FIX-007 打点（一次性）：注入首帧——证明 mic 数据真的进了写入路径
+        struct InjectFirstShot { static var done = false }
+        if !InjectFirstShot.done {
+            InjectFirstShot.done = true
+            logger.info("🎤 [FIX007] 麦克风注入首帧: samples=\(out.count)")
+        }
+        return out
+    }
+
+    /// 懒启动麦克风采集引擎（input tap → 环形缓冲，与 MixedAudioRecorder 同构）
+    private func startMicEngineIfNeeded() {
+        micStateLock.lock()
+        if micEngine != nil { micStateLock.unlock(); return }
+        micStateLock.unlock()
+
+        let engine = AVAudioEngine()
+        let input = engine.inputNode
+        let inFormat = input.inputFormat(forBus: 0)
+        guard inFormat.sampleRate > 0, inFormat.channelCount > 0 else {
+            logger.error("🎤 [FIX007] 麦克风输入格式无效: \(inFormat)")
+            return
+        }
+        micStateLock.lock()
+        micMaxRingSize = Int(inFormat.sampleRate) * 2 * 2
+        micRingBuffer = [Float](repeating: 0, count: micMaxRingSize)
+        micWritePos = 0
+        micReadPos = 0
+        micStateLock.unlock()
+
+        input.installTap(onBus: 0, bufferSize: 4096, format: inFormat) { [weak self] buffer, _ in
+            guard let self = self, let chData = buffer.floatChannelData else { return }
+            let frames = Int(buffer.frameLength)
+            let channels = Int(buffer.format.channelCount)
+            guard frames > 0, channels > 0 else { return }
+            // FIX-007 打点（一次性）：首帧实测峰值——证明麦克风引擎真的在收音
+            struct MicFirstShot { static var done = false }
+            if !MicFirstShot.done {
+                MicFirstShot.done = true
+                var peak: Float = 0
+                for f in 0..<frames { let v = abs(chData[0][f]); if v > peak { peak = v } }
+                self.logger.info("🎤 [FIX007] 麦克风首帧: frames=\(frames), peak=\(peak)")
+            }
+            self.micStateLock.lock()
+            defer { self.micStateLock.unlock() }
+            for f in 0..<frames {
+                for ch in 0..<2 {
+                    let sample = chData[min(ch, channels - 1)][f]
+                    self.micRingBuffer[self.micWritePos] = sample
+                    self.micWritePos = (self.micWritePos + 1) % self.micMaxRingSize
+                }
+            }
+        }
+        // 主混音器空 tap 驱动渲染循环（与 MicrophoneRecorder 同款），输出音量压到近零防啸叫
+        engine.mainMixerNode.outputVolume = 0.01
+        let mainFmt = engine.mainMixerNode.outputFormat(forBus: 0)
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 1024, format: mainFmt) { _, _ in }
+        engine.prepare()
+        do {
+            try engine.start()
+        } catch {
+            logger.error("🎤 [FIX007] 麦克风引擎启动失败: \(error.localizedDescription)")
+            input.removeTap(onBus: 0)
+            return
+        }
+        micStateLock.lock()
+        micEngine = engine
+        micStateLock.unlock()
+        logger.info("🎤 [FIX007] 麦克风注入引擎已启动: \(inFormat.sampleRate)Hz × \(inFormat.channelCount)ch")
+    }
+
+    private func stopMicEngineIfNeeded() {
+        micStateLock.lock()
+        let engine = micEngine
+        micEngine = nil
+        micStateLock.unlock()
+        guard let engine = engine else { return }
+        engine.inputNode.removeTap(onBus: 0)
+        engine.mainMixerNode.removeTap(onBus: 0)
+        engine.stop()
+        logger.info("🎤 [FIX007] 麦克风注入引擎已停止")
+    }
+
     // REQ-1.0-01: Hot-plug device change listener
     private var deviceChangeListenerBlock: AudioObjectPropertyListenerBlock?
     private let deviceChangeQueue = DispatchQueue(label: "com.audiorecord.devicechange", qos: .utility)
@@ -280,7 +409,12 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         audioCallbackHandler.onPCMBuffer = { [weak self] buffer in
             self?.onAudioBuffer?(buffer)
         }
-        
+
+        // FIX-007: 录音中动态麦克风注入——provider 每帧被回调，micMixEnabled 关闭时返回 nil（零开销直通）。
+        audioCallbackHandler.setMicMixProvider { [weak self] frameCount in
+            self?.takeMicSamples(frameCount: frameCount)
+        }
+
         // REQ-1.0-01: 直接在当前 MainActor 上下文启动，减少线程跳转延迟
         // startCoreAudioProcessTapCapture 内部的 CoreAudio 调用本身是同步的
         Task { @MainActor in
@@ -604,6 +738,10 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     @available(macOS 14.4, *)
     private func stopCoreAudioProcessTapCapture() {
         logger.info("CoreAudioProcessTapRecorder: 开始停止与清理")
+
+        // FIX-007: 撤除麦克风注入（引擎+provider），不留设备占用
+        setMicMixEnabled(false)
+        audioCallbackHandler.setMicMixProvider(nil)
 
         // FIX-004: 先停静音保活
         silentKeepAlive.stop()

@@ -121,10 +121,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             let parts = trimmed.split(separator: " ").map(String.init)
             guard let secs = Int(parts.first ?? ""), secs > 0 else { return }
-            let mixMic = parts.count > 1 && parts[1].lowercased() == "mix"
-            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")")
+            let flag = parts.count > 1 ? parts[1].lowercased() : ""
+            let mixMic = (flag == "mix")
+            let mixMicMidway = (flag == "mixmid")
+            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")\(mixMicMidway ? " + 录音中切麦" : "")")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic)
+                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic, mixMicMidway: mixMicMidway)
             }
         }
     }

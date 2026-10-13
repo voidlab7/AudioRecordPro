@@ -15,6 +15,7 @@
 | LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 等老板在 WorkBuddy 外跑 `scripts/test-ui.sh` |
 | LOOP-08    | 录音准备态与实时采集态视觉分离 ≡UI-002            | P1 | **blocked** | 主链路已通，细项留日常观察                          |
 | FIX-006    | 开麦混录说话无电平（原「QQ音乐电平」误报口径）      | P2 | done ✅ | 10-13 12:12 签收                              |
+| FIX-007    | 录音中开麦开关录不进麦克风声音                     | P1 | **rfr · 待签** | 10-13 12:22 动态注入修复，打点+落盘双证            |
 | FIX-005    | 拖动窗口右缘出现漂移白条                        | P2 | done ✅ | 10-13 11:45 签收（真实拖动手感复验通过）           |
 | UI-012     | 网格铺满整个画布、与底部面板间零空隙                | P2 | done ✅ | 10-13 11:45 签收                              |
 | UI-011     | DB METER 标签字体优化（B 仪表标准式）              | P3 | done ✅ | 10-13 11:45 签收                              |
@@ -178,7 +179,24 @@
 
 ---
 
-### FIX-007 录音中开麦克风开关，录不进麦克风声音 | P1 | M | [todo · ✅ 标准 2026-10-13 11:54 老板签（「这两单都签收，直接排队做」）]
+### FIX-007 录音中开麦克风开关，录不进麦克风声音 | P1 | M | [ready-for-review · 10-13 12:22]
+
+> **定性实锤（A · 开关态与引擎脱节）**：`CoreAudioProcessTapRecorder` 全文零 mic 引用（grep 实证）——纯系统录制器根本没有麦克风通道；`shouldMixAudio` 只在 `startRecording()` 读一次（`MainViewController.swift:282/286/321`），录音中切开关只改变量、引擎无任何通路。B（权限）/C（录错设备）排除：授权 11:32 已重授且混录链路（FIX-006）麦克风收音正常。
+
+**修复（录音中动态麦克风注入）**：
+1. `AudioCallbackHandler.writeAudioData` 增加注入点 `micMixProvider`：每帧向录制器取 mic 数据，40% 混入系统音频写盘（配比与 MixedAudioRecorder 一致），无 provider 时零开销直通
+2. `CoreAudioProcessTapRecorder` 新增 mic 引擎（input tap → 环形缓冲，复用 FIX-006 hold 欠载补偿）+ `setMicMixEnabled(_:)` 幂等开关（ON 懒启引擎 / OFF 撤除，停止路径强制清理不留设备占用）
+3. `MainViewController.mainWindowViewDidChangeMixAudio`：录音中切开关直通录制器，状态栏提示「麦克风已加入本次录制」；非录音中路径不变
+4. 回归钩子：selftest 触发器 `N mixmid`（纯系统起录→5s 录音中切麦）
+
+**验收情况**：
+- [x] 录音中开麦后出声，文件麦克风通道有声——场景 1 硬验证（14s mixmid）：打点链「切麦→注入 ON→注入首帧→引擎 48kHz×1ch 启动→**麦克风首帧 peak=0.033 真实收音**→停→OFF→引擎撤除」全链日志；解密逐秒峰值 **0-4s（开麦前）全 0.000 → 5s 测试音 0.176 → 6-14s 麦克风环境底噪 0.025-0.034 持续在场**（修复前此场景 mic 通道不存在、纯静音文件会被拦截删除）
+- [x] 开关 UI 态与引擎一致（打点：`录音中麦克风注入开关: ON/OFF` + `已下发录制器`）
+- [x] 三场景回归：纯系统（本场景 0-4s 段 + FIX-004 多轮）✓；混录（FIX-006 12:05 场次）✓；纯麦克风——UI 无独立纯麦入口（麦克风仅为叠加选项），`MicrophoneRecorder` 独立链路已有单测覆盖，如实注记
+- [x] `build-app.sh` exit 0
+- [ ] 待老板签收：录音中开麦说一句话验证
+
+**实施记录**：`AudioCallbackHandler.swift`（micMixProvider+注入分支）/ `CoreAudioProcessTapRecorder.swift`（mic 引擎+环形缓冲+hold+开关）/ `MainViewController.swift`（录音中开关直通）/ `AppDelegate.swift`+`MainViewController.runSelftestRecording`（mixmid 钩子）
 
 > 来源（2026-10-13 11:48 老板口述）：录制时打开麦克风窗口、打开麦克风开关，但录出来的文件里没有麦克风的声音。
 > 关联：FIX-006（系统音频 tap，定性场景 B 已关）——本单是**麦克风通道**的对应问题，两者合起来覆盖双通道采集。
@@ -220,6 +238,24 @@
 - [ ] 点选设备后录音，落盘文件来自所选设备（对质证据：换设备录两次，音色/电平特征可区分）
 - [ ] 选择持久化：重启 App 保持上次选择
 - [ ] `build-app.sh` exit 0；SDK 单测通过
+
+---
+
+### UI-014 录音态波形滚动降速（20 条/秒 → 10 条/秒，常量化） | P3 | S | [todo · 标准草案待签]
+
+> 来源（2026-10-13 12:13 老板口述）：「电平录制的时候，向左移动的速度太快了。」
+> 根因（需求台已定位）：`WaveformView.swift:369` `Timer.scheduledTimer(withTimeInterval: 0.05)` —— 每 50ms 推一根条 = **20 条/秒**，超出实时波形行业惯例档（10-15 条/秒，剪映/录音笔观感）。
+
+**做什么**：
+1. 采样间隔 `0.05 → 0.10` 秒（20 条/秒 → 10 条/秒，滚动速度减半），一根条代表 100ms 音频
+2. 间隔提成具名常量（如 `barInterval = 0.10`），后续微调不用找魔法数字
+3. **连锁核查**：条数减少后画布满铺/取尾部 N 条的裁剪逻辑自适应（画布仍满铺，不留半截）；`waveformData` 容量上限同步
+4. 与静态文件波形（extractWaveformSamples）无关，只动实时录制态
+
+**验收标准**（待签）：
+- [ ] 实拍录屏：滚动速度观感约减半，不突兀（对比修复前后视频）
+- [ ] 画布满铺无半截（长录 1 分钟以上验证）
+- [ ] `build-app.sh` exit 0
 
 ---
 

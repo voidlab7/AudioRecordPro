@@ -225,13 +225,21 @@ class MainViewController: NSViewController {
 
     /// FIX-004 诊断自测（临时）：无头驱动一轮真实录音——启动 N 秒后自动停。
     /// 用法：Loocap --selftest-record 5（3 秒后开始，录 5 秒，自动停）
-    func runSelftestRecording(seconds: Int, mixMic: Bool = false) {
-        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停, mixMic=\(mixMic)）")
+    func runSelftestRecording(seconds: Int, mixMic: Bool = false, mixMicMidway: Bool = false) {
+        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停, mixMic=\(mixMic), mixMidway=\(mixMicMidway)）")
         if mixMic {
             // FIX-006 复现钩子：等价手点「同时录入麦克风」，走 MixedAudioRecorder 混录链路
             mainWindowView.setMicrophoneMixEnabled(true)
         }
         startRecording()
+        if mixMicMidway {
+            // FIX-007 回归钩子：纯系统起录，5s 后切「同时录入麦克风」开——录音中动态注入
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+                guard let self = self, self.isRecording else { return }
+                self.logger.info("🔬 [FIX007] selftest: 录音中切麦克风开")
+                self.mainWindowView.setMicrophoneMixEnabled(true)
+            }
+        }
         DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds)) { [weak self] in
             self?.logger.info("🔬 [FIX004] selftest: 停止录音")
             self?.stopRecording()
@@ -1178,6 +1186,21 @@ extension MainViewController: MainWindowViewDelegate {
     func mainWindowViewDidChangeMixAudio(_ view: MainWindowView, enabled: Bool) {
         UXEventLog.shared.action("mix_audio_toggle", detail: ["enabled": enabled])
         shouldMixAudio = enabled
+        // FIX-007: 录音中切「同时录入麦克风」→ 直通纯系统 Tap 录制器动态注入，无需重启录音。
+        // （开录前切开关的路径不变：startRecording 时读取 shouldMixAudio 决定 MixedAudioRecorder。）
+        if isRecording {
+            if #available(macOS 14.4, *), let recorder = audioRecorderController?.getCurrentRecorder() as? CoreAudioProcessTapRecorder {
+                recorder.setMicMixEnabled(enabled)
+                logger.info("🎤 [FIX007] 录音中麦克风注入 → \(enabled ? "开启" : "关闭")（已下发录制器）")
+                mainWindowView.updateStatus(enabled
+                    ? "麦克风已加入本次录制".localized
+                    : "麦克风已移出本次录制".localized)
+                if enabled {
+                    PermissionManager.shared.requestMicrophonePermission { _ in }
+                }
+                return
+            }
+        }
         if enabled {
             mainWindowView.updateStatus("已开启麦克风叠加".localized)
             PermissionManager.shared.requestMicrophonePermission { _ in }

@@ -134,6 +134,14 @@ class AudioCallbackHandler {
         self.customCallback = callback
         logger.info("🎵 AudioCallbackHandler: 设置自定义回调（混音模式）")
     }
+
+    /// FIX-007: 录音中动态麦克风注入——纯系统 Tap 录制器的「同时录入麦克风」通道。
+    /// provider(frameCount) 返回 interleaved 立体声 Float 麦克风数据（含欠载 hold 补偿），
+    /// 返回 nil 表示本帧不注入（开关关/引擎未就绪）。每次写入前调用，动态生效无需重启录音。
+    private var micMixProvider: ((UInt32) -> [Float]?)?
+    func setMicMixProvider(_ provider: ((UInt32) -> [Float]?)?) {
+        self.micMixProvider = provider
+    }
     
     /// 创建音频回调函数
     func createAudioCallback() -> (AudioDeviceIOProc, UnsafeMutableRawPointer) {
@@ -239,6 +247,42 @@ class AudioCallbackHandler {
                let pcm = buildPCMBuffer(from: bufferList, frameCount: frameCount, format: sourceFormat) {
                 transcriptionCallback(pcm)
             }
+        }
+
+        // FIX-007: 麦克风动态注入（纯系统 Tap 路径）——把 mic 样本按 40% 混入系统音频后写文件。
+        // 与现有写入路径同构：仅支持交错单 buffer（非交错本就被跳过，行为不变）。
+        if let provider = micMixProvider, let micData = provider(frameCount), !micData.isEmpty,
+           bufferList.mNumberBuffers == 1, let src = bufferList.mBuffers.mData {
+            let srcChannels = bufferList.mBuffers.mNumberChannels
+            let srcFloats = Int(bufferList.mBuffers.mDataByteSize) / MemoryLayout<Float>.size
+            let sampleCount = min(srcFloats, micData.count)
+            var mixedData = [Float](repeating: 0, count: sampleCount)
+            let sys = src.assumingMemoryBound(to: Float.self)
+            for i in 0..<sampleCount {
+                // 混音配比与 MixedAudioRecorder 一致：60% 系统 + 40% 麦克风，防削波
+                let mixed = sys[i] * 0.6 + micData[i] * 0.4
+                mixedData[i] = max(-1.0, min(1.0, mixed))
+            }
+            if let fm = audioToolboxFileManager {
+                mixedData.withUnsafeMutableBytes { raw in
+                    guard let base = raw.baseAddress else { return }
+                    let mixedList = AudioBufferList(
+                        mNumberBuffers: 1,
+                        mBuffers: AudioBuffer(
+                            mNumberChannels: srcChannels,
+                            mDataByteSize: UInt32(sampleCount * MemoryLayout<Float>.size),
+                            mData: base
+                        )
+                    )
+                    do {
+                        try fm.writeAudioData(mixedList, frameCount: frameCount)
+                    } catch {
+                        logger.error("AudioCallbackHandler: mic 注入写入失败: \(error.localizedDescription)")
+                    }
+                }
+                return
+            }
+            // 无 AudioToolbox 时走原 AVAudioFile 回退路径（保持兼容，不注入）
         }
 
         // 如果设置了自定义回调（混音模式），则调用自定义回调
