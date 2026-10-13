@@ -33,6 +33,13 @@ class WaveformView: NSView {
     private var recentRawLevels: [Float] = []
     private let adaptiveWindowSize = 96
     private let logger = Logger.shared
+
+    // UI-014: 波形滚动降速——每 100ms 落一根条（10 条/秒，剪映/录音笔观感档），
+    // 一根条代表 100ms 音频的峰值 max（窗口内聚合，不丢瞬时峰值）。
+    // 注意：displayTimer(0.05) 仅驱动重绘刷新，与数据落杆频率解耦——只改它会出现两根条并跳。
+    private static let barInterval: TimeInterval = 0.10
+    private var lastBarTimestamp: TimeInterval = 0
+    private var currentWindowPeak: Float = 0
     
     // Apple 原生录音波形样式：细竖条、留白、红色游标
     private var barWidth: CGFloat = 1.2
@@ -144,16 +151,26 @@ class WaveformView: NSView {
     }
     
     /// 更新 PCM 峰值（与播放波形 extractWaveformSamples 完全同源）
-    /// 录制时每次音频回调取一个 PCM 峰值，存入 rawPeakData，绘制时全局归一化
+    /// UI-014: 音频回调频率高于落杆频率——100ms 窗口内聚合取峰值 max，到点才落一根条（10 条/秒）
     func updatePeakLevel(_ peakLevel: Float) {
         guard isRecording else { return }
-        
+
+        let now = ProcessInfo.processInfo.systemUptime
+        if now - lastBarTimestamp < Self.barInterval {
+            // 窗口内：只累计峰值，不落杆
+            currentWindowPeak = max(currentWindowPeak, peakLevel)
+            return
+        }
+        lastBarTimestamp = now
+        let peak = max(currentWindowPeak, peakLevel)
+        currentWindowPeak = 0
+
         // 存储原始 PCM 峰值
-        rawPeakData.append(peakLevel)
-        
+        rawPeakData.append(peak)
+
         // 全局归一化：与 extractWaveformSamples 的 `peaks.map { $0 / maxPeak }` 完全一致
         let maxPeak = rawPeakData.max() ?? 1.0
-        let normalizedPeak: Float = maxPeak > 0 ? peakLevel / maxPeak : 0
+        let normalizedPeak: Float = maxPeak > 0 ? peak / maxPeak : 0
         
         waveformData.append(normalizedPeak)
         
@@ -186,6 +203,8 @@ class WaveformView: NSView {
         staticWaveformData = nil
         rawPeakData.removeAll()
         waveformData = Array(repeating: 0.0, count: 0)
+        lastBarTimestamp = 0
+        currentWindowPeak = 0
         recordingStartTime = Date()
         recordingDuration = 0
         startAnimation()
@@ -196,6 +215,11 @@ class WaveformView: NSView {
         isRecording = false
         if let start = recordingStartTime {
             recordingDuration = Date().timeIntervalSince(start)
+        }
+        // UI-014 验证打点：条数/时长 应≈10 条/秒（节流聚合生效证据）
+        if recordingDuration > 0 {
+            let rate = Double(waveformData.count) / recordingDuration
+            logger.info("📊 [UI014] 波形落杆统计: 条数=\(waveformData.count) 时长=\(String(format: "%.1f", recordingDuration))s 速率=\(String(format: "%.1f", rate))条/秒")
         }
         recordingStartTime = nil
         stopAnimation()
