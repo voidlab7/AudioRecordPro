@@ -26,11 +26,13 @@
 3. **问题必回池**：自验/运行中发现新问题 → 写成新单回 `TODOS.md`，不丢在对话里，不顺手夹带
 4. **单间必重读池**（2026-10-12 老板增）：每完成一张单，先重读 `TODOS.md` 拿最新池再取下一张——需求台随时入池新单/打回/调优先级，凭会话内缓存续跑视为违反状态唯一真相原则
 
-## Git 纪律（2026-10-11 增，详见宪法 §八）
+## Git 纪律（2026-10-13 老板定 worktree 隔离，详见宪法 §八）
 
-- **done/ready-for-review = 一次提交**：单号进 message（`fix(FIX-003): ...`），该单文件 + TODOS.md 状态行同一 commit
-- **提交日志 = 归档日志**：`git log --grep <单号>` 即回溯入口，不另建日志文件
-- **交叉文件**归改动最大的单，message 注明；push 由老板确认，本地 commit 自动执行
+- **一单一个 worktree**：开工即 `git worktree add .worktrees/<单号> -b loop/<单号>`，该单开发/commit/构建/selftest 全在 worktree 内；**master 只在老板签收后收代码**
+- **worktree 内禁止**：merge/rebase master、碰 `TODOS.md`（池唯一真相只在主工作区维护）
+- **签收落账序列**（主工作区）：`git merge --no-ff loop/<单号>` → TODOS.md 状态/归档单独 commit（带单号）→ `git worktree remove` + 删分支
+- **打回**：worktree 与分支保留，回 `todo` 原树续修；**blocked**：现场保留，状态写池
+- 提交日志 = 归档日志：`git log --grep <单号>` 回溯；push 由老板确认
 
 ## 状态机
 

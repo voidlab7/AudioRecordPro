@@ -94,18 +94,34 @@ blocked（轮次耗尽/方向分歧，带证据找老板）
 
 ---
 
-## 八、Git 纪律（2026-10-11 增）
+## 八、Git 纪律（2026-10-11 增；worktree 隔离 2026-10-13 老板定）
 
 每张单的代码轨迹必须可在 git 历史中回溯：
 
-1. **done = 一次提交**：单子签收（或置 `ready-for-review`）时，该单相关文件 + `TODOS.md` 状态行**同一 commit** 提交；message 首行带单号（`fix(FIX-003): ...` / `feat(FEAT-001-S1): ...`）
-2. **提交日志 = 归档日志**：不另建提交记录文件——`git log --grep <单号>` 即该单完整轨迹，天然可 bisect
-3. **状态与代码同 commit**：`TODOS.md` 的状态迁移随代码一起提交，状态与代码永不漂移
-4. **doing 不强制提交**；跨会话大活（预估超一次会话）开工时打一个 `wip(<单号>):` 提交保底
-5. **交叉文件归属**：一个文件混多张单改动时归入改动最大的单，message 注明「含 XXX 单部分」
-6. **push 由老板控制**：本地 commit 按上述纪律自动执行；push 到远端需老板确认（Git 安全铁律）
+### Worktree 隔离（2026-10-13 老板定：一单一个 worktree，验收完才能回 master）
+
+1. **开工即建 worktree**：`git worktree add .worktrees/<单号> -b loop/<单号>`（如 `.worktrees/UI-015` + 分支 `loop/UI-015`）。该单的**开发、commit、构建、selftest 全部在 worktree 内进行**，主工作区不沾单子代码
+2. **worktree 内可自由 commit**（message 带单号），但**禁止 merge/rebase master、禁止碰 `TODOS.md`**——池是全局唯一状态真相，只在主工作区维护，避免多单并行改池冲突
+3. **master 只在签收后收代码**：老板签收 → 主工作区执行签收落账序列（见下）→ 清理。未签收的单，分支与代码**永远不进 master**
+4. **签收落账序列**（主工作区）：
+   ```
+   git merge --no-ff loop/<单号> -m "<type>(<单号>): ...（签收合并）"
+   # 随后 TODOS.md 状态迁移/归档正文迁移动作单独 commit（message 带单号）
+   git worktree remove .worktrees/<单号> && git branch -d loop/<单号>
+   ```
+5. **打回**（签收不过）：状态回 `todo` 附修正说明，**worktree 与分支保留**，Tab 在原 worktree 继续修
+6. **blocked**：worktree 现场原样保留（进程/日志/中间产物），状态写池带证据；恢复时原树续跑
+7. **并发病注记**：班次时刻错开（10:30/14:30）串行跑，同 bundle id 的 selftest 实例不并发；若未来并行多单，selftest 须错峰
+
+### 提交与回溯
+
+8. **提交日志 = 归档日志**：`git log --grep <单号>` 即该单完整轨迹（分支内开发 commit + merge commit + 落账 commit），天然可 bisect
+9. **doing 不强制提交**；跨会话大活（预估超一次会话）在 worktree 内打 `wip(<单号>):` 保底
+10. **交叉文件归属**：一个文件混多张单改动时归入改动最大的单，message 注明「含 XXX 单部分」
+11. **push 由老板控制**：本地 commit 按上述纪律自动执行；push 到远端需老板确认（Git 安全铁律）
 
 > 2026-10-11 教训：当天 6 张单全部堆在工作树未提交，签收状态只在 TODOS.md、代码无回溯点——事后补拆 4 个提交（4ce8130 / 2008062 / 4f540df / 998bc15）。
+> 2026-10-13 升级动机：单子直接堆 master 会相互污染（A 单半成品混进 B 单的构建/自验现场）；worktree 物理隔离后，master 永远只含已验收代码。历史单（master 直接提交时代）不回改。
 
 ---
 
