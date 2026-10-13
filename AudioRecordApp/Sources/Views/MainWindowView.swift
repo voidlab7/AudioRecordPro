@@ -326,7 +326,15 @@ class MainWindowView: NSView {
     }
     
     func updateMode(_ mode: RecordingMode) {
-        // 预留
+        // FIX-004: 源指示落地——录音态画布左上角 REC·源名 常显（原为空实现「预留」）
+        switch mode {
+        case .microphone:
+            waveformView.selectedSourceName = "麦克风".localized
+        case .specificProcess:
+            waveformView.selectedSourceName = "特定进程".localized
+        case .systemMixdown:
+            waveformView.selectedSourceName = "系统音频".localized
+        }
     }
     
     func updateRecordingState(_ state: RecordingState) {

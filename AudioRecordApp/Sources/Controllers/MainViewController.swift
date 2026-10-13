@@ -103,11 +103,11 @@ class MainViewController: NSViewController {
             logger.warning("音频控制器未初始化，跳过设置")
             return
         }
-        
+
         audioRecorderController.onLevel = { [weak self] level in
             DispatchQueue.main.async { self?.mainWindowView.updateLevel(level) }
         }
-        
+
         audioRecorderController.onPeakLevel = { [weak self] peakLevel in
             DispatchQueue.main.async {
                 guard let self = self else { return }
@@ -222,6 +222,18 @@ class MainViewController: NSViewController {
     }
     
     // MARK: - Recording Management
+
+    /// FIX-004 诊断自测（临时）：无头驱动一轮真实录音——启动 N 秒后自动停。
+    /// 用法：Loocap --selftest-record 5（3 秒后开始，录 5 秒，自动停）
+    func runSelftestRecording(seconds: Int) {
+        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停）")
+        startRecording()
+        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds)) { [weak self] in
+            self?.logger.info("🔬 [FIX004] selftest: 停止录音")
+            self?.stopRecording()
+        }
+    }
+
     private func startRecording() {
         guard !isRecording else { return }
         

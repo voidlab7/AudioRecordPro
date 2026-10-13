@@ -164,6 +164,7 @@ class WaveformView: NSView {
     /// 开始录制
     func startRecording() {
         isRecording = true
+        logger.info("🔬 [FIX004] WaveformView.startRecording → isRecording=true")
         waveformLoadID = UUID()
         isShowingStaticWaveform = false
         staticWaveformData = nil
@@ -374,6 +375,9 @@ class WaveformView: NSView {
         if isRecording || (isShowingStaticWaveform && staticFileDuration > 0) || recordingDuration > 0 {
             drawNativeTimeline(in: bounds)
         }
+        if isRecording {
+            drawSourceLabel(in: bounds)
+        }
         if isShowingStaticWaveform {
             if let data = staticWaveformData, !data.isEmpty {
                 drawStaticWaveform(in: bounds, data: data)
@@ -440,6 +444,20 @@ class WaveformView: NSView {
         gridPath.stroke()    }
 
     /// UI-003: idle 态——发光图标卡片 + Ready to Record + Space 键帽副标题 + 左上 Ready 状态点
+    /// FIX-004: 录音态左上角常显当前录制源——「不知道在录系统声还是麦」的 UI 缺口修复
+    /// （原 `MainWindowView.updateMode` 为空实现「预留」）
+    private func drawSourceLabel(in rect: NSRect) {
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .foregroundColor: IndustrialColors.onSurfaceVariant
+        ]
+        // 录制中红点（与 idle 态绿点 Ready 同位呼应）
+        let dot = NSBezierPath(ovalIn: NSRect(x: 16, y: rect.maxY - 22, width: 6, height: 6))
+        NSColor.systemRed.setFill()
+        dot.fill()
+        ("REC · " + selectedSourceName as NSString).draw(at: NSPoint(x: 28, y: rect.maxY - 26), withAttributes: attrs)
+    }
+
     private func drawIdlePlaceholder(in rect: NSRect) {
         let centerX = rect.midX
         let centerY = rect.midY
@@ -585,7 +603,8 @@ class WaveformView: NSView {
     }
     
     private func drawWaveform(in rect: NSRect) {
-        guard waveformData.contains(where: { $0 > 0 }) else { return }
+        // FIX-004: 录制态全零（静音）也画基线——「在录但静音」必须与「没在录」可区分（不死寂）
+        guard waveformData.contains(where: { $0 > 0 }) || isRecording else { return }
         
         let timelineInsetX: CGFloat = 84
         let timelineRect = NSRect(
@@ -617,7 +636,8 @@ class WaveformView: NSView {
             guard x <= timelineRect.maxX else { break }
             
             let normalized = CGFloat(max(0, level))
-            let amplitude = max(0.5, normalized * drawHeight * 0.48)
+            // FIX-004: 最低振幅 1.5pt——静音段呈现细基线带（0.5pt 视觉上不可见）
+            let amplitude = max(1.5, normalized * drawHeight * 0.48)
             
             if firstPoint {
                 upperPath.move(to: NSPoint(x: x, y: centerY + amplitude))

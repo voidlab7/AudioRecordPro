@@ -22,6 +22,10 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     private var swiftProcessTapManager: SwiftProcessTapManager?  // 新增Swift API管理器
     private let audioCallbackHandler = AudioCallbackHandler()
     private var audioToolboxFileManager: AudioToolboxFileManager?
+
+    /// FIX-004: 静音保活——全局 Tap 依附输出设备时钟，系统静音时设备休眠无 IO（落盘 0 帧）
+    @available(macOS 14.4, *)
+    private let silentKeepAlive = SilentOutputKeepAlive()
     
     // REQ-1.0-01: Hot-plug device change listener
     private var deviceChangeListenerBlock: AudioObjectPropertyListenerBlock?
@@ -508,7 +512,11 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         logger.info("🎵 CoreAudioProcessTapRecorder: >>> 开始初始化系统音频录制")
         logger.info("🎵 目标进程PID: \(targetPID?.description ?? "系统混音")")
         let tStart = Date()
-        
+
+        // FIX-004: 静音保活必须先于 Tap 创建——若输出设备在休眠，先唤醒它，
+        // 避免 Tap 就绪后仍要等设备被其它声音唤醒的 +2.8s 死区（严重时整场无 IO）
+        silentKeepAlive.start()
+
         do {
             // 步骤 1: 解析目标进程对象列表
             let t1 = Date()
@@ -584,6 +592,8 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             return true
             
         } catch {
+            // FIX-004: 初始化失败也要撤掉保活，防止静音播放泄漏
+            silentKeepAlive.stop()
             let errorMsg = "❌ CoreAudioProcessTapRecorder初始化失败: \(error.localizedDescription)"
             logger.error(errorMsg)
             callOnStatus(errorMsg)
@@ -594,7 +604,10 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
     @available(macOS 14.4, *)
     private func stopCoreAudioProcessTapCapture() {
         logger.info("CoreAudioProcessTapRecorder: 开始停止与清理")
-        
+
+        // FIX-004: 先停静音保活
+        silentKeepAlive.stop()
+
         // 停止聚合设备
         aggregateDeviceManager?.stopAndDestroy()
         aggregateDeviceManager = nil

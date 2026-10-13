@@ -109,6 +109,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 添加设置菜单项（Cmd+,）和快捷键
         setupSettingsMenu()
         setupKeyboardShortcuts()
+
+        // FIX-004 诊断自测（临时）：--selftest-record N → 3 秒后自动录 N 秒并停止
+        // FIX-004 诊断自测（临时）：文件触发器 Documents/AudioRecordings/selftest-record.txt（内容=秒数）
+        // 之所以不用 argv：沙盒环境下 open --args 不可靠、直接 exec 会被宿主回收。
+        let triggerURL = logger.getLogDirectoryURL().deletingLastPathComponent().appendingPathComponent("selftest-record.txt")
+        if let raw = try? String(contentsOf: triggerURL, encoding: .utf8),
+           let secs = Int(raw.trimmingCharacters(in: .whitespacesAndNewlines)), secs > 0 {
+            try? FileManager.default.removeItem(at: triggerURL)
+            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+                self?.mainViewController?.runSelftestRecording(seconds: secs)
+            }
+        }
     }
     
     // MARK: - Settings Menu
