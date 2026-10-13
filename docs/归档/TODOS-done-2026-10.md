@@ -397,3 +397,88 @@
 - [x] 老板签收 Dock 观感（10-13 10:34）
 - commit：164c301（描边提亮+主体满铺）
 - 教训：「观感偏小」类报障先用像素量测分清「文件真小」还是「视觉融合」——本单文件本身 97% 满铺，修的是对比度与边界，不是尺寸
+
+### FIX-004 录音中无实时波形（计时走、画布空） | P1 | M | [done] ✅ 2026-10-13 11:32 老板签收（含源指示）
+
+> 来源（2026-10-13 10:30 老板截图）：点开始录音后计时正常走（实测 00:07.60 仍在累加），但画布只有中线虚线占位、无任何波形——老板口径「没声音」。
+> 证据：`docs/证据/2026-10-13-FIX004-录音中计时走波形空.png`
+> **根因（10-13 11:15 实锤，非 UI 链路问题）**：全局 Process Tap 依附**系统输出设备时钟**——系统完全静音时输出硬件休眠，聚合设备无 IO 回调，表现为「计时走、波形/电平全无、**落盘 0 帧**」。实测矩阵：有声场次 IO 延迟 +30ms（00:26）/ +2.8s（10:32 设备被唤醒）；**静音场次 IO 永不到来**（10:29 报障场次、selftest 5s 全程 0 回调、`总共写入 0 帧`→`拦截无效录音 时长=0.0s`）。老板 10:29 报障正是静音系统下录制。另：诊断中证实电平 UI 链路（recorder→controller→MainWindowView→WaveformView）逐环完好，无需改动。
+> **源问题已澄清（10-13 10:50）**：该场次 `sourceType=systemMixdown` 是 **App 默认初始值**（`MainViewController.swift:31`），非权限 fallback；录制源真相来源=侧边栏选择（源选择逻辑没坏）。但 `MainWindowView.updateMode` 是空实现（`:328`「预留」）——**录音界面从不显示当前源**，老板不知道在录系统声还是麦是 UI 缺口所致。本单不修源选择逻辑。
+
+**做什么**：
+1. ~~先分叉诊断~~（已完成，B 路线再细分为「IO 无数据」——真根因在上面）
+2. **静音保活（主修复）**：新增 `SilentOutputKeepAlive`（AVAudioEngine + PlayerNode 循环播放零采样缓冲），录音启动时先于 Tap 创建拉起、停止/失败时撤除——迫使输出设备保持运行，Tap 收到真实零值帧。AudioCap 同款思路
+3. **静音段不死寂**：`WaveformView.drawWaveform` 全零守卫放行录制态 + 最低振幅 0.5→1.5pt（细基线带）
+4. **顺手小补**：录音界面源指示——`updateMode` 空实现落地，录音态显示当前源（系统混音/麦克风/特定进程）
+5. **诊断基建（保留）**：`selftest-record.txt` 文件触发器（Documents/AudioRecordings/ 下写秒数，启动 3s 后自动录 N s 自动停）——沙盒下 `open --args` 不可靠、直接 exec 被宿主回收，故用文件触发；LOOP-05 e2e 可复用
+
+**验收标准**：
+- [x] 静音系统下录音：IO 回调即时到达（音频回调[1] 于 IO 启动 +29ms；修复前静音场次永不到来）
+- [x] 静音 10s 录音完整落盘：**240960 帧 / 时长 00:10 / 录制完成**（修复前 0 帧→拦截删除）；静音 5s/6s/8s 多轮回归均全帧
+- [x] 静音段画布不死寂：drawWaveform 基线带（±1.5pt）+ DB METER 静音中实测跳动（证据图右缘绿条）
+- [x] 对麦克风说话场景=有声场次（10:32 实证数据 30-73% 峰值正常流动）；麦/系统仅源不同，链路同一
+- [x] 录音态界面显示当前录制源：画布左上「● REC · System Audio」常显（实拍 `docs/证据/FIX004-修复后-录音态波形源指示-2026-10-13.png`）
+- [x] 老板签收：实际录一次看波形（10-13 11:32）
+
+**实施记录**：`SilentOutputKeepAlive.swift`（新增）/ `CoreAudioProcessTapRecorder`（保活接线，先于 Tap、失败/停止撤除）/ `WaveformView`（基线带 + REC·源标签）/ `MainWindowView.updateMode`（空实现落地）/ `MainViewController`+`AppDelegate`（selftest 触发器）。诊断插桩已撤，保活与 selftest 日志保留。
+**终验实拍（11:18）**：静音系统 10s 自测——240480 帧完整落盘、时长 00:10、录制完成；录表中系统出声波形即时绘制、静音尾部基线延续、源指示常显（见证据图）。
+**遗留观察**：①纯零静音（峰值严格=0）录音仍会被「拦截无效录音」删除（11:14:40 场次 时长=2.02s 峰值=0.0）——真实环境多有噪声地板，留观；②老板机器输出设备采样率 24kHz（保活按设备实际格式自适应，无硬编码）。
+- commit：695d0e9（诊断）、c7e9fca（源澄清）、30ba6c1（主修复）
+- 教训：「计时走但无数据」类报障先查数据源头（IO 帧）再查 UI 链路——本单 UI 链路逐环完好，根因在硬件设备休眠
+
+### UI-010 录音态波形改现代竖条风格（旧包络方案保留备用） | P2 | S | [done] ✅ 2026-10-13 11:32 老板签收（R1 留白收窄并入）
+
+> 来源（2026-10-13 10:30 老板指令 + 参考图）：录音态波形从「橙色实心填充包络」改为**现代竖条风格**——老板评价现方案「有点厚重」。
+> 参考图：`docs/证据/2026-10-13-UI010-参考-绿色圆头竖条风格.png`
+> 现状留档（**保留备用，不删除**）：`docs/证据/2026-10-13-UI010-现状-橙色填充包络-保留备用.png`
+
+**做什么**：
+1. **渲染风格**：垂直圆头条形（lineCap round）、上下对称镜像、条间留间隙——参考图实测条宽 ≈ 间隙宽（各约 3-4px @2x），节奏均匀有「呼吸感」
+2. **颜色**：以参考图取色为基准（绿色系、顶端到根部微渐变 + 轻光晕）；绿色相可对齐 UI-003 已定的品牌绿，避免与主题色打架
+3. **静音/小信号**：条收缩为中线上的最小高度圆点行，不整体消失（与 FIX-004 兜底呼应）
+4. **旧方案保留**：橙色包络渲染代码以常量/枚举方式保留可切换，不物理删除（老板明示：现在这个方案不要删除，留着备用）
+
+**不做什么**：不动编辑态 Clip 波形渲染（那是另一套，另行开单）；不做平滑插值动画（首版直出，观感不够再加）
+
+**实施记录**（10-13 11:30，`WaveformView.swift`）：
+- 新增 `RenderStyle` 枚举（`.envelope` 旧橙色包络 / `.roundedBars` 绿色圆头竖条），`renderStyle = .roundedBars` 单行可切回旧方案，旧代码零删除
+- `drawRoundedBars`：条宽 2pt≈间隙 2pt（参考图 @2x 3-4px 实测换算）、上下镜像（centerY ± amplitude）、NSGradient 顶部 #8FF0CF → 根部 #13BBA3（品牌绿）、NSShadow 绿晕 blur 3
+- 静音段最小振幅 1pt → 圆头天然成 2pt 圆点行（不消失）
+- 编辑态静态波形不动（仍旧包络渲染，属另一套）
+- R1（10-13 11:27 老板截图「两边留白再少一点」）：波形区左右留白 `timelineInsetX` 84→28，五处同步（竖条绘制/时间刻度/静态波形/旧包络/鼠标点击映射），保证「画在哪、刻度在哪、点哪算哪」三者一致
+
+**验收标准**：
+- [x] 录音态波形为圆头竖条、间隙均匀、上下镜像——实拍 `docs/证据/UI010-修复后-录音态绿色圆头竖条-2026-10-13.png`（与参考图同构：语音段渐变竖条 + 静音段点行）
+- [x] 小信号/静音时最小条高可见——实拍左侧 0-0.01s 静音区为中线上圆点行
+- [x] 旧包络方案代码保留（`renderStyle = .envelope` 一行可切），`build-app.sh` exit 0
+- [x] R1 留白收窄：84→28 构建通过，老板签收（10-13 11:32）
+- commit：727fa04（竖条风格）、63cf8bc（R1 留白收窄）
+
+### INFRA-003 App 更名 Loocap（代码侧 + Bundle ID 迁移） | P1 | M | [done] ✅ 2026-10-13 11:32 老板签收（重新授权+录音终验通过）
+
+> 来源（2026-10-12 16:24 老板指令）：App 名字重构为 **Loocap**，Bundle ID 同步改为 **`com.microlab.loocap`**（老板定；microlab.top 为 MicroV 已有域名，反向域名约定成立）。
+> 背景与残留清单：`docs/产品/品牌更名-2026-10-11.md` §四（10-11 已完成对外品牌切换，代码侧本单执行）。实测代码残留 27 处/10 文件 + pbxproj 30 处。
+
+**做什么**：
+1. **Bundle ID**：`PRODUCT_BUNDLE_IDENTIFIER` 全 target（App/KitTests/UITests）`com.voidzhang.audio-record-mac` → `com.microlab.loocap`
+2. **显示名**：Info.plist ×2（`CFBundleDisplayName`/权限文案）、pbxproj Target/Product 显示名 → Loocap（工程文件名 `AudioRecordMac.xcodeproj` 不动）
+3. **L10n**：en `Localizable.strings` + zh `InfoPlist.strings` 中名称改 Loocap；`TranscriptPanelView.swift` 1 处可见文案
+4. **内部标识符**：`TaptureTheme.swift` → `LoocapTheme.swift`（3 处）+ `ThemeAndMonitorTests.swift` 同步（14 处）
+5. **数据迁移**：提供迁移步骤/脚本——旧容器 `~/Library/Containers/com.voidzhang.audio-record-mac/` 的录音库搬到新容器；**实测 .arlock 在新容器可解密**（确认加密密钥绑机器而非 bundle id，若绑 bundle id 需密钥迁移方案再议）
+6. **连锁同步**：e2e/判活脚本按窗口属主名定位的用例（CGWindowList「Tapture」）全部改 `Loocap`；`make_appicon.sh` 等脚本内路径引用核查
+
+**已知代价（老板已拍板接受）**：改 Bundle ID 后**首次需重新授权**录屏/麦克风各一次（此后 INFRA-002 的 LoocapDev 稳定签名继续保证不再重复）。
+
+**不做什么**：历史文档/证据行的 Tapture 不回改（10-11 定：旧名是当时事实）；官网 `/tapture/` 软链不动；不改工程目录名与 git 仓库名
+
+**验收标准**：
+- [x] `codesign -dv` 显示 `Identifier=com.microlab.loocap` + LoocapDev 签名（`Authority=LoocapDev`，`codesign --verify --deep --strict` ✓）
+- [x] 窗口标题栏/窗口属主显示 **Loocap**（CGWindowList `owner=Loocap` 实证；TitleBarView 硬编码 "AudioRecord" 一并清除）；Dock 显示名走 CFBundleDisplayName=Loocap（CFBundleName 同步）
+- [x] **数据迁移验证**：旧容器 3.2G 完整复制（54 条 wav + arlock 库）；硬验证两件：① afinfo 读新容器 wav ✓（206s/2ch/44.1kHz）；② **.arlock 解密 PASS**（临时 XCTest 实证 QQMusic_20260821_205809 257.6s/49.5MB 在新 Bundle ID 下解密成功——密钥绑机器不绑 bundle id）
+- [x] 全仓 grep `Tapture`：代码/资源/脚本层清零。豁免清单（历史事实不回改）：docs/归档/*、docs/需求/REQ-i18n、docs/产品/品牌更名-2026-10-11.md、TODOS.md 历史行、CODEBUDDY.md、roles/Tab/AGENT.md、build/ 与 .build/ 产物（重生成）
+- [x] `build-app.sh` exit 0；SDK 单测 77/77 PASS（含改名后 LoocapTheme/ThemeAndMonitorTests）
+- [x] e2e/判活窗口名同步：`window_shot.py` 按 owner=Loocap 命中（`docs/证据/INFRA-003-标题栏Loocap-2026-10-12.png`）
+- [x] **老板操作完成（10-13 11:32）**：重新授权（录屏+麦克风）+ 录音终验通过
+- 附带修复：project.yml 三 target bundle id、scripts/tc011 与 ux_replay 旧 id、xcodegen 重生成 pbxproj
+- 证据：`docs/证据/INFRA-003-主界面Loocap标题-2026-10-12.png`、`docs/证据/INFRA-003-标题栏Loocap-2026-10-12.png`
+- commit：2764790（改名主体）、3509595（残留修复+证据）
