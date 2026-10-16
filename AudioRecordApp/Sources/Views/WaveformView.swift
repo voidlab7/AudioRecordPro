@@ -67,6 +67,8 @@ class WaveformView: NSView {
 
     // FIX-008: 平滑滚动（层驱动连续平移）+ 静态层缓存 + draw() 耗时打点
     private let barInterval: CFTimeInterval = 0.05          // 20 条/秒（UI-014 裁决口径，本单不动速度）
+    private var barBucketStart: CFAbsoluteTime = 0          // FIX-009: 当前时间桶起点（按时间聚合出条）
+    private var barBucketPeak: Float = 0                    // FIX-009: 桶内 max-hold 峰值
     private var lastBarAppendTime: CFAbsoluteTime = 0       // 最近落杆时刻（平移相位锚点）
     private var translationTimer: Timer?                    // 60Hz：只推条形层位移（GPU 合成），不触发 CPU 重绘
     private let barsClipLayer = CALayer()                   // 裁剪层：条形只在 timelineRect 内可见（右缘冒头/左缘消失）
@@ -201,10 +203,27 @@ class WaveformView: NSView {
     }
     
     /// 更新 PCM 峰值（与播放波形 extractWaveformSamples 完全同源）
-    /// 录制时每次音频回调取一个 PCM 峰值，存入 rawPeakData，绘制时全局归一化
+    /// FIX-009: 探针实锤（2026-10-17 真实混录录音）——峰值回调 94~189 次/秒随模式漂移，逐回调出条 = 条距不稳定 + 梳齿空隙。
+    /// 现改为**按时间聚合出条**：单调时钟固定 barInterval 时间桶，桶内所有回调峰值取 max-hold，出条节奏恒定 20 条/秒。
     func updatePeakLevel(_ peakLevel: Float) {
         guard isRecording else { return }
-        
+        FIX009Probe.mark("view", value: peakLevel)  // FIX-009 探针：原始回调节奏（临时，验后拆）
+
+        let now = CFAbsoluteTimeGetCurrent()
+        if barBucketStart == 0 { barBucketStart = now }
+        if peakLevel > barBucketPeak { barBucketPeak = peakLevel }
+        guard now - barBucketStart >= barInterval else { return }
+
+        let bucketPeak = barBucketPeak
+        barBucketPeak = 0
+        barBucketStart = now
+        appendBar(bucketPeak)
+    }
+
+    /// FIX-009: 把一个时间桶的 max-hold 峰值落为一根条（原 updatePeakLevel 主体）
+    private func appendBar(_ peakLevel: Float) {
+        FIX009Probe.mark("bar", value: peakLevel)  // FIX-009 探针：实际出条节奏（期望 20/s）
+
         // 存储原始 PCM 峰值
         rawPeakData.append(peakLevel)
         
@@ -246,6 +265,8 @@ class WaveformView: NSView {
         staticWaveformData = nil
         rawPeakData.removeAll()
         waveformData = Array(repeating: 0.0, count: 0)
+        barBucketStart = 0   // FIX-009: 时间桶状态复位
+        barBucketPeak = 0
         recordingStartTime = Date()
         recordingDuration = 0
         dataVersion += 1
@@ -266,6 +287,8 @@ class WaveformView: NSView {
         smoothedLevel = 0
         recentRawLevels.removeAll()
         rawPeakData.removeAll()
+        barBucketStart = 0   // FIX-009: 时间桶状态复位
+        barBucketPeak = 0
         needsDisplay = true
     }
     

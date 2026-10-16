@@ -219,6 +219,7 @@ class AudioCallbackHandler {
         
         // 使用统一的工具类计算电平（同时拿到 maxLevel 和 normalizedLevel）
         let (maxLevel, _, normalizedLevel) = AudioUtils.calculateAudioLevel(from: bufferList, frameCount: frameCount)
+        FIX009Probe.mark("sys-tap", value: maxLevel)  // FIX-009 探针：系统 Tap 峰值节奏（临时，验后拆）
         
         DispatchQueue.main.async { [weak self] in
             self?.onLevel?(normalizedLevel)

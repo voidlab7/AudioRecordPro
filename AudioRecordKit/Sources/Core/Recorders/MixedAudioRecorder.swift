@@ -218,21 +218,13 @@ class MixedAudioRecorder: BaseAudioRecorder {
         
         // 创建音频回调处理器
         systemAudioCallback = AudioCallbackHandler()
-        
-        // 设置电平回调（重要！否则没有电平显示）
-        systemAudioCallback?.setLevelCallback { [weak self] level in
-            DispatchQueue.main.async {
-                self?.onLevel?(level)
-            }
-        }
-        
-        // 设置峰值回调（PCM 峰值，用于波形绘制）
-        systemAudioCallback?.setPeakLevelCallback { [weak self] peakLevel in
-            DispatchQueue.main.async {
-                self?.onPeakLevel?(peakLevel)
-            }
-        }
-        
+
+        // FIX-009 单源喂入（探针实锤 2026-10-17：混录模式下系统路 94/s + 混录路 94/s 交替喂入 = 189 条/秒，
+        // 系统静默时系统路峰值≈0 被画成圆点 = 条间「梳齿空隙」）。
+        // 取舍：保留**混录后峰值**（updateLevel(from:)，与落盘文件一致 = 所见即所录），
+        // 不再转发系统单路 level/peak——电平表与波形同源，且混录下系统单路无独立显示意义。
+        // 注意：不要在这里 setLevelCallback/setPeakLevelCallback（不设回调时 handler 内部 guard 直接跳过电平计算）；
+        // 纯系统录制走 CoreAudioProcessTapRecorder，不受影响。
         // 设置自定义回调，将系统音频数据写入缓冲区
         systemAudioCallback?.setCustomCallback { [weak self] bufferList, frameCount in
             self?.handleSystemAudioData(bufferList: bufferList, frameCount: frameCount)
@@ -565,6 +557,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
         
         // 计算峰值（与 extractWaveformSamples 同源）
         let peakLevel = samples.reduce(0) { max($0, abs($1)) }
+        FIX009Probe.mark("mixed", value: peakLevel)  // FIX-009 探针：混录峰值节奏（临时，验后拆）
         
         DispatchQueue.main.async {
             self.onLevel?(normalizedLevel)
