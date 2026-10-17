@@ -60,10 +60,6 @@ class EditorWaveformView: NSView {
     /// 后续接入 AudioClip 模型后，改用 `clip.name`
     var clipName: String?
     
-    // P1-D: Trim 拖柄位置（相对时间偏移）
-    var clipTrimStart: TimeInterval = 0
-    var clipTrimEnd: TimeInterval = 0
-    
     // P1-E: Split 切分线位置
     var splitPointTime: TimeInterval?
     
@@ -587,6 +583,18 @@ class EditorWaveformView: NSView {
     }
     
     private func drawSelectionOverlay(in rect: NSRect) {
+        // UI-020: Clip 选中亮框（B 稿 .sel：teal 1.5px 圆角 8 + white .05 底）
+        // 编辑器 = 单 clip 检视器，clip 加载即选中（有波形就画）
+        if !allSamples.isEmpty {
+            let borderRect = waveformRect.insetBy(dx: 1, dy: 8)
+            let borderPath = NSBezierPath(roundedRect: borderRect, xRadius: IndustrialSpacing.editorClipSelectionRadius, yRadius: IndustrialSpacing.editorClipSelectionRadius)
+            IndustrialColors.editorClipSelectionFill.setFill()
+            borderPath.fill()
+            IndustrialColors.editorClipSelectionStroke.setStroke()
+            borderPath.lineWidth = 1.5
+            borderPath.stroke()
+        }
+
         guard let sel = selection else { return }
         let leftX = timeToPixel(sel.lowerBound)
         let rightX = timeToPixel(sel.upperBound)
@@ -695,13 +703,18 @@ class EditorWaveformView: NSView {
         let handleWidth = IndustrialSpacing.editorHandleWidth
         let handleColor = IndustrialColors.editorHandle
 
+        // UI-020: B 稿 .hdl i — 高 60% 圆角 2，垂直居中于亮框
+        let borderRect = waveformRect.insetBy(dx: 1, dy: 8)
+        let handleHeight = borderRect.height * 0.6
+        let handleY = borderRect.midY - handleHeight / 2
+
         for time in [sel.lowerBound, sel.upperBound] {
             let x = timeToPixel(time) - handleWidth / 2
-            let handleRect = NSRect(x: x, y: waveformRect.minY + 8, width: handleWidth, height: waveformRect.height - 16)
-            
+            let handleRect = NSRect(x: x, y: handleY, width: handleWidth, height: handleHeight)
+
             handleColor.setFill()
             NSBezierPath(roundedRect: handleRect, xRadius: 2, yRadius: 2).fill()
-            
+
             // 抓手纹理（3 条水平线）
             handleColor.withAlphaComponent(0.5).setStroke()
             let lineY = handleRect.midY
@@ -997,62 +1010,44 @@ extension EditorWaveformView {
 
 // MARK: - P1-D Trim 拖柄
 extension EditorWaveformView {
-    
-    /// 绘制 trim 拖柄（cyan 竖线 + 抓握线）
+
+    /// 绘制 trim 拖柄 — UI-020: 红色 4px 柄画在选区框两外侧（B 稿 .trimh：裁剪语义外扩）
+    /// 位置随选区边界（外侧偏移 5px），拖拽命中由选区柄 14px 热区统一承接
     private func drawTrimHandles(in rect: NSRect) {
-        guard selection != nil else { return }
-        
-        let trimColor = IndustrialColors.waveformAccent
+        guard let sel = selection else { return }
+
+        let trimColor = IndustrialColors.editorTrimHandle
         let handleWidth: CGFloat = 4
-        
-        // 左 trim 拖柄
-        let leftTime = clipTrimStart > 0 ? clipTrimStart : (selectionStart ?? visibleStartTime)
-        let leftX = timeToPixel(leftTime)
-        if leftX >= waveformRect.minX && leftX <= waveformRect.maxX {
+        let outerOffset: CGFloat = 5  // B 稿 trimh.l{left:-5px} / trimh.r{right:-5px}
+
+        let borderRect = waveformRect.insetBy(dx: 1, dy: 8)
+
+        // 左 trim 拖柄（选区左边界外侧）
+        let leftX = timeToPixel(sel.lowerBound) - outerOffset
+        if leftX - handleWidth / 2 >= waveformRect.minX {
             let leftHandleRect = NSRect(
                 x: leftX - handleWidth / 2,
-                y: waveformRect.minY + 4,
+                y: borderRect.minY,
                 width: handleWidth,
-                height: waveformRect.height - 8
+                height: borderRect.height
             )
             let leftPath = NSBezierPath(roundedRect: leftHandleRect, xRadius: 1, yRadius: 2)
             trimColor.setFill()
             leftPath.fill()
-            
-            // 三条抓握横线
-            drawGripLines(at: leftX, in: waveformRect, color: trimColor)
         }
-        
-        // 右 trim 拖柄
-        let clipEnd = clipTrimEnd > 0 ? clipTrimEnd : totalDuration
-        let rightTime = selectionEnd ?? totalDuration
-        let rightX = timeToPixel(min(rightTime, clipEnd == 0 ? totalDuration : clipEnd))
-        if rightX >= waveformRect.minX && rightX <= waveformRect.maxX {
+
+        // 右 trim 拖柄（选区右边界外侧）
+        let rightX = timeToPixel(sel.upperBound) + outerOffset
+        if rightX + handleWidth / 2 <= waveformRect.maxX {
             let rightHandleRect = NSRect(
                 x: rightX - handleWidth / 2,
-                y: waveformRect.minY + 4,
+                y: borderRect.minY,
                 width: handleWidth,
-                height: waveformRect.height - 8
+                height: borderRect.height
             )
             let rightPath = NSBezierPath(roundedRect: rightHandleRect, xRadius: 1, yRadius: 2)
             trimColor.setFill()
             rightPath.fill()
-            
-            // 三条抓握横线
-            drawGripLines(at: rightX, in: waveformRect, color: trimColor)
-        }
-    }
-    
-    /// 在 x 位置绘制抓握线
-    private func drawGripLines(at x: CGFloat, in rect: NSRect, color: NSColor) {
-        color.setStroke()
-        for i in 0..<3 {
-            let cy = rect.midY - 6 + CGFloat(i) * 6
-            let path = NSBezierPath()
-            path.lineWidth = 0.5
-            path.move(to: NSPoint(x: x - 1.5, y: cy))
-            path.line(to: NSPoint(x: x + 1.5, y: cy))
-            path.stroke()
         }
     }
 }

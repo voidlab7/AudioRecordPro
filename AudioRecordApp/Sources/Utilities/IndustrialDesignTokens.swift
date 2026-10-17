@@ -188,6 +188,21 @@ struct IndustrialColors {
     
     /// 编辑中状态徽章色
     static let editorEditingBadge = IndustrialColors.tertiary
+
+    /// UI-020: Clip 选中亮框描边（B 稿 --teal 1.5px）
+    static let editorClipSelectionStroke = IndustrialColors.primary
+
+    /// UI-020: Clip 选中亮框内底（B 稿 rgba(255,255,255,.05)）
+    static let editorClipSelectionFill = NSColor(white: 1.0, alpha: 0.05)
+
+    /// UI-020: Trim 柄（B 稿 --red 4px，选区两外侧）
+    static let editorTrimHandle = IndustrialColors.waveformAccent
+
+    /// UI-020: 上下文工具条底色（B 稿 #1D232C）
+    static let editorCtxToolbarBg = NSColor(hex: "#1D232C")
+
+    /// UI-020: 读数非法值红框
+    static let editorReadoutInvalid = IndustrialColors.error
 }
 
 // MARK: - 字体排版
@@ -213,6 +228,9 @@ struct IndustrialTypography {
     
     /// dB 数值 - 10px Regular 等宽
     static let monoDB = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular)
+
+    /// UI-020: 选区读数输入框 - 10.5px Regular 等宽（B 稿 §1.3）
+    static let monoReadout = NSFont.monospacedDigitSystemFont(ofSize: 10.5, weight: .regular)
 }
 
 // MARK: - 间距系统（Studio Dark v3.0）
@@ -275,9 +293,17 @@ struct IndustrialSpacing {
 
     /// 拖柄宽度
     static let editorHandleWidth: CGFloat = 4
-    
-    /// 拖柄热区（鼠标命中范围）
-    static let editorHandleHitZone: CGFloat = 8
+
+    /// 拖柄热区（鼠标命中范围）— UI-020: 8→14（B 稿规格表 §1.3）
+    static let editorHandleHitZone: CGFloat = 14
+
+    // MARK: - Clip 上下文工具条（UI-020 · design-B）
+
+    /// 工具条高度
+    static let editorCtxToolbarHeight: CGFloat = 34
+
+    /// Clip 选中亮框圆角
+    static let editorClipSelectionRadius: CGFloat = 8
 }
 
 // MARK: - 圆角半径（3 档统一，参考剪映）
