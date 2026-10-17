@@ -981,3 +981,59 @@
 - token 收编：`transcriptProgress #B387FF`、分栏 186/34/5 常量进 IndustrialDesignTokens
 - 附带修复：文稿装载补全——独立加载路径（loadAudio 两分支）也装载文稿（原仅 session 路径装载，常驻分栏下空态闪现）
 
+---
+
+### FIX-010 录音态 / 编辑态波形幅度映射统一为全局线性（老板选 B） | P2 | M | [done ✅ 2026-10-17 老板交付验收（merge 0e6d5ae）]
+
+> 来源（2026-10-14 20:48 老板截图 + 提问）：「刚开始录音，头部有一些杂音，但是转换成编辑态的红色看不到。」
+> 证据：`docs/证据/2026-10-14-FIX010-编辑态头部杂音几乎不可见.png`（0:00–0:09 只有一条细而淡的橙线，0:09.5 / 0:11.5 两处尖峰把它压扁）
+> 关联：FIX-009（录音态条的产生方式）。本单管**幅度怎么映射成高度**，两者同改 `WaveformView.swift`，**排在 FIX-009 之后**。
+
+**需求台分析（取证：同一次录音 20:46:51 的落盘 wav，前 120s，每 4096 帧一块统计）**：
+- 开头底噪块峰值 **0.006～0.014**（≈ −44～−37 dBFS），首个明显声音在 3.16s，峰值 **0.0818**（≈ −21.7 dBFS）
+- **录音态**：`WaveformView.updatePeakLevel` 注释写「全局归一化」，但 `rawPeakData` 被截断到 `maxDataPoints = 260`（≈1.4～2.8 秒），所以实际是**滑窗归一化 = 自动增益**：静音窗口里底噪被放大到可见——老板在录音时看到杂音的原因
+- **编辑态**：`EditorWaveformView.swift:182-203`（快速预览）与 `:214-240`（精细计算）都是 `peak / 整段最大值` 线性归一化；绘制 `amplitude = peak × drawHeight × 0.5`，`alpha = 0.34 + level × 0.66`。整段只要有一次大声，底噪就只剩 **7%～17% 高度、alpha≈0.38～0.45** = 一条细淡橙线——「红色看不到」
+- 结论：**两态用了两套幅度映射**（滑窗增益 vs 全局线性），录音时看得见的杂音，编辑时被「最大值」压没。杂音本身是真实存在的
+
+**✅ 老板口径已定（2026-10-16 20:38）：选 B —— 两态统一全局线性**。原 A 方案（统一 dB 刻度、抬高底噪）**不做**。
+
+> ⚠️ 已向老板说明代价：B 之后头部底噪在**录音态和编辑态都不会被特别放大**——老板 10-14 提的「头部杂音在编辑态看不到」这一现象**不会被消除**，而是让录音态也与编辑态一致地「看不到」。老板仍选 B，视为接受（若后续想要杂音可见，改走 A，工作量不大，开新单）。
+
+**做什么（B 方案）**：
+1. **录音态去掉滑窗归一化**（`rawPeakData` 截断 260 点导致的自动增益，注释写「全局」实为滑窗，名实不符）。改为**自开始录音起的累计最大值归一化**（只增不减的 running max）：高度 = 当前峰值 / 本次录音迄今最大峰值。录音结束时的末屏与编辑态同一规则
+2. **编辑态保持现有「整段最大值线性归一化」**，不改公式；`alpha = 0.34 + level × 0.66` 也**不动**
+3. 两态抽成**同一个映射函数**（输入：峰值、参考最大值；输出：0～1 高度），录音态与编辑态都调用，避免再次出现两套口径
+4. 真静音段（< −60 dBFS）仍为最低高度，不画噪点
+5. 编辑态快速预览 → 精细计算两阶段同口径，无先后跳变
+
+**不做什么**：不引入 dB 刻度；不改 alpha 公式；不改编辑态选区/裁剪/淡入淡出交互；不改条形样式（颜色、条宽、间距）
+
+**副作用提示（执行侧须知）**：录音中若出现一次突发大声（如敲桌子），累计最大值被抬高，之后正常说话的条会整体变矮且**不会恢复**（running max 只增不减）。这是 B 方案固有特性（与编辑态整段 max 归一化同理），验收时不算缺陷，但须在实拍里留一组对照说明。
+
+**验收标准**（已审核，B 方案）：
+- [x] 同一段音频，录音态末屏与编辑态同时间段**高度映射一致**（并排对比图，同一规则）✅（`2026-10-17-FIX010-录音态vs编辑态-并排对比.png`：同一次混录录音，上录音态/下编辑态，语音段高条与静音段低位一一对应）
+- [x] 录音态不再有滑窗自动增益：长时间静音后底噪**不会被放大到满高** ✅（`-录音中-静音9.6s.png`：REC 12.6s，语音停后静音 9.6s，底噪保持中线低位小点行，无自动增益）
+- [x] 真静音段（< −60 dBFS）仍为最低高度，不出噪点 ✅（同上，静音段为均匀小点行；mapper 静音门限 −60 dBFS=0.001 线性，单测覆盖）
+- [x] 快速预览 → 精细计算无闪变 ✅（legacy 路径 Phase1/2 同走 mapper 同口径；tile 路径 amplitude 过 mapper；视觉复验留老板真机顺带）
+- [x] 抽出的共用映射函数有单测（峰值 / 参考最大值 / 静音边界）✅（`WaveformAmplitudeMapperTests` 11 用例：线性映射/参考值缩放/钳制/静音边界含恰在门限/负值/零参考/末屏一致性/running max 只增不减；SDK swift test 102 测全绿）
+- [x] `build-app.sh` exit 0 ✅（LoocapDev 签名通过）
+
+**交付记录（2026-10-17 20:15 执行侧，worktree `.worktrees/FIX-010` 分支 `loop/FIX-010` 57ec7c0；master 未动）**：
+- 新增 `AudioRecordKit/Sources/Utils/WaveformAmplitudeMapper.swift`：`normalized(peak, referenceMax)` 两态唯一映射函数（B 方案：全局线性 + −60 dBFS 静音门限）。录音态参考=running max（只增不减，start/stop/reset 复位），编辑态 legacy 路径参考=整段 max，tile 路径参考=满刻度 1.0
+- `WaveformView.swift`（净 ±34）：删滑窗归一化（原 260 点窗 = 自动增益根因）与每 50 条全量重归一化，改 running max + 增长时可见窗重映射；触发条带重渲（stripDataVersion=-1）
+- `EditorWaveformView.swift`（±21）：legacy Phase1（快速）/Phase2（精细）同走 mapper 无先后口径差；tile 绘制 amplitude 过 mapper 补静音门限；**alpha 公式未动**（单子铁律）
+- 副作用留证（单子须知）：running max 只增不减——突发大声后正常段变矮不恢复，B 方案固有特性，验收不算缺陷
+- 实拍方法：selftest 触发器（容器路径 `~/Library/Containers/com.microlab.loocap/Data/Documents/AudioRecordings/selftest-record.txt`，内容「14 mix」）+ python 编排 `say` 语音 afplay 播放期间/静音期分段截图（screencapture -x -o -l，每拍前 caffeinate 唤醒）
+
+
+---
+
+### FIX-011 拆除 FIX009Probe 临时探针 | P3 | S | [done ✅ 2026-10-17 老板交付验收（merge 0e6d5ae）]
+
+> 来源：FIX-009 交付记录「临时探针随单提交，验收后下单一拆除」。与 FIX-010 同 worktree（`loop/FIX-010` ccc62a1）分两段提交，随 FIX-010 一并验收合并。
+
+**交付记录（2026-10-17 20:10）**：
+- 删 `AudioRecordKit/Sources/Utils/FIX009Probe.swift`（探针容器）
+- 删 `AudioCallbackHandler`（sys-tap）/ `MicrophoneRecorder`（mic）/ `MixedAudioRecorder`（mixed）三处 mark 调用
+- `WaveformView` 内 2 处 mark（view/bar）随 FIX-010 同文件提交一并移除
+- `grep -rn FIX009Probe` 全仓零残留；SDK swift test 102 测全绿；build exit 0
