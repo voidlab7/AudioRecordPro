@@ -25,7 +25,7 @@
 | FIX-011    | 拆除 FIX009Probe 临时探针（Kit/Utils 4 打点）        | P3 | done ✅ | 10-17 老板交付验收（merge 0e6d5ae）；全仓零残留 |
 | UI-022     | 删除选区命令 DeleteSelectionCommand（含 undo）+ 工具条删除按钮解除置灰 | P3 | todo · 已审核 | UI-020 验收产生（删除按钮已置灰，命令层空缺）；S 档 |
 | UI-023     | SplitAudioClipCommand WIP 桩转正（真 clip 拆分，P0 编辑器遗留） | P2 | todo · 已审核 | UI-020 验收发现（execute 原样返回 buffer，切分无实际效果）；M 档，排 UI-021 后 |
-| FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | todo · 已审核 | UI-021 交付发现（日志实锤差 83ms：collect 21:02:25.961 晚于加密完成 25.878）；M 档 |
+| FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | **rfr · 待验收** | worktree loop/FIX-012 f64bac8；改双向握手（管线登记落点+finish 后到触发），时序实锤 29.114 arlock→29.193 saved(via=handshake) 晚到 79ms 救回，对照组 6B8A09E3 无文稿；证据 docs/证据/2026-10-17-FIX012-握手落盘硬验证.md |
 | FEAT-005   | 转写词级时间戳（逐词高亮前置）——引擎升级或自定义对齐 | P3 | todo · 已审核 | UI-021 限制回池（TranscriptSegment 仅 start/end，Apple audioTimeRange 粒度不够逐词）；L 档，涉及转写引擎 |
 | UI-017     | 麦克风选择器下拉箭头不明显                         | P3 | done ✅ | 10-17 老板交付验收（merge 7cdec2f）；hover/展开留日常观察 |
 | LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 等老板在 WorkBuddy 外跑 `scripts/test-ui.sh` |
