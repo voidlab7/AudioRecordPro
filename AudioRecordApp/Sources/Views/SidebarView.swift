@@ -1472,7 +1472,7 @@ final class IndustrialMicDeviceSelectorView: NSView {
     private let header = NSView()
     private let headerIcon = NSImageView()
     private let headerLabel = NSTextField(labelWithString: "")
-    private let arrowLabel = NSTextField(labelWithString: "▾")
+    private let arrowIcon = NSImageView()
     private let listStack = NSStackView()
 
     private var options: [Option] = []
@@ -1514,11 +1514,10 @@ final class IndustrialMicDeviceSelectorView: NSView {
         headerLabel.translatesAutoresizingMaskIntoConstraints = false
         header.addSubview(headerLabel)
 
-        arrowLabel.font = NSFont.systemFont(ofSize: 11, weight: .regular)
-        arrowLabel.textColor = IndustrialColors.textTertiary
-        arrowLabel.alignment = .center
-        arrowLabel.translatesAutoresizingMaskIntoConstraints = false
-        header.addSubview(arrowLabel)
+        arrowIcon.translatesAutoresizingMaskIntoConstraints = false
+        arrowIcon.contentTintColor = IndustrialColors.textSecondary
+        arrowIcon.image = Self.arrowImage(expanded: false)
+        header.addSubview(arrowIcon)
 
         listStack.orientation = .vertical
         listStack.spacing = 2
@@ -1544,11 +1543,11 @@ final class IndustrialMicDeviceSelectorView: NSView {
 
             headerLabel.leadingAnchor.constraint(equalTo: headerIcon.trailingAnchor, constant: 8),
             headerLabel.centerYAnchor.constraint(equalTo: header.centerYAnchor),
-            headerLabel.trailingAnchor.constraint(lessThanOrEqualTo: arrowLabel.leadingAnchor, constant: -6),
+            headerLabel.trailingAnchor.constraint(lessThanOrEqualTo: arrowIcon.leadingAnchor, constant: -6),
 
-            arrowLabel.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
-            arrowLabel.centerYAnchor.constraint(equalTo: header.centerYAnchor),
-            arrowLabel.widthAnchor.constraint(equalToConstant: 14),
+            arrowIcon.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
+            arrowIcon.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            arrowIcon.widthAnchor.constraint(equalToConstant: 14),
 
             listStack.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
             listStack.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -1598,7 +1597,26 @@ final class IndustrialMicDeviceSelectorView: NSView {
 
     private func updateExpandedState() {
         listStack.isHidden = !expanded
-        arrowLabel.stringValue = expanded ? "▴" : "▾"
+        arrowIcon.image = Self.arrowImage(expanded: expanded)
+        updateArrowAppearance()
+    }
+
+    /// UI-017: 展开指示器矢量绘制——SF Symbol chevron（semibold ≥1.5pt 线宽），不依赖字体字形
+    private static func arrowImage(expanded: Bool) -> NSImage? {
+        let name = expanded ? "chevron.up" : "chevron.down"
+        guard let base = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
+        return base.withSymbolConfiguration(.init(pointSize: 10, weight: .semibold))
+    }
+
+    /// UI-017: 箭头颜色三态——常态 textSecondary（比原 textTertiary 提一档）；hover 再亮一档；展开态品牌绿
+    private func updateArrowAppearance() {
+        if expanded {
+            arrowIcon.contentTintColor = IndustrialColors.primary
+        } else if isHovering {
+            arrowIcon.contentTintColor = IndustrialColors.onSurface
+        } else {
+            arrowIcon.contentTintColor = IndustrialColors.textSecondary
+        }
     }
 
     private func updateAppearance() {
@@ -1614,11 +1632,13 @@ final class IndustrialMicDeviceSelectorView: NSView {
     override func mouseEntered(with event: NSEvent) {
         isHovering = true
         header.layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
+        updateArrowAppearance()
     }
 
     override func mouseExited(with event: NSEvent) {
         isHovering = false
         header.layer?.backgroundColor = NSColor.clear.cgColor
+        updateArrowAppearance()
     }
 }
 
