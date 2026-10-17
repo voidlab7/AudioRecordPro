@@ -39,6 +39,9 @@ class EditorToolbar: NSView {
     /// 缩放控件组（公开，供 EditorViewController 设置 delegate）
     let zoomControls = ZoomControlsView()
 
+    /// UI-020: 选区读数三框（起点/终点/时长，可键入）
+    let selectionReadout = SelectionReadoutView()
+
     // MARK: - Properties
     weak var delegate: EditorToolbarDelegate?
 
@@ -85,6 +88,10 @@ class EditorToolbar: NSView {
         }
         addSubview(transcriptButton)
 
+        // UI-020: 选区读数三框（中偏右，缩放控件左侧）
+        selectionReadout.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(selectionReadout)
+
         // 缩放控件（右侧）
         zoomControls.translatesAutoresizingMaskIntoConstraints = false
         addSubview(zoomControls)
@@ -100,6 +107,11 @@ class EditorToolbar: NSView {
             transcriptButton.centerYAnchor.constraint(equalTo: centerYAnchor),
             previewStopButton.centerYAnchor.constraint(equalTo: centerYAnchor),
 
+            // UI-020: 读数三框靠右排（zoom 左侧）
+            selectionReadout.trailingAnchor.constraint(equalTo: zoomControls.leadingAnchor),
+            selectionReadout.centerYAnchor.constraint(equalTo: centerYAnchor),
+            selectionReadout.heightAnchor.constraint(equalToConstant: 30),
+
             // 缩放控件右侧
             zoomControls.trailingAnchor.constraint(equalTo: trailingAnchor),
             zoomControls.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -112,9 +124,11 @@ class EditorToolbar: NSView {
         topSeparator.frame = CGRect(x: 0, y: bounds.height - 1, width: bounds.width, height: 1)
 
         // 响应式：根据可用宽度调整缩放控件
-        let playControlsWidth: CGFloat = 80  // 估算播放控制区域宽度
-        let availableWidth = bounds.width - playControlsWidth - IndustrialSpacing.md * 2
-        zoomControls.updateForAvailableWidth(availableWidth)
+        // UI-020: 中部有读数三框（≈3×110+间距），预留其宽度
+        let playControlsWidth: CGFloat = 80      // 估算播放控制区域宽度
+        let readoutReserved: CGFloat = 360       // 估算读数三框宽度
+        let availableWidth = bounds.width - playControlsWidth - readoutReserved - IndustrialSpacing.md * 2
+        zoomControls.updateForAvailableWidth(max(availableWidth, 180))
     }
 
     // MARK: - Public Methods

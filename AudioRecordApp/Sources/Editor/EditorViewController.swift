@@ -52,6 +52,11 @@ class EditorViewController {
     
     /// P0-B: 多轨道容器（替代原来的单个 waveformView）
     private let trackContainerView = TrackContainerView()
+
+    /// UI-020: Clip 上下文工具条（选中 Clip 后上方浮出，浮在轨道区之上）
+    private let clipCtxToolbar = ClipContextToolbarView()
+    private var clipCtxToolbarTopConstraint: NSLayoutConstraint?
+    private var clipCtxToolbarCenterConstraint: NSLayoutConstraint?
     
     /// 便捷：主轨道波形视图（第一轨）
     private var waveformView: EditorWaveformView {
@@ -171,6 +176,21 @@ class EditorViewController {
         editorView.addSubview(transcriptPanel)
         editorView.addSubview(statusBar)
 
+        // UI-020: Clip 上下文工具条 — 浮在轨道区之上（最后 addSubview 保证在最顶层）
+        clipCtxToolbar.translatesAutoresizingMaskIntoConstraints = false
+        editorView.addSubview(clipCtxToolbar)
+        clipCtxToolbarTopConstraint = clipCtxToolbar.topAnchor.constraint(
+            equalTo: trackContainerView.topAnchor, constant: 26)
+        clipCtxToolbarCenterConstraint = clipCtxToolbar.centerXAnchor.constraint(equalTo: editorView.centerXAnchor)
+        NSLayoutConstraint.activate([
+            clipCtxToolbarTopConstraint!,
+            clipCtxToolbarCenterConstraint!,
+            clipCtxToolbar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorCtxToolbarHeight),
+            clipCtxToolbar.widthAnchor.constraint(greaterThanOrEqualToConstant: 380)
+        ])
+        // UI-020: 删除现状无命令 → 置灰（记 TODO 回池）
+        clipCtxToolbar.setActionEnabled(.delete, enabled: false)
+
         // P0-B: 默认创建第一轨
         let defaultTrack = EditorAudioTrack(name: file.name, color: .coral)
         trackContainerView.tracks = [defaultTrack]
@@ -238,6 +258,10 @@ class EditorViewController {
         trackContainerView.onTrackVolumeChange = { [weak self] _, volume in
             self?.previewPlayerNode?.volume = volume
         }
+        // UI-020: 上下文工具条 → 与常驻动作栏同命令（双入口等价）
+        clipCtxToolbar.delegate = self
+        // UI-020: 读数三框可键入
+        toolbar.selectionReadout.delegate = self
     }
     
     // MARK: - Audio Loading
@@ -306,6 +330,8 @@ class EditorViewController {
                         if editBuffer != nil {
                             self.navigationBar.setToolEnabled(.trim, enabled: false)
                         }
+                        // UI-020: 读数三框键入上界
+                        self.toolbar.selectionReadout.totalDuration = duration
                         self.updateStatusBar()
                         // UI-019: 分栏常驻，独立加载路径也装载文稿
                         self.loadTranscriptForCurrentFile()
@@ -353,6 +379,8 @@ class EditorViewController {
                         self.waveformView.loadAudio(from: buffer, sampleRate: format.sampleRate)
                         self.navigationBar.setAllToolsEnabled(true)
                         self.navigationBar.setToolEnabled(.trim, enabled: false)
+                        // UI-020: 读数三框键入上界
+                        self.toolbar.selectionReadout.totalDuration = Double(buffer.frameLength) / format.sampleRate
                         self.updateStatusBar()
                         // UI-019: 分栏常驻，独立加载路径也装载文稿
                         self.loadTranscriptForCurrentFile()
@@ -761,6 +789,17 @@ extension EditorViewController: EditorWaveformViewDelegate {
         navigationBar.setToolEnabled(.fade, enabled: true)
         navigationBar.setToolEnabled(.normalize, enabled: true)
         navigationBar.setToolEnabled(.silenceTrim, enabled: true)
+
+        // UI-020: 读数三框同步（selection == nil 时显示 —）
+        if let r = range {
+            toolbar.selectionReadout.selectionStart = r.lowerBound
+            toolbar.selectionReadout.selectionEnd = r.upperBound
+            toolbar.selectionReadout.update(start: r.lowerBound, end: r.upperBound)
+        } else {
+            toolbar.selectionReadout.selectionStart = nil
+            toolbar.selectionReadout.selectionEnd = nil
+            toolbar.selectionReadout.update(start: nil, end: nil)
+        }
     }
 
     func editorWaveformView(_ view: EditorWaveformView, didSeekTo time: TimeInterval) {
@@ -1324,3 +1363,36 @@ extension EditorViewController: PropertiesPanelViewDelegate {
     }
 }
 
+
+// MARK: - ClipContextToolbarDelegate（UI-020）
+/// 上下文工具条六命令与常驻动作栏同功能同命令（双入口等价）
+extension EditorViewController: ClipContextToolbarDelegate {
+    func clipContextToolbarDidTap(_ toolbar: ClipContextToolbarView, action: ClipContextToolbarView.Action) {
+        switch action {
+        case .trim:
+            handleTrim()
+        case .split:
+            handleSplit()
+        case .silenceTrim:
+            performSilenceTrim()
+        case .normalize:
+            performNormalize()
+        case .fade:
+            handleFade()
+        case .delete:
+            break  // UI-020: 现状无删除命令，按钮已置灰；待新单补 DeleteSelectionCommand
+        }
+    }
+}
+
+// MARK: - SelectionReadoutDelegate（UI-020）
+extension EditorViewController: SelectionReadoutDelegate {
+    func selectionReadout(_ readout: SelectionReadoutView, didCommitStart start: TimeInterval?, end: TimeInterval?) {
+        guard let s = start, let e = end, e > s else { return }
+        let clampedS = max(0, min(s, waveformView.totalDuration))
+        let clampedE = max(0, min(e, waveformView.totalDuration))
+        guard clampedE > clampedS else { return }
+        waveformView.setSelection(start: clampedS, end: clampedE)
+        logger.info("UI-020 读数键入生效: \(clampedS)s ~ \(clampedE)s")
+    }
+}
