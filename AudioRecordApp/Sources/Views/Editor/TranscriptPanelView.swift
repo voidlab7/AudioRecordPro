@@ -9,6 +9,10 @@ protocol TranscriptPanelDelegate: AnyObject {
     func transcriptPanelDidTapExport(_ panel: TranscriptPanelView)
     /// 点击「生成转写 / 重新转写」
     func transcriptPanelDidTapTranscribe(_ panel: TranscriptPanelView)
+    /// UI-019: 拖柄拖拽调高（height 为面板总高，Controller 负责夹取范围与应用约束）
+    func transcriptPanel(_ panel: TranscriptPanelView, didDragToHeight height: CGFloat)
+    /// UI-019: 双击拖柄 → 折叠/展开切换
+    func transcriptPanelDidToggleFold(_ panel: TranscriptPanelView)
 }
 
 final class TranscriptPanelView: NSView {
@@ -25,6 +29,8 @@ final class TranscriptPanelView: NSView {
 
     private let titleLabel = NSTextField(labelWithString: "转写文稿".localized)
     private let metaLabel = NSTextField(labelWithString: "")
+    /// UI-019: 顶部拖柄（高 5，把手 36×3 居中；拖拽调高 / 双击折叠）
+    private let dragBar = TranscriptDragBarView()
     private let localePopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let exportButton = NSButton(title: "导出".localized, target: nil, action: nil)
     private let transcribeButton = NSButton(title: "生成转写".localized, target: nil, action: nil)
@@ -32,6 +38,8 @@ final class TranscriptPanelView: NSView {
     private let scrollView = NSScrollView()
     private let textView = NSTextView()
     private var hasTranscript = false
+    /// UI-019: 折叠态（34px 仅标题条；正文隐藏）
+    private(set) var isFolded = false
     /// 当前展示的文稿（状态恢复用）
     private var currentTranscript: Transcript?
 
@@ -48,6 +56,20 @@ final class TranscriptPanelView: NSView {
     private func setupView() {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainerLowest.cgColor
+
+        // UI-019: 顶部拖柄（设计稿 .dragbar：高 5、背景 surface、把手 36×3 圆角 2）
+        dragBar.translatesAutoresizingMaskIntoConstraints = false
+        dragBar.onDrag = { [weak self] heightInWindowDelta in
+            guard let self, let delegate = self.delegate else { return }
+            // 面板顶在窗口坐标系向上拖 → 增高：delta 为窗口 y 增量（向上为正）
+            let current = self.frame.height
+            delegate.transcriptPanel(self, didDragToHeight: current + heightInWindowDelta)
+        }
+        dragBar.onDoubleClick = { [weak self] in
+            guard let self else { return }
+            self.delegate?.transcriptPanelDidToggleFold(self)
+        }
+        addSubview(dragBar)
 
         // 语言选择（FEAT-001 S2.5：英文演讲等非系统语言场景）
         localePopup.addItems(withTitles: ["语言: 自动".localized, "English", "中文"])
@@ -99,7 +121,13 @@ final class TranscriptPanelView: NSView {
         }
 
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            // UI-019: 拖柄贴顶，头部行挂拖柄下方
+            dragBar.topAnchor.constraint(equalTo: topAnchor),
+            dragBar.leadingAnchor.constraint(equalTo: leadingAnchor),
+            dragBar.trailingAnchor.constraint(equalTo: trailingAnchor),
+            dragBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorTranscriptDragBarHeight),
+
+            titleLabel.topAnchor.constraint(equalTo: dragBar.bottomAnchor, constant: 4),
             titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             metaLabel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             metaLabel.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 10),
@@ -127,6 +155,16 @@ final class TranscriptPanelView: NSView {
     }
 
     // MARK: - 状态
+
+    /// UI-019: 折叠/展开（折叠 = 34px 仅标题条，正文隐藏）
+    func setFolded(_ folded: Bool) {
+        isFolded = folded
+        scrollView.isHidden = folded || !hasTranscript ? true : false
+        emptyLabel.isHidden = folded || hasTranscript ? true : false
+        localePopup.isHidden = folded
+        exportButton.isHidden = folded
+        transcribeButton.isHidden = folded
+    }
 
     /// 展示文稿（分段 + 时间戳）
     func show(transcript: Transcript) {
@@ -240,5 +278,54 @@ final class TranscriptPanelView: NSView {
         }
         txt += "\n── 由 Loocap 本机转写生成 ──\n"
         return txt
+    }
+}
+
+// MARK: - TranscriptDragBarView（UI-019）
+/// 转写分栏顶部拖柄：高 5 / 把手 36×3 / 拖拽调高 / 双击折叠
+/// 设计稿 .dragbar：背景 surface，cursor row-resize
+final class TranscriptDragBarView: NSView {
+
+    /// 拖拽回调：参数为窗口坐标系 y 增量（向上拖为正 → 分栏增高）
+    var onDrag: ((CGFloat) -> Void)?
+    var onDoubleClick: (() -> Void)?
+
+    private var dragStartYInWindow: CGFloat = 0
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer?.backgroundColor = IndustrialColors.surface.cgColor
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) not implemented")
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        // 把手 36×3 圆角 2 居中
+        let handle = NSRect(x: (bounds.width - 36) / 2, y: (bounds.height - 3) / 2, width: 36, height: 3)
+        let path = NSBezierPath(roundedRect: handle, xRadius: 2, yRadius: 2)
+        IndustrialColors.surfaceContainerHigh.setFill()
+        path.fill()
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .resizeUpDown)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount >= 2 {
+            onDoubleClick?()
+            return
+        }
+        dragStartYInWindow = event.locationInWindow.y
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        let dy = event.locationInWindow.y - dragStartYInWindow
+        dragStartYInWindow = event.locationInWindow.y
+        onDrag?(dy)
     }
 }

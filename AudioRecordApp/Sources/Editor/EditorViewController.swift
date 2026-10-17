@@ -43,10 +43,11 @@ class EditorViewController {
     private let scrollBarView = HorizontalScrollBarView()
     private let toolbar = EditorToolbar()
     private let statusBar = EditorStatusBar()
-    /// FEAT-001 S2: 转写文稿抽屉（toolbar 与 statusBar 之间，默认收起）
+    /// FEAT-001 S2 → UI-019: 转写分栏（design-B：轨道区与动作栏之间的常驻分栏，默认 186px，可拖拽/折叠）
     private let transcriptPanel = TranscriptPanelView()
     private var transcriptPanelHeightConstraint: NSLayoutConstraint?
-    private var isTranscriptVisible = false
+    /// UI-019: 分栏展开状态（折叠 = 34px 仅标题条）
+    private var isTranscriptVisible = true
     private var isTranscribing = false
     
     /// P0-B: 多轨道容器（替代原来的单个 waveformView）
@@ -176,8 +177,8 @@ class EditorViewController {
 
         scrollBarHeightConstraint = scrollBarView.heightAnchor.constraint(equalToConstant: 0)
 
-        // FEAT-001 S2: 文稿抽屉高度（0 = 收起）
-        transcriptPanelHeightConstraint = transcriptPanel.heightAnchor.constraint(equalToConstant: 0)
+        // FEAT-001 S2 → UI-019: 转写分栏高度（design-B：默认 186px 常驻，折叠 34px）
+        transcriptPanelHeightConstraint = transcriptPanel.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorTranscriptDefaultHeight)
 
         // P0-A: 存储约束引用（嵌入模式下将高度压为 0）
         navBarHeightConstraint = navigationBar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorNavBarHeight)
@@ -190,30 +191,30 @@ class EditorViewController {
             navigationBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
             navBarHeightConstraint!,
 
-            // P0-B 修复：trackContainerView 高度 = intrinsic (rulerHeight + N*rowHeight)，
-            // 由其内部 hugging/compression resistance 锁死。
-            // 位置：top 锚到 navigationBar.bottom（剪映风格 — 刻度尺在卡片顶部），
-            // 剩余空白留在底部。
+            // UI-019 design-B 骨架：trackContainer（时间尺+轨道区）在导航栏下方，
+            // 高度 = intrinsic（ruler 22 + N×140），剩余空间留在轨道区与转写分栏之间。
             trackContainerView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
             trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             trackContainerView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: scrollBarView.topAnchor, constant: -IndustrialSpacing.md),
+            trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: transcriptPanel.topAnchor),
 
+            // UI-019: 滚动条贴轨道区底部（原锚 toolbar，现动作栏移到分栏下方）
             scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
             scrollBarView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor, constant: -IndustrialSpacing.md),
-            scrollBarView.bottomAnchor.constraint(equalTo: toolbar.topAnchor, constant: -IndustrialSpacing.xs),
+            scrollBarView.bottomAnchor.constraint(equalTo: transcriptPanel.topAnchor, constant: -IndustrialSpacing.xs),
             scrollBarHeightConstraint,
 
-            toolbar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
-            toolbar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            toolbar.bottomAnchor.constraint(equalTo: transcriptPanel.topAnchor),
-            toolbarHeightConstraint!,
-
-            // FEAT-001 S2: 文稿抽屉夹在 toolbar 与 statusBar 之间
+            // UI-019: 转写分栏常驻——夹在轨道区与动作栏之间（B 稿 .trans 位于 .mid 底部、.actions 上方）
             transcriptPanel.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             transcriptPanel.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            transcriptPanel.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            transcriptPanel.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
             transcriptPanelHeightConstraint!,
+
+            // UI-019: 动作栏（toolbar）移到分栏下方、状态栏上方（B 稿 .actions）
+            toolbar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
+            toolbar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
+            toolbar.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            toolbarHeightConstraint!,
 
             statusBar.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             statusBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
@@ -222,6 +223,8 @@ class EditorViewController {
         ])
 
         navigationBar.setFileName(file.name)
+        // UI-019: 分栏默认展开，文稿开关高亮
+        toolbar.updateTranscriptToggle(isOn: true)
     }
     
     private func setupDelegates() {
@@ -231,6 +234,10 @@ class EditorViewController {
         toolbar.zoomControls.delegate = self
         scrollBarView.delegate = self
         transcriptPanel.delegate = self
+        // UI-019: 轨道音量滑块 → 回放增益（线性 → playerNode volume）
+        trackContainerView.onTrackVolumeChange = { [weak self] _, volume in
+            self?.previewPlayerNode?.volume = volume
+        }
     }
     
     // MARK: - Audio Loading
@@ -300,6 +307,8 @@ class EditorViewController {
                             self.navigationBar.setToolEnabled(.trim, enabled: false)
                         }
                         self.updateStatusBar()
+                        // UI-019: 分栏常驻，独立加载路径也装载文稿
+                        self.loadTranscriptForCurrentFile()
                         self.logger.info("编辑器加载完成(tile模式): \(self.file.name), 时长: \(String(format: "%.1f", duration))s, 采样率: \(format.sampleRate)")
                     }
                 } else {
@@ -345,6 +354,8 @@ class EditorViewController {
                         self.navigationBar.setAllToolsEnabled(true)
                         self.navigationBar.setToolEnabled(.trim, enabled: false)
                         self.updateStatusBar()
+                        // UI-019: 分栏常驻，独立加载路径也装载文稿
+                        self.loadTranscriptForCurrentFile()
                         self.logger.info("编辑器加载完成: \(self.file.name), 帧数: \(frameCount), 采样率: \(format.sampleRate)")
                     }
                 }
@@ -791,17 +802,42 @@ extension EditorViewController: EditorToolbarDelegate {
         stopPreview()
     }
 
-    /// FEAT-001 S2: 切换文稿抽屉（180pt 展开 / 0 收起）
+    /// FEAT-001 S2 → UI-019: 切换转写分栏折叠（186px 展开 ↔ 34px 标题条，200ms easeOut）
     func editorToolbarDidToggleTranscript(_ toolbar: EditorToolbar) {
-        isTranscriptVisible.toggle()
-        transcriptPanelHeightConstraint?.animator().constant = isTranscriptVisible ? 180 : 0
-        toolbar.updateTranscriptToggle(isOn: isTranscriptVisible)
+        toggleTranscriptFold()
         UXEventLog.shared.action("transcript_toggle", detail: ["visible": isTranscriptVisible])
+    }
+
+    /// UI-019: 折叠/展开切换（animator 默认隐式动画 ≈200ms，符合规格 §1.3 easeOut）
+    private func toggleTranscriptFold() {
+        isTranscriptVisible.toggle()
+        let target: CGFloat = isTranscriptVisible ? IndustrialSpacing.editorTranscriptDefaultHeight : IndustrialSpacing.editorTranscriptFoldedHeight
+        transcriptPanelHeightConstraint?.animator().constant = target
+        transcriptPanel.setFolded(!isTranscriptVisible)
+        toolbar.updateTranscriptToggle(isOn: isTranscriptVisible)
     }
 }
 
-// MARK: - Transcript Panel（FEAT-001 S2）
+// MARK: - Transcript Panel（FEAT-001 S2 + UI-019 拖拽/折叠）
 extension EditorViewController: TranscriptPanelDelegate {
+
+    /// UI-019: 拖柄拖拽调高（范围 34px ～ 60% 编辑区高）
+    func transcriptPanel(_ panel: TranscriptPanelView, didDragToHeight height: CGFloat) {
+        let maxHeight = editorView.bounds.height * 0.6
+        let clamped = max(IndustrialSpacing.editorTranscriptFoldedHeight, min(maxHeight, height))
+        // 拖拽中展开态生效；若从折叠态直接拖则同时解除折叠
+        if clamped > IndustrialSpacing.editorTranscriptFoldedHeight && !isTranscriptVisible {
+            isTranscriptVisible = true
+            transcriptPanel.setFolded(false)
+            toolbar.updateTranscriptToggle(isOn: true)
+        }
+        transcriptPanelHeightConstraint?.constant = clamped
+    }
+
+    /// UI-019: 双击拖柄 → 折叠/展开
+    func transcriptPanelDidToggleFold(_ panel: TranscriptPanelView) {
+        toggleTranscriptFold()
+    }
 
     /// 加载当前文件的转写文稿（有则展示，无则空态）
     private func loadTranscriptForCurrentFile() {

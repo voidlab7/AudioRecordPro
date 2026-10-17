@@ -141,6 +141,9 @@ struct IndustrialColors {
     
     /// 主波形条（签名色）
     static let waveformCoral = NSColor(hex: "#E87850")
+
+    /// UI-019 token 收编：转写进行中进度环/进度强调（原代码写死 #B387FF，规格表 §1.1）
+    static let transcriptProgress = NSColor(hex: "#B387FF")
     
     /// 次级波形/弱电平
     static let waveformSoft = NSColor(hex: "#E87850", alpha: 0.6)
@@ -258,7 +261,18 @@ struct IndustrialSpacing {
     
     /// 控制面板高度
     static let controlPanelHeight: CGFloat = 80
-    
+
+    // MARK: - 编辑器转写分栏（UI-019 · design-B 骨架）
+
+    /// 转写分栏默认高度（B 稿：固定 186px 起步）
+    static let editorTranscriptDefaultHeight: CGFloat = 186
+
+    /// 转写分栏折叠高度（仅标题条 34px）
+    static let editorTranscriptFoldedHeight: CGFloat = 34
+
+    /// 转写分栏拖柄高度（把手 36×3 居中）
+    static let editorTranscriptDragBarHeight: CGFloat = 5
+
     /// 拖柄宽度
     static let editorHandleWidth: CGFloat = 4
     
