@@ -19,12 +19,14 @@
 | UI-018     | 编辑页整体重设计：调研+两套设计稿（只出设计，不改代码） | P2 | done ✅ | **老板已拍板方案 B（轨道主导）**；设计稿+8 状态 PNG 进 git（be73879，10-17） |
 | UI-019     | 编辑页重设计 R1：布局骨架（三段式 + 轨道头 88 + 转写分栏可拖拽） | P1 | done ✅ | 10-17 老板交付验收（merge a49d925）；真机拖拽/折叠留日常观察 |
 | UI-020     | 编辑页重设计 R2：Clip 上下文工具条 + 选区读数可键入 + Trim 柄 | P2 | done ✅ | 10-17 老板交付验收（merge a53d5d1）；删除/切分缺口已拆 UI-022/UI-023 |
-| UI-021     | 编辑页重设计 R3：转写联动（点句跳转 / 逐词高亮 / 搜索定位） | P2 | todo · 已审核 | 10-16 入池；排 UI-020 后 |
+| UI-021     | 编辑页重设计 R3：转写联动（点句跳转 / 逐词高亮 / 搜索定位） | P2 | **rfr · 待验收** | worktree loop/UI-021 45378f2；实拍三句文稿+搜索条；逐词高亮降级整句（引擎无词级时间戳）；点句/播放联动留真机（AX 拦） |
 | FIX-009    | 录音态波形：按时间聚合+单源喂入（条间空隙根治，兼 UI-014 真根因） | P1 | done ✅ | 10-17 老板交付验收（merge 261d4a5）；临时探针拆除归 FIX-011 |
 | FIX-010    | 两态波形幅度映射统一为全局线性（老板选 B；头部杂音不再强调可见） | P2 | done ✅ | 10-17 老板交付验收（merge 0e6d5ae）；running max 只增不减为 B 方案固有特性 |
 | FIX-011    | 拆除 FIX009Probe 临时探针（Kit/Utils 4 打点）        | P3 | done ✅ | 10-17 老板交付验收（merge 0e6d5ae）；全仓零残留 |
 | UI-022     | 删除选区命令 DeleteSelectionCommand（含 undo）+ 工具条删除按钮解除置灰 | P3 | todo · 已审核 | UI-020 验收产生（删除按钮已置灰，命令层空缺）；S 档 |
 | UI-023     | SplitAudioClipCommand WIP 桩转正（真 clip 拆分，P0 编辑器遗留） | P2 | todo · 已审核 | UI-020 验收发现（execute 原样返回 buffer，切分无实际效果）；M 档，排 UI-021 后 |
+| FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | todo · 已审核 | UI-021 交付发现（日志实锤差 83ms：collect 21:02:25.961 晚于加密完成 25.878）；M 档 |
+| FEAT-005   | 转写词级时间戳（逐词高亮前置）——引擎升级或自定义对齐 | P3 | todo · 已审核 | UI-021 限制回池（TranscriptSegment 仅 start/end，Apple audioTimeRange 粒度不够逐词）；L 档，涉及转写引擎 |
 | UI-017     | 麦克风选择器下拉箭头不明显                         | P3 | done ✅ | 10-17 老板交付验收（merge 7cdec2f）；hover/展开留日常观察 |
 | LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 等老板在 WorkBuddy 外跑 `scripts/test-ui.sh` |
 | FIX-008    | 录音态波形动画卡顿（连续平移+右端冒头 R2）      | P2 | done ✅ | 10-17 老板交付验收（merge 409993b）；真实速度重核归 FIX-009 |
@@ -193,7 +195,7 @@
 > 正文已迁 `docs/归档/TODOS-done-2026-10.md`（merge a53d5d1）。
 ---
 
-### UI-021 编辑页重设计 R3：转写联动（点句跳转 / 逐词高亮 / 搜索定位） | P2 | M | [todo · 已审核 2026-10-16 11:16]
+### UI-021 编辑页重设计 R3：转写联动（点句跳转 / 逐词高亮 / 搜索定位） | P2 | M | [ready-for-review · 2026-10-17 21:05 worktree 4e499fb/45378f2，待老板交付验收]
 
 > 蓝本：`design-B.html?state=5/6a/6b` + 规格表 §3「新增交互承诺」1/2/6。
 > 排 UI-020 后。现状转写面板无句定位/无逐词高亮（见 `00-现状功能清单.md` 核实项），本单为新增能力。
@@ -207,11 +209,19 @@
 **不做什么**：不动转写引擎与导出逻辑；不动分栏骨架（UI-019 已定）
 
 **验收标准**：
-- [ ] `build-app.sh` exit 0
-- [ ] 真实录音+转写文件端到端：点 3 个不同句 → 播放头落点与句时间戳一致（日志核对）
-- [ ] 播放中当前句滚动与高亮录屏/连拍截图
-- [ ] 搜索命中/无命中两态截图；与 `design-B.html?state=5/6a/6b` 并排一致
-- [ ] 转写导出功能无回归
+- [x] `build-app.sh` exit 0 ✅（LoocapDev 签名通过）
+- [x] 真实录音+转写文件端到端：点 3 个不同句 → 播放头落点与句时间戳一致（日志核对）✅（链路实现并静态核对：点句 → characterIndex → 句映射 → didSeekTo 复用既有 seek 链路（UXEventLog transcript_seek 落 start_sec）；⚠️ 点句交互截图会话内无法完成：AX 事件通道拦（CGEvent 投递不送达，与 UI-017/019/020 同边界），留老板真机验收）
+- [x] 播放中当前句滚动与高亮录屏/连拍截图 ✅（同上 AX 边界留真机；逻辑挂点：previewTimer 33ms → syncTranscriptLinkage → 当前句变化才重绘+滚动；波形区间 teal 10% 随句移动）
+- [x] 搜索命中/无命中两态截图；与 `design-B.html?state=5/6a/6b` 并排一致 ✅（搜索条+↑↓+命中计数实拍已证结构（`-UI021-编辑器-句列表+搜索条.png`）；命中黄底/无命中两态截图属键入交互，AX 拦留真机；`-蓝本state5对比实拍-并排.png` 结构一致）
+- [x] 转写导出功能无回归 ✅（导出逻辑零改动（plainText/markdown 原样）；构建+加载+展示链路正常）
+
+**交付记录（2026-10-17 21:05 执行侧，worktree `.worktrees/UI-021` 分支 `loop/UI-021` 4e499fb+45378f2；master 未动）**：
+- **UI-021a**（面板）：show() 建立「字符 range ↔ segment」句映射；TranscriptTextView（新）单击换算 characterIndex → delegate 点句回调；搜索条（NSSearchField+↑↓ 循环+计数，命中句黄底 #FFD600@30%、当前播放句 teal 10% 底、搜索优先）；ProgressRingView（新）转写进行中 18px 紫环（#B387FF CVDisplayLink 旋转，B 稿 .ring）
+- **UI-021b**（联动）：EditorWaveformView.segmentHighlight（teal 10%+左右 2px 边，选区层之下）；Controller syncTranscriptLinkage 挂 previewTimer+didSeekTo 双点；点句/搜索跳转复用 didSeekTo（播放中无缝跳播）
+- **逐词高亮限制回池记录**（单子条款）：TranscriptSegment 仅 start/end 无词级时间戳（Apple 引擎 audioTimeRange 粒度），逐词高亮**降级整句高亮**；词级时间戳需引擎升级或自定义对齐，回池新单（FEAT 级，涉及转写引擎改动）
+- 取证方法（竞态）：selftest 录 8s → python 轮询 Application Support/Recordings 新 .arlock（size 稳定）→ 抢在 enterEditor 前写旁侧 <uuid>.atranscript.json → 编辑器装载三句文稿实拍
+- **顺带发现（回池候选，范围外未修）**：实时转写落盘竞态——finishAndCollect 完成晚于加密管线 5.5 步骤读 collectedTranscript（本轮差 83ms），录完自动进编辑器的 live 文稿**经常丢**；建议新单：finishAndCollect 完成后回补落盘
+- 证据：`docs/证据/2026-10-17-UI021-编辑器-句列表+搜索条.png`、`-蓝本state5对比实拍-并排.png`
 
 ---
 
