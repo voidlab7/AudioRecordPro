@@ -195,8 +195,9 @@ class EditorWaveformView: NSView {
         }
 
         let quickMax = quickPeaks.max() ?? 1.0
-        if quickMax > 0 {
-            for i in 0..<quickPeaks.count { quickPeaks[i] /= quickMax }
+        // FIX-010: 与录音态共用同一映射函数（整段 max 线性归一化 + 静音门限）
+        for i in 0..<quickPeaks.count {
+            quickPeaks[i] = WaveformAmplitudeMapper.normalized(quickPeaks[i], referenceMax: quickMax)
         }
 
         // 立即显示（主线程，< 5ms）
@@ -231,8 +232,9 @@ class EditorWaveformView: NSView {
             }
 
             let maxPeak = peaks.max() ?? 1.0
-            if maxPeak > 0 {
-                for i in 0..<peaks.count { peaks[i] /= maxPeak }
+            // FIX-010: 与录音态共用同一映射函数（Phase 1/2 同口径，无先后跳变）
+            for i in 0..<peaks.count {
+                peaks[i] = WaveformAmplitudeMapper.normalized(peaks[i], referenceMax: maxPeak)
             }
 
             DispatchQueue.main.async { [weak self] in
@@ -870,11 +872,14 @@ class EditorWaveformView: NSView {
                 
                 let x = timeToPixel(peakTime)
                 guard x >= waveformRect.minX - step, x <= waveformRect.maxX + step else { continue }
-                
-                let amplitude = max(1.5, CGFloat(peak.amplitude) * drawHeight * 0.5)
-                
+
+                // FIX-010: tile 路径幅度过同一映射函数（参考值 = 满刻度 1.0，本就全局线性；
+                // 收益 = 静音门限 −60 dBFS 生效，真静音不出噪点）。alpha 公式不动（单子铁律）。
+                let mapped = WaveformAmplitudeMapper.normalized(peak.amplitude, referenceMax: 1.0)
+                let amplitude = max(1.5, CGFloat(mapped) * drawHeight * 0.5)
+
                 let isInSelection = selection.map { $0.contains(peakTime) } ?? true
-                let level = CGFloat(peak.amplitude)
+                let level = CGFloat(mapped)
                 let alpha: CGFloat = isInSelection
                     ? max(0.34, min(1.0, 0.34 + level * 0.66))
                     : max(0.15, min(0.4, 0.15 + level * 0.25))
