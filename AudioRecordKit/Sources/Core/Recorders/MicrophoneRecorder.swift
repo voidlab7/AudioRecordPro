@@ -238,6 +238,7 @@ class MicrophoneRecorder: BaseAudioRecorder {
             logger.info("📊 麦克风录制统计: 累计写入 \(totalFramesWritten) 帧")
         }
         Task { @MainActor in
+            FIX009Probe.mark("mic", value: peakLevel)  // FIX-009 探针：麦克风峰值节奏（临时，验后拆）
             self.onLevel?(level)
             self.onPeakLevel?(peakLevel)
         }
