@@ -557,8 +557,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
         
         // 计算峰值（与 extractWaveformSamples 同源）
         let peakLevel = samples.reduce(0) { max($0, abs($1)) }
-        FIX009Probe.mark("mixed", value: peakLevel)  // FIX-009 探针：混录峰值节奏（临时，验后拆）
-        
+
         DispatchQueue.main.async {
             self.onLevel?(normalizedLevel)
             self.onPeakLevel?(peakLevel)
