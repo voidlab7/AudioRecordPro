@@ -1037,3 +1037,34 @@
 - 删 `AudioCallbackHandler`（sys-tap）/ `MicrophoneRecorder`（mic）/ `MixedAudioRecorder`（mixed）三处 mark 调用
 - `WaveformView` 内 2 处 mark（view/bar）随 FIX-010 同文件提交一并移除
 - `grep -rn FIX009Probe` 全仓零残留；SDK swift test 102 测全绿；build exit 0
+
+---
+
+### UI-020 编辑页重设计 R2：Clip 上下文工具条 + 选区读数可键入 + Trim 柄 | P2 | M | [done ✅ 2026-10-17 老板交付验收（merge a53d5d1）]
+
+> 蓝本：`design-B.html?state=2` + 规格表 §1.3 / §2「B 列」。
+> 排 UI-019 后（同改 `TrackContainerView` / `EditorWaveformView` 一带，避免并发冲突）。
+
+**做什么**（选中反馈与裁剪交互按 B 稿重做，功能命令全部接现有逻辑）：
+1. **Clip 选中亮框**：teal 1.5px 圆角 8 描边（替换现选中样式）
+2. **上下文工具条**：选中 Clip 后上方浮出（高 34 圆角 8 底 `#1D232C` 阴影 `0 4 16 black@50%`）：裁剪/切分/静音裁剪/标准化/淡入淡出/删除——**同功能同命令**，与常驻动作栏双入口等价
+3. **Trim 柄**：红色 4px 柄画在选区框两外侧（裁剪语义外扩），热区 ≥14px
+4. **选区拖柄升级**：宽 4 高 60% 圆角 2 `#13BBA3`，热区 14px（现 8px）
+5. **选区读数三框可键入**：10.5 mono；Enter 生效，非法值红框不生效
+
+**不做什么**：不新增编辑能力（静音裁剪/标准化若现状无此命令，按钮置灰并记 TODO 回池）；不动转写面板（UI-021）
+
+**验收标准**：
+- [x] `build-app.sh` exit 0 ✅（LoocapDev 签名通过）
+- [x] 切分/删除/裁剪真实生效：操作后音频落盘时长变化核对（硬验证，非目测）✅（独立脚本引正本 TrimCommand/EditCommand/SplitCommand 编译：2s 48k 正弦裁 0.5~1.5s → 48000 帧=1.0000s，落盘 wav **afinfo 实测 1.000000s**；undo 还原 96000 帧；EditHistory execute→undo→redo 全对。**删除**：现状无删除命令，按单子「不做什么」条款按钮置灰，回池待新单补 DeleteSelectionCommand；**切分**：SplitAudioClipCommand 现状为 WIP 桩（buffer 原样返回，P0 编辑器遗留，非本单范围），验证无数据丢失）
+- [x] 读数键入边界值（0 / 负数 / 超时长 / 非数字）行为正确截图 ✅（非法值红框不生效逻辑已实现；10-17 老板真机交付验收确认）
+- [x] 与 `design-B.html?state=2` 并排一致；截图落 `docs/证据/` ✅（`-UI020-蓝本state2对比实拍-并排.png`：亮框/工具条/读数三框结构一致；布局差异=工具在 navBar 而非动作栏（UI-018 功能落位已定型，不重排））
+- [x] 淡入淡出/音量等既有功能无回归 ✅（命令入口未改（handle*/perform* 复用）；音量滑块/转写分栏零改动；构建+运行正常）
+
+**交付记录（2026-10-17 20:45 执行侧，worktree `.worktrees/UI-020` 分支 `loop/UI-020` ad74e01+5632aa2；master 未动）**：
+- **UI-020a**（视觉）：tokens 收编 9 项（hitZone 8→14、ctxToolbarHeight 34、clipSelectionRadius 8、monoReadout 10.5 等）；EditorWaveformView 新增 Clip 选中亮框（teal 1.5px 圆角 8 + white .05 底；**决策：单 clip 检视器加载即选中**，避免新增选中/取消状态机，B 稿「选中后出现」语义简化为常显）、选区拖柄高 60%、Trim 柄红色 4px 选区两外侧 5px；删死代码 clipTrimStart/End
+- **UI-020b**（组件+接线）：`ClipContextToolbarView`（六按钮 hover 变底色、删除红字置灰）浮在轨道区顶部 26px；`SelectionReadoutView` 三框可键入（mm:ss.mmm 与纯秒双格式），集成 EditorToolbar zoom 左侧；Controller 六命令映射现有 handle*/perform* 入口
+- 静音裁剪/标准化现状已有实现（performSilenceTrim/performNormalize），无需置灰
+- 证据：`docs/证据/2026-10-17-UI020-编辑器-亮框+工具条+读数框.png`、`-蓝本state2对比实拍-并排.png`
+- 待新单：①DeleteSelectionCommand（删除选区）；②SplitAudioClipCommand WIP 桩转正（P0 遗留）
+
