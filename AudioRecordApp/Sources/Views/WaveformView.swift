@@ -26,7 +26,8 @@ class WaveformView: NSView {
     
     private var waveformData: [Float] = []
     var selectedSourceName: String = "系统音频".localized { didSet { needsDisplay = true } }
-    private var rawPeakData: [Float] = []  // 原始 PCM 峰值（未归一化），与 extractWaveformSamples 同源
+    private var rawPeakData: [Float] = []  // 原始 PCM 峰值（未归一化），FIX-010: 仅作可见窗重映射数据源
+    private var runningPeakMax: Float = 0  // FIX-010: 自开始录音起的累计最大峰值（只增不减，全局线性参考值）
     private var maxDataPoints: Int = 260
     private(set) var isRecording: Bool = false
     private var smoothedLevel: Float = 0.0
@@ -207,7 +208,6 @@ class WaveformView: NSView {
     /// 现改为**按时间聚合出条**：单调时钟固定 barInterval 时间桶，桶内所有回调峰值取 max-hold，出条节奏恒定 20 条/秒。
     func updatePeakLevel(_ peakLevel: Float) {
         guard isRecording else { return }
-        FIX009Probe.mark("view", value: peakLevel)  // FIX-009 探针：原始回调节奏（临时，验后拆）
 
         let now = CFAbsoluteTimeGetCurrent()
         if barBucketStart == 0 { barBucketStart = now }
@@ -222,26 +222,23 @@ class WaveformView: NSView {
 
     /// FIX-009: 把一个时间桶的 max-hold 峰值落为一根条（原 updatePeakLevel 主体）
     private func appendBar(_ peakLevel: Float) {
-        FIX009Probe.mark("bar", value: peakLevel)  // FIX-009 探针：实际出条节奏（期望 20/s）
-
         // 存储原始 PCM 峰值
         rawPeakData.append(peakLevel)
-        
-        // 全局归一化：与 extractWaveformSamples 的 `peaks.map { $0 / maxPeak }` 完全一致
-        let maxPeak = rawPeakData.max() ?? 1.0
-        let normalizedPeak: Float = maxPeak > 0 ? peakLevel / maxPeak : 0
-        
+
+        // FIX-010: 全局线性归一化——参考值 = 本次录音迄今最大峰值（running max，只增不减），
+        // 与编辑态「峰值 / 整段最大值」同规则（共用 WaveformAmplitudeMapper）。
+        // 静默期底噪不再被滑窗自动增益放大（原注释写「全局」实为 260 点滑窗，名实不符，根因修复）。
+        let maxGrew = peakLevel > runningPeakMax
+        if maxGrew { runningPeakMax = peakLevel }
+        let normalizedPeak = WaveformAmplitudeMapper.normalized(peakLevel, referenceMax: runningPeakMax)
+
         waveformData.append(normalizedPeak)
         dataVersion += 1
 
-        // 当 rawPeakData 增长时，重新归一化所有 waveformData（保持全局一致）
-        // 每 50 个采样做一次全量归一化（平衡性能和一致性）
-        if rawPeakData.count % 50 == 0 {
-            let currentMax = rawPeakData.max() ?? 1.0
-            if currentMax > 0 {
-                waveformData = rawPeakData.map { $0 / currentMax }
-                stripDataVersion = -1  // FIX-008: 值变版本不变，强制条带重渲
-            }
+        // running max 增长时，可见窗内历史条按新参考重映射（保持与最新条同一口径）
+        if maxGrew {
+            waveformData = rawPeakData.map { WaveformAmplitudeMapper.normalized($0, referenceMax: runningPeakMax) }
+            stripDataVersion = -1  // FIX-008: 值变版本不变，强制条带重渲
         }
 
         if waveformData.count > maxDataPoints {
@@ -264,6 +261,7 @@ class WaveformView: NSView {
         isShowingStaticWaveform = false
         staticWaveformData = nil
         rawPeakData.removeAll()
+        runningPeakMax = 0  // FIX-010: running max 随新录音复位
         waveformData = Array(repeating: 0.0, count: 0)
         barBucketStart = 0   // FIX-009: 时间桶状态复位
         barBucketPeak = 0
@@ -287,6 +285,7 @@ class WaveformView: NSView {
         smoothedLevel = 0
         recentRawLevels.removeAll()
         rawPeakData.removeAll()
+        runningPeakMax = 0  // FIX-010: running max 复位
         barBucketStart = 0   // FIX-009: 时间桶状态复位
         barBucketPeak = 0
         needsDisplay = true
@@ -297,6 +296,7 @@ class WaveformView: NSView {
         smoothedLevel = 0
         recentRawLevels.removeAll()
         rawPeakData.removeAll()
+        runningPeakMax = 0  // FIX-010: running max 复位
         waveformData.removeAll()
         waveformLoadID = UUID()
         isShowingStaticWaveform = false
