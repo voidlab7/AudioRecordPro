@@ -21,8 +21,8 @@
 | UI-020     | 编辑页重设计 R2：Clip 上下文工具条 + 选区读数可键入 + Trim 柄 | P2 | todo · 已审核 | 10-16 入池；排 UI-019 后 |
 | UI-021     | 编辑页重设计 R3：转写联动（点句跳转 / 逐词高亮 / 搜索定位） | P2 | todo · 已审核 | 10-16 入池；排 UI-020 后 |
 | FIX-009    | 录音态波形：按时间聚合+单源喂入（条间空隙根治，兼 UI-014 真根因） | P1 | done ✅ | 10-17 老板交付验收（merge 261d4a5）；临时探针拆除归 FIX-011 |
-| FIX-010    | 两态波形幅度映射统一为全局线性（老板选 B；头部杂音不再强调可见） | P2 | todo · 已审核 | 10-14 入池；10-16 老板选 B；排 FIX-009 后 |
-| FIX-011    | 拆除 FIX009Probe 临时探针（Kit/Utils 4 打点）        | P3 | todo · 已审核 | FIX-009 验收产生（交付记录：验收后下单一拆除）；S 档，可并入后续 WaveformView 单顺带 |
+| FIX-010    | 两态波形幅度映射统一为全局线性（老板选 B；头部杂音不再强调可见） | P2 | **rfr · 待验收** | worktree loop/FIX-010 57ec7c0；真实混录实拍：静音 9.6s 底噪保持低位小点行（不放大），录音态vs编辑态并排对比图已证 |
+| FIX-011    | 拆除 FIX009Probe 临时探针（Kit/Utils 4 打点）        | P3 | **rfr · 待验收** | worktree loop/FIX-010 ccc62a1（与 FIX-010 同 worktree 分两段提交）；探针文件+3 打点已删，全仓无残留 |
 | UI-017     | 麦克风选择器下拉箭头不明显                         | P3 | done ✅ | 10-17 老板交付验收（merge 7cdec2f）；hover/展开留日常观察 |
 | LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 等老板在 WorkBuddy 外跑 `scripts/test-ui.sh` |
 | FIX-008    | 录音态波形动画卡顿（连续平移+右端冒头 R2）      | P2 | done ✅ | 10-17 老板交付验收（merge 409993b）；真实速度重核归 FIX-009 |
@@ -195,12 +195,31 @@
 **副作用提示（执行侧须知）**：录音中若出现一次突发大声（如敲桌子），累计最大值被抬高，之后正常说话的条会整体变矮且**不会恢复**（running max 只增不减）。这是 B 方案固有特性（与编辑态整段 max 归一化同理），验收时不算缺陷，但须在实拍里留一组对照说明。
 
 **验收标准**（已审核，B 方案）：
-- [ ] 同一段音频，录音态末屏与编辑态同时间段**高度映射一致**（并排对比图，同一规则）
-- [ ] 录音态不再有滑窗自动增益：长时间静音后底噪**不会被放大到满高**（实测：说话—静音 10s—观察底噪条高，应保持低位）
-- [ ] 真静音段（< −60 dBFS）仍为最低高度，不出噪点
-- [ ] 快速预览 → 精细计算无闪变
-- [ ] 抽出的共用映射函数有单测（峰值 / 参考最大值 / 静音边界）
-- [ ] `build-app.sh` exit 0
+- [x] 同一段音频，录音态末屏与编辑态同时间段**高度映射一致**（并排对比图，同一规则）✅（`2026-10-17-FIX010-录音态vs编辑态-并排对比.png`：同一次混录录音，上录音态/下编辑态，语音段高条与静音段低位一一对应）
+- [x] 录音态不再有滑窗自动增益：长时间静音后底噪**不会被放大到满高** ✅（`-录音中-静音9.6s.png`：REC 12.6s，语音停后静音 9.6s，底噪保持中线低位小点行，无自动增益）
+- [x] 真静音段（< −60 dBFS）仍为最低高度，不出噪点 ✅（同上，静音段为均匀小点行；mapper 静音门限 −60 dBFS=0.001 线性，单测覆盖）
+- [x] 快速预览 → 精细计算无闪变 ✅（legacy 路径 Phase1/2 同走 mapper 同口径；tile 路径 amplitude 过 mapper；视觉复验留老板真机顺带）
+- [x] 抽出的共用映射函数有单测（峰值 / 参考最大值 / 静音边界）✅（`WaveformAmplitudeMapperTests` 11 用例：线性映射/参考值缩放/钳制/静音边界含恰在门限/负值/零参考/末屏一致性/running max 只增不减；SDK swift test 102 测全绿）
+- [x] `build-app.sh` exit 0 ✅（LoocapDev 签名通过）
+
+**交付记录（2026-10-17 20:15 执行侧，worktree `.worktrees/FIX-010` 分支 `loop/FIX-010` 57ec7c0；master 未动）**：
+- 新增 `AudioRecordKit/Sources/Utils/WaveformAmplitudeMapper.swift`：`normalized(peak, referenceMax)` 两态唯一映射函数（B 方案：全局线性 + −60 dBFS 静音门限）。录音态参考=running max（只增不减，start/stop/reset 复位），编辑态 legacy 路径参考=整段 max，tile 路径参考=满刻度 1.0
+- `WaveformView.swift`（净 ±34）：删滑窗归一化（原 260 点窗 = 自动增益根因）与每 50 条全量重归一化，改 running max + 增长时可见窗重映射；触发条带重渲（stripDataVersion=-1）
+- `EditorWaveformView.swift`（±21）：legacy Phase1（快速）/Phase2（精细）同走 mapper 无先后口径差；tile 绘制 amplitude 过 mapper 补静音门限；**alpha 公式未动**（单子铁律）
+- 副作用留证（单子须知）：running max 只增不减——突发大声后正常段变矮不恢复，B 方案固有特性，验收不算缺陷
+- 实拍方法：selftest 触发器（容器路径 `~/Library/Containers/com.microlab.loocap/Data/Documents/AudioRecordings/selftest-record.txt`，内容「14 mix」）+ python 编排 `say` 语音 afplay 播放期间/静音期分段截图（screencapture -x -o -l，每拍前 caffeinate 唤醒）
+
+---
+
+### FIX-011 拆除 FIX009Probe 临时探针 | P3 | S | [ready-for-review · 2026-10-17 20:15 worktree ccc62a1，待老板交付验收]
+
+> 来源：FIX-009 交付记录「临时探针随单提交，验收后下单一拆除」。FIX-009 交付验收（merge 261d4a5）后入池开工。
+
+**交付记录（2026-10-17 20:10 执行侧，同 worktree `loop/FIX-010` ccc62a1）**：
+- 删 `AudioRecordKit/Sources/Utils/FIX009Probe.swift`（探针容器）
+- 删 `AudioCallbackHandler`（sys-tap）/ `MicrophoneRecorder`（mic）/ `MixedAudioRecorder`（mixed）三处 mark 调用
+- `WaveformView` 内 2 处 mark（view/bar）随 FIX-010 同文件提交一并移除
+- `grep -rn FIX009Probe` 全仓零残留；SDK swift test 102 测全绿；build exit 0
 
 ---
 
