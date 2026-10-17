@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Loocap 编辑页重设计 · 方向 A 文本主导（Descript 式）</title>
+<style>
+:root{
+  --bg:#0F1115; --panel:#161B22; --hover:#1D232C;
+  --t1:#EDEFF2; --t2:#A0A0A5; --t3:#6B6B70;
+  --line:rgba(255,255,255,.08);
+  --teal:#13BBA3; --tealDeep:#0E8A78;
+  --coral:#E87850; --red:#E85050; --purple:#B387FF;
+  --mono:"SF Mono",Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;user-select:none}
+body{background:#05060a;display:flex;justify-content:center;align-items:center;min-height:100vh;
+  font-family:-apple-system,"PingFang SC","Hiragino Sans GB",sans-serif;color:var(--t1)}
+#shot{width:1200px;height:750px;background:var(--bg);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;border:1px solid var(--line)}
+/* ===== 顶栏 ===== */
+.top{height:44px;background:var(--panel);display:flex;align-items:center;gap:10px;padding:0 12px;flex:0 0 auto;border-bottom:1px solid var(--line)}
+.top .sep{width:1px;height:18px;background:var(--line);margin:0 4px}
+.ibtn{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:14px;cursor:pointer}
+.ibtn:hover{background:var(--hover);color:var(--t1)}
+.ibtn.dis{opacity:.32;pointer-events:none}
+.fname{display:flex;align-items:baseline;gap:8px;margin-left:6px}
+.fname b{font-size:13px;font-weight:600}
+.fname span{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.spacer{flex:1}
+.save{height:26px;padding:0 14px;border-radius:6px;background:var(--tealDeep);color:#fff;font-size:12px;font-weight:600;
+  display:flex;align-items:center;cursor:pointer;border:1px solid transparent}
+.save.unsaved{border-color:var(--teal);background:transparent;color:var(--teal)}
+/* ===== 时间尺 ===== */
+.rulerRow{height:22px;display:flex;flex:0 0 auto;border-bottom:1px solid var(--line)}
+.rulerHead{width:88px;flex:0 0 auto;border-right:1px solid var(--line)}
+.ruler{flex:1;position:relative}
+.tick{position:absolute;bottom:0;width:1px;height:6px;background:rgba(237,239,242,.24)}
+.tick.sub{height:3px}
+.tlabel{position:absolute;bottom:9px;font-family:var(--mono);font-size:9px;color:var(--t3);transform:translateX(3px);opacity:.68}
+/* ===== 中段（波形+转写） ===== */
+.mid{flex:1;display:flex;flex-direction:column;min-height:0}
+.waves{display:flex;flex-direction:column;flex:0 0 auto;border-bottom:1px solid var(--line)}
+body[data-state="1"] .waves{height:214px}body[data-state="2"] .waves{height:214px}
+body[data-state="3"] .waves{height:250px}body[data-state="4"] .waves{height:300px}
+body[data-state="5"] .waves{height:214px}body[data-state="6"] .waves{height:214px}
+.lane{flex:1;display:flex;min-height:0;position:relative}
+.lane+.lane{border-top:1px solid var(--line)}
+.thead{width:88px;flex:0 0 auto;background:var(--panel);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;justify-content:center;padding:0 10px;gap:5px}
+.thead .cbar{position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 3px 3px 0}
+.tname{font-size:11px;font-weight:600;display:flex;align-items:center;gap:5px}
+.tname svg{flex:0 0 auto}
+.tmeta{font-family:var(--mono);font-size:9px;color:var(--t3)}
+.msrow{display:flex;gap:4px}
+.ms{width:16px;height:16px;border-radius:4px;border:1px solid var(--line);font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;color:var(--t3);cursor:pointer}
+.ms.on-m{color:var(--coral);border-color:var(--coral)}
+.ms.on-s{color:var(--red);border-color:var(--red)}
+.lvlrow{height:4px;border-radius:2px;background:var(--hover);overflow:hidden}
+.lvlrow i{display:block;height:100%;width:38%;background:var(--teal);border-radius:2px}
+.waveWrap{flex:1;position:relative;overflow:hidden}
+.bars{position:absolute;inset:0 0 0 12px;display:flex;align-items:center;gap:2px}
+.b{flex:1;border-radius:2px;min-height:2px}
+.clipChip{position:absolute;left:12px;top:8px;background:rgba(0,0,0,.55);border-radius:4px;
+  padding:2px 8px;font-size:10px;font-weight:500;color:#fff}
+.guide{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--t3);opacity:.5}
+/* 选区 */
+.sel{position:absolute;top:6px;bottom:6px;background:rgba(255,255,255,.08);border-radius:4px;display:none}
+.sel .dim{position:absolute;top:-6px;bottom:-6px;background:rgba(15,17,21,.5)}
+.dim.l{left:-10000px;width:10000px}.dim.r{right:-10000px;width:10000px}
+body[data-state="2"] .sel{display:block}
+.hdl{position:absolute;top:0;bottom:0;width:14px;display:flex;align-items:center;justify-content:center;cursor:ew-resize}
+.hdl i{width:4px;height:60%;border-radius:2px;background:var(--teal)}
+.hdl.l{left:-7px}.hdl.r{right:-7px}
+/* 联动高亮段（状态5） */
+.segLink{position:absolute;top:0;bottom:0;display:none;background:rgba(19,187,163,.10);
+  border-left:2px solid var(--teal);border-right:2px solid var(--teal);border-radius:2px}
+body[data-state="5"] .segLink{display:block}
+/* 播放头 */
+.ph{position:absolute;top:0;bottom:0;width:1.5px;background:var(--red);z-index:5}
+.ph:before{content:"";position:absolute;top:0;left:-4px;border:4.5px solid transparent;border-top:6px solid var(--red)}
+/* 切分虚线 */
+.split{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed rgba(255,255,255,.6);display:none}
+body[data-state="2"] .split{display:block}
+/* ===== 转写分栏 ===== */
+.trans{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--bg)}
+.dragbar{height:5px;cursor:row-resize;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.dragbar i{width:36px;height:3px;border-radius:2px;background:var(--hover)}
+body[data-state="4"].folded .transBody,body[data-state="4"].folded .tsearch{display:none}
+body[data-state="4"].folded .waves{height:300px !important}
+.tbar{height:34px;display:flex;align-items:center;gap:10px;padding:0 14px;flex:0 0 auto}
+.tbar .tt{font-size:12px;font-weight:600}
+.tbar .cnt{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.tsearch{height:24px;width:200px;background:var(--panel);border:1px solid var(--line);border-radius:6px;
+  font-size:11px;color:var(--t3);display:flex;align-items:center;padding:0 8px;gap:6px}
+.tact{font-size:11px;color:var(--t2);cursor:pointer;padding:3px 8px;border-radius:5px}
+.tact:hover{background:var(--hover);color:var(--t1)}
+.tact.pri{color:var(--teal)}
+.transBody{flex:1;overflow:hidden;padding:2px 18px 10px}
+.sen{display:flex;gap:10px;padding:7px 10px;border-radius:8px;border:1px solid transparent;cursor:pointer;margin-bottom:2px}
+.sen:hover{background:var(--panel)}
+.sen .ts{font-family:var(--mono);font-size:10px;color:var(--t3);flex:0 0 58px;padding-top:3px;cursor:copy}
+.sen .dot{width:7px;height:7px;border-radius:50%;margin-top:6px;flex:0 0 auto}
+.dot.sys{background:var(--teal)}.dot.mic{background:var(--coral)}
+.sen p{font-size:15px;line-height:1.55;color:var(--t1);flex:1}
+.sen p .w.hl{color:var(--teal);font-weight:600}
+.sen.cur{background:rgba(19,187,163,.07);border-color:rgba(19,187,163,.35)}
+.sen.txtsel p{background:rgba(19,187,163,.16);border-radius:4px;box-shadow:0 0 0 1px var(--teal)}
+/* 状态6 */
+.tprog{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+body[data-state="6"].sub-a .tprog{display:flex}
+body[data-state="6"].sub-a .transBody,body[data-state="6"].sub-a .tsearch{display:none}
+.ring{width:44px;height:44px;border-radius:50%;border:3px solid var(--hover);border-top-color:var(--purple);
+  animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tprog .l1{font-size:13px;color:var(--t1)}
+.tprog .l2{font-family:var(--mono);font-size:10px;color:var(--t3)}
+.tempty{display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+body[data-state="6"].sub-b .tempty{display:flex}
+body[data-state="6"].sub-b .transBody,body[data-state="6"].sub-b .tsearch{display:none}
+.tempty .ic{width:40px;height:40px;border-radius:10px;background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--t3)}
+.tempty .l1{font-size:13px;color:var(--t2)}
+.tempty .btn{margin-top:6px;height:28px;padding:0 16px;border-radius:6px;background:var(--tealDeep);color:#fff;font-size:12px;font-weight:600;display:flex;align-items:center}
+/* ===== 动作栏 ===== */
+.actions{height:44px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;padding:0 12px;gap:8px;flex:0 0 auto}
+.play{width:30px;height:30px;border-radius:7px;background:var(--tealDeep);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;cursor:pointer}
+.stop{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer}
+.stop:hover{background:var(--hover)}
+.cur{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--teal);margin:0 6px}
+.act{height:28px;padding:0 10px;border-radius:6px;font-size:11.5px;color:var(--t2);display:flex;align-items:center;gap:5px;cursor:pointer}
+.act:hover{background:var(--hover);color:var(--t1)}
+.act.on{background:var(--tealDeep);color:#fff}
+.act.dis{opacity:.32;pointer-events:none}
+.act .k{font-size:9px;color:var(--t3);border:1px solid var(--line);border-radius:3px;padding:0 3px}
+.act.on .k{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.3)}
+.readout{display:flex;align-items:center;gap:4px;margin-left:8px}
+.ro{background:var(--bg);border:1px solid var(--line);border-radius:5px;height:24px;font-family:var(--mono);
+  font-size:10.5px;color:var(--t1);display:flex;align-items:center;padding:0 7px;cursor:text}
+.ro b{font-weight:400;color:var(--t3);font-size:9px;margin-right:5px;font-family:-apple-system}
+.zoom{display:flex;align-items:center;gap:6px;margin-left:10px}
+.zbtn{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;font-size:12px}
+.zbtn:hover{background:var(--hover);color:var(--t1)}
+.zslider{width:80px;height:3px;border-radius:2px;background:var(--hover);position:relative}
+.zslider i{position:absolute;left:30%;top:-3.5px;width:10px;height:10px;border-radius:50%;background:var(--t2)}
+/* ===== 状态栏 ===== */
+.status{height:24px;background:var(--panel);border-top:1px solid var(--line);display:flex;align-items:center;
+  gap:14px;padding:0 12px;font-family:var(--mono);font-size:10px;color:var(--t3);flex:0 0 auto}
+.status .ct{color:var(--teal);font-weight:600;font-size:11px}
+/* ===== 状态切换器（PNG 导出时 ?clean=1 隐藏） ===== */
+.switch{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:99;display:flex;gap:4px;
+  background:#1a1f27;border:1px solid #2a303a;border-radius:8px;padding:4px}
+.switch button{border:0;background:transparent;color:#8a8f98;font-size:11px;padding:4px 9px;border-radius:5px;cursor:pointer}
+.switch button.on{background:var(--tealDeep);color:#fff}
+.switch .sub{border-left:1px solid #2a303a;padding-left:4px;margin-left:2px}
+</style>
+</head>
+<body data-state="1" class="sub-a">
+<div class="switch" id="switch"></div>
+<div id="shot">
+  <!-- 顶栏 -->
+  <div class="top">
+    <div class="ibtn">◀</div><div class="sep"></div>
+    <div class="ibtn">↩</div><div class="ibtn">↪</div><div class="sep"></div>
+    <div class="fname"><b>周会录音-1016.m4a</b><span>12:34 · 2 轨</span></div>
+    <div class="spacer"></div>
+    <div class="save unsaved" id="saveBtn">保存</div>
+  </div>
+  <!-- 时间尺 -->
+  <div class="rulerRow"><div class="rulerHead"></div><div class="ruler" id="ruler"></div></div>
+  <!-- 波形区 -->
+  <div class="mid">
+    <div class="waves" id="waves">
+      <div class="lane">
+        <div class="thead"><div class="cbar" style="background:var(--teal)"></div>
+          <div class="tname"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M2 8h2l2-5 2 10 2-7 1.5 2H14" stroke="#13BBA3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>系统音</div>
+          <div class="tmeta">01 · 12:34</div>
+          <div class="msrow"><div class="ms" title="静音">M</div><div class="ms" title="独奏">S</div></div>
+          <div class="lvlrow"><i id="lvl1"></i></div>
+        </div>
+        <div class="waveWrap" id="wave1">
+          <div class="bars" data-seed="7" data-color="var(--teal)" data-n="150"></div>
+          <div class="clipChip">系统音 · 完整录音</div>
+          <div class="sel" style="left:28%;width:24%">
+            <div class="dim l"></div><div class="dim r"></div>
+            <div class="hdl l"><i></i></div><div class="hdl r"><i></i></div>
+          </div>
+          <div class="segLink" style="left:42%;width:17%"></div>
+          <div class="split" style="left:55%"></div>
+          <div class="ph" style="left:44%"></div>
+        </div>
+      </div>
+      <div class="lane" id="micLane" style="display:none">
+        <div class="thead"><div class="cbar" style="background:var(--coral)"></div>
+          <div class="tname"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><rect x="6" y="1.5" width="4" height="8" rx="2" stroke="#E87850" stroke-width="1.4"/><path d="M4 7a4 4 0 0 0 8 0M8 11v3" stroke="#E87850" stroke-width="1.4" stroke-linecap="round"/></svg>麦克风</div>
+          <div class="tmeta">02 · 12:34</div>
+          <div class="msrow"><div class="ms" title="静音">M</div><div class="ms on-s" title="独奏开">S</div></div>
+          <div class="lvlrow"><i style="width:22%;background:var(--coral)"></i></div>
+        </div>
+        <div class="waveWrap">
+          <div class="bars" data-seed="13" data-color="var(--coral)" data-n="150"></div>
+          <div class="clipChip">麦克风 · 10:02 后开麦</div>
+          <div class="ph" style="left:44%"></div>
+        </div>
+      </div>
+      <div class="guide" id="guide">↔ 在波形上拖拽创建选区 · 单击定位播放 · ⌘+滚轮缩放</div>
+    </div>
+    <!-- 转写分栏 -->
+    <div class="trans">
+      <div class="dragbar"><i></i></div>
+      <div class="tbar">
+        <span class="tt">转写</span><span class="cnt" id="tcnt">326 字 · zh-CN · 本机引擎</span>
+        <div class="spacer"></div>
+        <div class="tsearch">⌕ 搜索关键词…</div>
+        <div class="tact">导出</div>
+        <div class="tact pri" id="foldBtn">收起 ▾</div>
+      </div>
+      <div class="transBody" id="transBody"></div>
+      <div class="tprog">
+        <div class="ring"></div>
+        <div class="l1">正在转写…</div>
+        <div class="l2" id="tpg">02:14 / 12:34 · 约 20 倍速 · 可继续编辑波形</div>
+      </div>
+      <div class="tempty">
+        <div class="ic">✦</div>
+        <div class="l1">还没有转写文稿</div>
+        <div class="l2" style="font-family:var(--mono);font-size:10px;color:var(--t3)">本机转写 · 约 20 倍速 · 数据不出设备</div>
+        <div class="btn">生成转写</div>
+      </div>
+    </div>
+  </div>
+  <!-- 动作栏 -->
+  <div class="actions">
+    <div class="play">▶</div><div class="stop">■</div><div class="cur">00:15.203</div>
+    <div class="sep" style="width:1px;height:18px;background:var(--line)"></div>
+    <div class="act dis" id="actSplit">✂ 切分</div>
+    <div class="act" id="actTrim">裁剪 <span class="k">⌘T</span></div>
+    <div class="act">静音裁剪</div>
+    <div class="act">标准化</div>
+    <div class="act">淡入淡出</div>
+    <div class="spacer"></div>
+    <div class="readout">
+      <div class="ro"><b>起点</b>00:12.400</div>
+      <div class="ro"><b>终点</b>00:31.200</div>
+      <div class="ro"><b>时长</b>18.800s</div>
+    </div>
+    <div class="zoom">
+      <div class="zbtn">−</div><div class="zslider"><i></i></div><div class="zbtn">＋</div><div class="zbtn" title="Fit All ⌘0">⊞</div>
+    </div>
+  </div>
+  <!-- 状态栏 -->
+  <div class="status">
+    <span class="ct">00:15.203</span><span>总时长 12:34</span><span>48kHz · 立体声</span><span>编辑 2/5</span>
+    <div class="spacer"></div><span id="smsg">已就绪</span>
+  </div>
+</div>
+<script>
+// ---- 波形生成（确定性伪随机，语音样包络）----
+function gen(el){
+  const n=+el.dataset.n,seed=+el.dataset.seed,c=el.dataset.color;
+  let s=seed;const rnd=()=>(s=(s*9301+49297)%233280)/233280;
+  for(let i=0;i<n;i++){
+    const env=.25+.75*Math.pow(Math.sin(Math.PI*i/n),.6);
+    const h=Math.max(3,(env*(.25+rnd()*.75))*100);
+    const d=document.createElement('div');d.className='b';
+    d.style.height=h+'%';d.style.background=c;d.style.opacity= i/n<.06?0.35:0.9;
+    el.appendChild(d);
+  }
+}
+document.querySelectorAll('.bars').forEach(gen);
+// ---- 时间尺 ----
+(()=>{const r=document.getElementById('ruler');for(let i=0;i<=12;i++){
+  const t=document.createElement('div');t.className='tick';t.style.left=(i*8.1)+'%';r.appendChild(t);
+  const l=document.createElement('div');l.className='tlabel';l.style.left=(i*8.1)+'%';
+  l.textContent='0'+i+':00';r.appendChild(l);
+  if(i<12)for(let j=1;j<4;j++){const st=document.createElement('div');st.className='tick sub';
+    st.style.left=(i*8.1+j*2.025)+'%';r.appendChild(st);}
+}})();
+// ---- 转写句 ----
+const S=[
+ {t:'00:02',src:'mic', w:'大家好，今天周会主要过两件事：录音 App 的编辑页重设计，和下一版转写引擎的排期。'},
+ {t:'00:18',src:'sys', w:'编辑页这块我先说，现在的转写面板是抽屉式的，一展开波形就被顶走了，两边没办法对照着看。'},
+ {t:'00:31',src:'sys', w:'这次调研了 Descript、剪映、听悟这些产品，共识很明确：文字和波形应该共享同一个播放头，上下分栏。'},
+ {t:'00:52',src:'mic', w:'同意。而且点击句子就应该跳转播放，现在这个只读文本框基本没法用。'},
+ {t:'01:07',src:'sys', w:'对，方案里把这条列为第一优先级：点句子跳播放、播放时逐词高亮、搜索关键词直接定位。'},
+ {t:'01:26',src:'mic', w:'裁剪那套交互也要理一下，选区读数如果能直接键入就省事多了。'},
+ {t:'01:40',src:'sys', w:'没问题，起点、终点、时长三个框都做成可编辑，Audacity 验证过很多年。'}
+];
+const tb=document.getElementById('transBody');
+S.forEach((s,i)=>{
+  const d=document.createElement('div');d.className='sen';d.dataset.i=i;
+  d.innerHTML=`<span class="dot ${s.src}"></span><span class="ts">${s.t}</span><p>${
+    s.w.split('').map((ch,j)=>`<span class="w" data-w="${j}">${ch}</span>`).join('')}</p>`;
+  d.onclick=()=>setState(5);tb.appendChild(d);
+});
+// ---- 状态切换 ----
+const states={'1':'① 刚录完·单轨','2':'② 选区+裁剪手柄','3':'③ 多轨','4':'④ 转写展开/折叠','5':'⑤ 句↔波形联动','6':'⑥ 转写中/无转写'};
+function buildSwitch(){
+  const sw=document.getElementById('switch');sw.innerHTML='';
+  Object.entries(states).forEach(([k,v])=>{
+    const b=document.createElement('button');b.textContent=v;
+    b.onclick=()=>setState(k);b.dataset.k=k;sw.appendChild(b);
+  });
+  const sa=document.createElement('button');sa.textContent='转写中';sa.className='sub';
+  sa.onclick=()=>setSub('a');
+  const sb=document.createElement('button');sb.textContent='无转写';sb.className='sub';
+  sb.onclick=()=>setSub('b');
+  sw.append(sa,sb);refreshSwitch();
+}
+function refreshSwitch(){
+  document.querySelectorAll('#switch button[data-k]').forEach(b=>b.classList.toggle('on',b.dataset.k===cur));
+  const p=new URLSearchParams(location.search).get('sub')||'a';
+  document.querySelectorAll('#switch button.sub').forEach(b=>b.classList.toggle('on',b.textContent==='转写中'?p==='a':p==='b'));
+}
+let cur='1';
+function setState(k){
+  cur=k;document.body.dataset.state=k;
+  document.getElementById('micLane').style.display = k==='3'?'flex':'none';
+  // 联动：状态5 当前句 + 词级高亮
+  document.querySelectorAll('.sen').forEach((el,i)=>{
+    el.classList.toggle('cur',k==='5'&&i===3);
+    el.classList.remove('txtsel');
+    el.querySelectorAll('.w').forEach(w=>w.classList.remove('hl'));
+    if(k==='5'&&i===3){el.querySelectorAll('.w').forEach((w,j)=>{if(j<14)w.classList.add('hl')});}
+  });
+  // 状态2：选区态
+  const hasSel=(k==='2');
+  document.getElementById('actTrim').classList.toggle('on',hasSel);
+  document.getElementById('actSplit').classList.toggle('dis',!hasSel);
+  document.getElementById('saveBtn').classList.toggle('unsaved',k!=='1');
+  document.getElementById('guide').style.display=(k==='1')?'':'none';
+  document.body.classList.toggle('folded',false);
+  refreshSwitch();
+}
+function setSub(s){
+  document.body.classList.toggle('sub-a',s==='a');
+  document.body.classList.toggle('sub-b',s==='b');
+  const u=new URL(location);u.searchParams.set('sub',s);history.replaceState(null,'',u);
+  refreshSwitch();
+}
+// URL 参数：?state=N&sub=a|b&fold=1&clean=1（clean 隐藏切换器，供 PNG 导出）
+const q=new URLSearchParams(location.search);
+if(q.get('clean')==='1')document.getElementById('switch').style.display='none';
+document.getElementById('foldBtn').onclick=()=>{
+  document.body.classList.toggle('folded');
+  const u=new URL(location);
+  u.searchParams.set('fold',document.body.classList.contains('folded')?'1':'0');
+  history.replaceState(null,'',u);
+};
+if(q.get('fold')==='1')document.body.classList.add('folded');
+setState(q.get('state')||'1');
+setSub(q.get('sub')||'a');
+buildSwitch();
+</script>
+</body>
+</html>

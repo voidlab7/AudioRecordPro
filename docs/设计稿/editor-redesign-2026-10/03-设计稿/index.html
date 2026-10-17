@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>UI-018 编辑页重设计 · A/B 整体预览</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0c10;color:#EDEFF2;font-family:-apple-system,"PingFang SC",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 20px}
+h1{font-size:20px;font-weight:700}
+.sub{font-size:12px;color:#6B6B70;margin-top:6px}
+.tabs{display:flex;gap:6px;margin:20px 0 14px;background:#161B22;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:5px}
+.tabs button{border:0;background:transparent;color:#A0A0A5;font-size:13px;padding:7px 18px;border-radius:7px;cursor:pointer;font-family:inherit}
+.tabs button.on{background:#0E8A78;color:#fff;font-weight:600}
+.frame{width:1200px;max-width:96vw;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1);box-shadow:0 12px 48px rgba(0,0,0,.6)}
+iframe{width:1200px;height:750px;border:0;display:block;max-width:100%}
+.note{width:1200px;max-width:96vw;margin-top:16px;display:flex;gap:14px}
+.card{flex:1;background:#12151b;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 16px}
+.card h3{font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.tagA{width:8px;height:8px;border-radius:50%;background:#B387FF}
+.tagB{width:8px;height:8px;border-radius:50%;background:#13BBA3}
+.card p{font-size:12px;line-height:1.7;color:#A0A0A5}
+.card b{color:#EDEFF2}
+.hint{margin-top:14px;font-size:11px;color:#6B6B70}
+a{color:#13BBA3}
+</style>
+</head>
+<body>
+<h1>Loocap 编辑页整体重设计 · 方向 A / B 对比</h1>
+<div class="sub">UI-018 · 2026-10-16 · 两方向均为「转写在波形下方分栏」，骨架比例与第一编辑面不同 · 深色工业风沿用 Loocap token</div>
+<div class="tabs">
+  <button id="tabA" class="on">方向 A · 文本主导（Descript 式）</button>
+  <button id="tabB">方向 B · 轨道主导（剪映式）</button>
+  <button id="tabAB">并排对比</button>
+</div>
+<div class="frame" id="single">
+  <iframe id="vf" src="design-A.html?state=1&clean=1"></iframe>
+</div>
+<div class="frame" id="dual" style="display:none;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;background:transparent;border:0;box-shadow:none">
+  <div style="border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1)"><iframe src="design-A.html?state=1&clean=1" style="width:840px;height:525px;transform-origin:top left"></iframe></div>
+  <div style="border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.1)"><iframe src="design-B.html?state=1&clean=1" style="width:840px;height:525px"></iframe></div>
+</div>
+<div class="note">
+  <div class="card">
+    <h3><span class="tagA"></span>方向 A · 文本主导（推荐度 ★★★☆☆）</h3>
+    <p><b>第一编辑面 = 转写文稿</b>。波形区紧凑（约 30%），转写分栏占大头（约 55%），句子 15px 大字号、逐词高亮。<b>取舍</b>：最贴合「录→整理→成稿」的内容型工作流，转写↔音频联动一目了然；代价是波形精修（选区/裁剪手柄）操作空间被压缩，多轨时轨道行较矮。适合转写使用率高的用户。</p>
+  </div>
+  <div class="card">
+    <h3><span class="tagB"></span>方向 B · 轨道主导（推荐度 ★★★★☆）</h3>
+    <p><b>第一编辑面 = 波形轨道</b>。轨道区占约 58%，转写为下方紧凑分栏（约 24%，双列句卡 + 可折叠）。<b>取舍</b>：波形精修空间充足，选中 Clip 出现上下文工具条（剪映式），多轨/大文件编辑体验最好；转写仍然常驻可联动（点句跳转、逐词高亮保留），只是文本阅读面积小。与现有工业风气质最连续。</p>
+  </div>
+</div>
+<div class="hint">每个方向内含 6 个必覆盖状态切换（右上角）：①刚录完 ②选区+裁剪手柄 ③多轨 ④转写展开/折叠 ⑤句↔波形联动 ⑥转写进行中/无转写（子切换）。建议先看「并排对比」定方向，再进单方向细看各状态。若本页 iframe 未加载，直接打开 <a href="design-A.html">design-A.html</a> / <a href="design-B.html">design-B.html</a>。</div>
+<script>
+const vf=document.getElementById('vf');
+function tab(which){
+  document.getElementById('tabA').classList.toggle('on',which==='A');
+  document.getElementById('tabB').classList.toggle('on',which==='B');
+  document.getElementById('tabAB').classList.toggle('on',which==='AB');
+  const single=document.getElementById('single'),dual=document.getElementById('dual');
+  if(which==='AB'){single.style.display='none';dual.style.display='flex';}
+  else{single.style.display='';dual.style.display='none';
+    vf.src=(which==='A'?'design-A.html':'design-B.html')+'?state=1&clean=1';}
+}
+tabA.onclick=()=>tab('A');tabB.onclick=()=>tab('B');tabAB.onclick=()=>tab('AB');
+</script>
+</body>
+</html>
