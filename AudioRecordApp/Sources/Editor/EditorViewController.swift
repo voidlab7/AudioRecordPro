@@ -401,7 +401,7 @@ class EditorViewController {
     
     // MARK: - Edit Operations
     
-    /// 执行编辑命令；返回是否成功（失败已弹提示且不入历史）。UI-023: 结果回传供调用方分流 UI 状态。
+    /// 执行编辑命令；返回是否成功（失败已弹提示且不入历史）。UI-023/UI-022: 结果回传供调用方分流 UI 状态。
     @discardableResult
     func executeCommand(_ command: EditCommand) -> Bool {
         guard var buffer = audioBuffer else { return false }
@@ -793,6 +793,8 @@ extension EditorViewController: EditorWaveformViewDelegate {
         navigationBar.setToolEnabled(.fade, enabled: true)
         navigationBar.setToolEnabled(.normalize, enabled: true)
         navigationBar.setToolEnabled(.silenceTrim, enabled: true)
+        // UI-022: 上下文工具条删除按钮随选区动态置灰/解除
+        clipCtxToolbar.setActionEnabled(.delete, enabled: hasSelection)
 
         // UI-020: 读数三框同步（selection == nil 时显示 —）
         if let r = range {
@@ -1355,6 +1357,27 @@ extension EditorViewController: EditorKeyboardHandler {
         logger.info("切分 audio clip at: \(String(format: "%.2f", time))s, splitFrame=\(cmd.splitFrame)")
     }
     
+    /// 删除选区（UI-022）：删掉 [start, end) 样本，播放头夹到选区起点，选区清空
+    func performDelete() {
+        guard let buffer = audioBuffer, let format = audioFormat else { return }
+        guard let selection = waveformView.selection else { return }
+
+        let command = DeleteSelectionCommand(
+            startTime: selection.lowerBound,
+            endTime: selection.upperBound,
+            sampleRate: format.sampleRate,
+            totalFrames: buffer.frameLength
+        )
+        guard executeCommand(command) else { return }
+
+        // 选区清空（新时长下不再有效）→ 播放头夹到删除点
+        waveformView.clearSelection()
+        let seekTarget = min(selection.lowerBound, waveformView.totalDuration)
+        editorWaveformView(waveformView, didSeekTo: seekTarget)
+        updateStatusBar()
+        logger.info("删除选区完成: \(String(format: "%.2f", selection.lowerBound))s ~ \(String(format: "%.2f", selection.upperBound))s，剩余 \(String(format: "%.2f", waveformView.totalDuration))s")
+    }
+
     /// 静音裁剪
     func handleSilence() {
         performSilenceTrim()
@@ -1419,7 +1442,7 @@ extension EditorViewController: ClipContextToolbarDelegate {
         case .fade:
             handleFade()
         case .delete:
-            break  // UI-020: 现状无删除命令，按钮已置灰；待新单补 DeleteSelectionCommand
+            performDelete()  // UI-022: 删除选区命令已接入
         }
     }
 }
