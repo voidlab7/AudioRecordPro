@@ -401,9 +401,11 @@ class EditorViewController {
     
     // MARK: - Edit Operations
     
-    func executeCommand(_ command: EditCommand) {
-        guard var buffer = audioBuffer else { return }
-        
+    /// 执行编辑命令；返回是否成功（失败已弹提示且不入历史）。UI-023: 结果回传供调用方分流 UI 状态。
+    @discardableResult
+    func executeCommand(_ command: EditCommand) -> Bool {
+        guard var buffer = audioBuffer else { return false }
+
         if editHistory.execute(command, on: &buffer) {
             audioBuffer = buffer
             hasUnsavedChanges = true
@@ -414,6 +416,7 @@ class EditorViewController {
             updateUndoRedoState()
             updateStatusBar()
             logger.info("执行编辑操作: \(command.description)")
+            return true
         } else {
             // BUG-008 fix: 操作失败时提示用户
             let alert = NSAlert()
@@ -422,6 +425,7 @@ class EditorViewController {
             alert.alertStyle = .warning
             alert.addButton(withTitle: "确定".localized)
             alert.runModal()
+            return false
         }
     }
     
@@ -1331,23 +1335,24 @@ extension EditorViewController: EditorKeyboardHandler {
     // MARK: - P0-A: 公开工具栏操作方法（供 MainWindowView EditToolbarView 调用）
     // 仅编辑器 embedded 模式使用。独立模式走 EditorNavigationBar/EditorToolbar。
     
-    /// 切分 clip（P1-E）
+    /// 切分 clip（P1-E → UI-023 转正）
     func handleSplit() {
         // P1-E: 在播放头位置切分 clip
         let time = waveformView.currentPlayheadPosition
-        
+
         // 播放头边界检查
         guard time > 0.01, time < waveformView.totalDuration - 0.01 else {
             logger.warning("切分失败：播放头在边界位置")
             return
         }
         let cmd = SplitAudioClipCommand(time: time)
-        executeCommand(cmd)
+        // UI-023: 命令失败（样本级边界拒切等）不画切分线、不标脏
+        guard executeCommand(cmd) else { return }
         hasUnsavedChanges = true
         waveformView.splitPointTime = time
         waveformView.needsDisplay = true
         updateStatusBar()
-        logger.info("切分 audio clip at: \(String(format: "%.2f", time))s")
+        logger.info("切分 audio clip at: \(String(format: "%.2f", time))s, splitFrame=\(cmd.splitFrame)")
     }
     
     /// 静音裁剪
