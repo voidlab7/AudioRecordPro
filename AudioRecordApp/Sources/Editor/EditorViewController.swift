@@ -807,6 +807,8 @@ extension EditorViewController: EditorWaveformViewDelegate {
         // 同步 playhead overlay（TrackContainerView 级别，与 ruler 共享坐标系）
         trackContainerView.updatePlayhead(time: time)
         statusBar.updateCurrentTime(time)
+        // UI-021: seek 同步转写联动（当前句高亮 + 波形区间）
+        syncTranscriptLinkage(at: time)
         // FIX-003(编辑器): 播放中选点 = 无缝跳播（stopPreview 已不归零，startPreview 读新 playhead 起播）
         if isPreviewPlaying {
             UXEventLog.shared.module("Editor", "seek", ok: true, detail: ["target_sec": time, "wasPlaying": true])
@@ -878,6 +880,33 @@ extension EditorViewController: TranscriptPanelDelegate {
         toggleTranscriptFold()
     }
 
+    /// UI-021: 点句跳转（播放头落句起点 + 波形区间 teal 高亮，B 稿 state=5）
+    func transcriptPanel(_ panel: TranscriptPanelView, didTapSegment segmentIndex: Int, start: TimeInterval, end: TimeInterval) {
+        transcriptPanel(panel, didSeekSearchHit: start, end: end)
+        UXEventLog.shared.action("transcript_seek", detail: ["segment": segmentIndex, "start_sec": start, "end_sec": end])
+    }
+
+    /// UI-021: 搜索命中跳转（与点句同联动）
+    func transcriptPanel(_ panel: TranscriptPanelView, didSeekSearchHit start: TimeInterval, end: TimeInterval) {
+        waveformView.segmentHighlight = start...max(start + 0.001, end)
+        // 播放头落句起点（复用既有 seek 链路：播放中无缝跳播，停止时仅移游标）
+        editorWaveformView(waveformView, didSeekTo: start)
+    }
+
+    /// UI-021: 播放时间 → 转写联动（当前句高亮滚动 + 波形区间随句移动）
+    private func syncTranscriptLinkage(at time: TimeInterval) {
+        if let seg = transcriptPanel.segmentContaining(time) {
+            transcriptPanel.updateActiveSegment(seg.segmentIndex)
+            let range = seg.start...max(seg.start + 0.001, seg.end)
+            if waveformView.segmentHighlight != range {
+                waveformView.segmentHighlight = range
+            }
+        } else {
+            transcriptPanel.updateActiveSegment(nil)
+            waveformView.segmentHighlight = nil
+        }
+    }
+
     /// 加载当前文件的转写文稿（有则展示，无则空态）
     private func loadTranscriptForCurrentFile() {
         if let transcript = TranscriptionService.shared.loadTranscript(for: file.url) {
@@ -885,6 +914,9 @@ extension EditorViewController: TranscriptPanelDelegate {
         } else {
             transcriptPanel.setEmptyState()
         }
+        // UI-021: 换文稿即清句↔波形联动状态
+        transcriptPanel.updateActiveSegment(nil)
+        waveformView.segmentHighlight = nil
     }
 
     func transcriptPanelDidTapTranscribe(_ panel: TranscriptPanelView) {
@@ -1008,6 +1040,8 @@ extension EditorViewController {
                 self.waveformView.updatePlaybackTime(clampedTime)
                 self.trackContainerView.updatePlayhead(time: clampedTime)
                 self.statusBar.updateCurrentTime(clampedTime)
+                // UI-021: 转写联动（当前句高亮滚动 + 波形区间随句移动）
+                self.syncTranscriptLinkage(at: clampedTime)
             }
 
             UXEventLog.shared.module("Editor", "play", ok: true, detail: ["start_sec": startOffset, "duration_sec": totalDuration, "file": file.name])

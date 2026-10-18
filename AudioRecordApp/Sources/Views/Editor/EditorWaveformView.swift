@@ -62,6 +62,11 @@ class EditorWaveformView: NSView {
     
     // P1-E: Split 切分线位置
     var splitPointTime: TimeInterval?
+
+    // UI-021: 转写句↔波形联动区间（teal 10% 底 + 左右 2px teal 边；B 稿 state=5 segLink）
+    var segmentHighlight: ClosedRange<TimeInterval>? {
+        didSet { if oldValue != segmentHighlight { needsDisplay = true } }
+    }
     
     // P2-F: Fade 时长
     var fadeInTime: TimeInterval = 0
@@ -401,6 +406,7 @@ class EditorWaveformView: NSView {
 
         // P0-B: 时间刻度尺由 TrackContainerView 顶部的 TimeRulerView 横向贯通绘制
         // （轨道头列跳过），这里不再调用 drawTimeRuler。
+        drawSegmentHighlight(in: dirtyRect)    // UI-021: 句区间高亮（波形下层）
         drawSelectionOverlay(in: dirtyRect)
         
         if useTileMode {
@@ -582,6 +588,26 @@ class EditorWaveformView: NSView {
         centerLine.stroke()
     }
     
+    /// UI-021: 转写句区间高亮（B 稿 state=5 segLink：teal 10% 底 + 左右 2px teal 边）
+    private func drawSegmentHighlight(in rect: NSRect) {
+        guard let range = segmentHighlight, range.lowerBound < totalDuration else { return }
+        let leftX = max(waveformRect.minX, timeToPixel(range.lowerBound))
+        let rightX = min(waveformRect.maxX, timeToPixel(range.upperBound))
+        guard rightX > leftX else { return }
+        let bandRect = NSRect(x: leftX, y: waveformRect.minY, width: rightX - leftX, height: waveformRect.height)
+        IndustrialColors.primary.withAlphaComponent(0.10).setFill()
+        NSBezierPath(rect: bandRect).fill()
+        // 左右 2px teal 边
+        IndustrialColors.primary.setStroke()
+        for edgeX in [leftX + 1, rightX - 1] {
+            let line = NSBezierPath()
+            line.lineWidth = 2
+            line.move(to: NSPoint(x: edgeX, y: waveformRect.minY))
+            line.line(to: NSPoint(x: edgeX, y: waveformRect.maxY))
+            line.stroke()
+        }
+    }
+
     private func drawSelectionOverlay(in rect: NSRect) {
         // UI-020: Clip 选中亮框（B 稿 .sel：teal 1.5px 圆角 8 + white .05 底）
         // 编辑器 = 单 clip 检视器，clip 加载即选中（有波形就画）
