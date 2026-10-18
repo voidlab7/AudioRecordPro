@@ -507,15 +507,11 @@ class MainViewController: NSViewController {
             let arlockURL = fileManager.getRecordingFileURL(uuid: recordingUUID)
             try encryptor.encryptAndWrite(audioData: audioData, metadata: metadata, recordingUUID: recordingUUID, outputURL: arlockURL)
 
-            // 5.5 FEAT-001 S1: 实时转写文稿落盘（.arlock 旁 <uuid>.atranscript.json）
+            // 5.5 FEAT-001 S1 + FIX-012: 实时转写文稿落盘改为双向握手——
+            // 此处只登记 .arlock 落点，finish 完成后由 coordinator 触发落盘；
+            // 旧实现此处同步读 collectedTranscript，finish 慢于管线（实测差 83ms）时文稿永久丢失
             if #available(macOS 26.0, *) {
-                if let transcript = LiveTranscriptionCoordinator.shared.collectedTranscript {
-                    try? TranscriptionService.shared.save(transcript, for: arlockURL)
-                    UXEventLog.shared.module("Transcription", "saved", detail: [
-                        "chars": transcript.fullText.count,
-                        "locale": transcript.locale,
-                    ])
-                }
+                LiveTranscriptionCoordinator.shared.registerTranscriptDestination(arlockURL)
             }
 
             // 6. 安全删除原始临时 M4A

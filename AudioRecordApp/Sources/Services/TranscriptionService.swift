@@ -93,8 +93,10 @@ final class LiveTranscriptionCoordinator {
 
     private var session: AppleSpeechEngine.LiveTranscriptionSession?
     private var boundRecorder: AudioRecorderProtocol?
-    /// finish 后暂存的文稿（encryptAndFinalizeRecording 拿去存到 .arlock 旁）
+    /// finish 后暂存的文稿（FIX-012 双向握手：与 transcriptDestination 谁后到谁触发落盘）
     private(set) var collectedTranscript: Transcript?
+    /// 加密管线登记的 .arlock 落点（生成 UUID 后立即登记，FIX-012）
+    private var transcriptDestination: URL?
     private var isFinishing = false
 
     // MARK: 对外回调（主线程）
@@ -108,6 +110,9 @@ final class LiveTranscriptionCoordinator {
     /// 预热会话（点开始录制时调用；资产就绪前的 buffer 由 AsyncStream 缓冲，不丢）
     /// locale 跟随文稿面板的语言偏好（FEAT-001 S2.5：录英文演讲等场景）
     func start() {
+        // FIX-012：新一录先清旧落点——上一次管线失败可能残留旧 UUID 落点，
+        // 不清会让本次文稿错写进旧录音旁（guard 前清，快速重录也覆盖）
+        transcriptDestination = nil
         guard session == nil, !isFinishing else { return }
         collectedTranscript = nil
         let preferred = TranscriptPanelView.preferredLocaleID
@@ -166,6 +171,7 @@ final class LiveTranscriptionCoordinator {
                 await MainActor.run {
                     self.collectedTranscript = transcript
                     self.onLiveText?(transcript.fullText, "")
+                    self.flushTranscriptIfReady()
                 }
                 logger.info("实时转写收集完成：\(transcript.fullText.count) 字")
             } catch {
@@ -175,11 +181,35 @@ final class LiveTranscriptionCoordinator {
         }
     }
 
+    // MARK: FIX-012 双向握手（消除"管线先读、finish 后写"的落盘竞态）
+
+    /// 加密管线在生成 .arlock 后立即登记落点；与 finish 谁后完成谁触发落盘
+    func registerTranscriptDestination(_ url: URL) {
+        transcriptDestination = url
+        flushTranscriptIfReady()
+    }
+
+    /// 文稿与落点齐备才落盘；两侧幂等调用，先到先存、后到触发
+    private func flushTranscriptIfReady() {
+        guard let transcript = collectedTranscript, let url = transcriptDestination else { return }
+        transcriptDestination = nil
+        let chars = transcript.fullText.count
+        let locale = transcript.locale
+        // 文件 IO 挪出主线程；落盘成败只影响旁车文稿，不拦录音主流程
+        Task.detached(priority: .utility) {
+            try? TranscriptionService.shared.save(transcript, for: url)
+            UXEventLog.shared.module("Transcription", "saved", detail: [
+                "chars": chars, "locale": locale, "via": "handshake",
+            ])
+        }
+    }
+
     /// 放弃当前会话（录制失败/空录音拦截时调用）
     func cancel() {
         boundRecorder?.onAudioBuffer = nil
         boundRecorder = nil
         session = nil
         collectedTranscript = nil
+        transcriptDestination = nil
     }
 }
