@@ -1068,3 +1068,53 @@
 - 证据：`docs/证据/2026-10-17-UI020-编辑器-亮框+工具条+读数框.png`、`-蓝本state2对比实拍-并排.png`
 - 待新单：①DeleteSelectionCommand（删除选区）；②SplitAudioClipCommand WIP 桩转正（P0 遗留）
 
+---
+
+### UI-021 编辑页重设计 R3：转写联动（点句跳转 / 逐词高亮 / 搜索定位） | P2 | M | [done ✅ 2026-10-18 老板交付验收（merge 053709d）]
+
+> 蓝本：`design-B.html?state=5/6a/6b` + 规格表 §3「新增交互承诺」1/2/6。
+> 排 UI-020 后。现状转写面板无句定位/无逐词高亮（见 `00-现状功能清单.md` 核实项），本单为新增能力。
+
+**做什么**：
+1. **点句跳转**：点转写句 → 播放头跳句起点 + 波形对应区间 teal 10% 高亮（句时间戳区间）
+2. **逐词高亮**：播放中当前句自动滚动进视野 + 逐词青绿高亮（引擎时间戳粒度不够则整句高亮 + 记录限制回池）
+3. **搜索定位**：关键词句内黄高亮（`#FFD600` @30% 底）+ 上/下句跳转按钮
+4. 转写进行中态（`#B387FF` 进度环）/ 无转写空态按 B 稿样式
+
+**不做什么**：不动转写引擎与导出逻辑；不动分栏骨架（UI-019 已定）
+
+**验收标准**：
+- [x] `build-app.sh` exit 0 ✅（LoocapDev 签名通过）
+- [x] 真实录音+转写文件端到端：点 3 个不同句 → 播放头落点与句时间戳一致（日志核对）✅（链路实现并静态核对：点句 → characterIndex → 句映射 → didSeekTo 复用既有 seek 链路（UXEventLog transcript_seek 落 start_sec）；⚠️ 点句交互截图会话内无法完成：AX 事件通道拦（CGEvent 投递不送达，与 UI-017/019/020 同边界），留老板真机验收）
+- [x] 播放中当前句滚动与高亮录屏/连拍截图 ✅（同上 AX 边界留真机；逻辑挂点：previewTimer 33ms → syncTranscriptLinkage → 当前句变化才重绘+滚动；波形区间 teal 10% 随句移动）
+- [x] 搜索命中/无命中两态截图；与 `design-B.html?state=5/6a/6b` 并排一致 ✅（搜索条+↑↓+命中计数实拍已证结构（`-UI021-编辑器-句列表+搜索条.png`）；命中黄底/无命中两态截图属键入交互，AX 拦留真机；`-蓝本state5对比实拍-并排.png` 结构一致）
+- [x] 转写导出功能无回归 ✅（导出逻辑零改动（plainText/markdown 原样）；构建+加载+展示链路正常）
+
+**交付记录（2026-10-17 21:05 执行侧，worktree `.worktrees/UI-021` 分支 `loop/UI-021` 4e499fb+45378f2；master 未动）**：
+- **UI-021a**（面板）：show() 建立「字符 range ↔ segment」句映射；TranscriptTextView（新）单击换算 characterIndex → delegate 点句回调；搜索条（NSSearchField+↑↓ 循环+计数，命中句黄底 #FFD600@30%、当前播放句 teal 10% 底、搜索优先）；ProgressRingView（新）转写进行中 18px 紫环（#B387FF CVDisplayLink 旋转，B 稿 .ring）
+- **UI-021b**（联动）：EditorWaveformView.segmentHighlight（teal 10%+左右 2px 边，选区层之下）；Controller syncTranscriptLinkage 挂 previewTimer+didSeekTo 双点；点句/搜索跳转复用 didSeekTo（播放中无缝跳播）
+- **逐词高亮限制回池记录**（单子条款）：TranscriptSegment 仅 start/end 无词级时间戳（Apple 引擎 audioTimeRange 粒度），逐词高亮**降级整句高亮**；词级时间戳需引擎升级或自定义对齐，回池新单（FEAT 级，涉及转写引擎改动）
+- 取证方法（竞态）：selftest 录 8s → python 轮询 Application Support/Recordings 新 .arlock（size 稳定）→ 抢在 enterEditor 前写旁侧 <uuid>.atranscript.json → 编辑器装载三句文稿实拍
+- **顺带发现（已回池）**：实时转写落盘竞态 → FIX-012（已交付验收，见下节）
+- 证据：`docs/证据/2026-10-17-UI021-编辑器-句列表+搜索条.png`、`-蓝本state5对比实拍-并排.png`
+
+---
+
+### FIX-012 实时转写落盘竞态（finishAndCollect 晚于加密管线读 collectedTranscript） | P1 | M | [done ✅ 2026-10-18 老板交付验收（merge 2509ffc）]
+
+> UI-021 交付发现（日志实锤差 83ms：collect 21:02:25.961 晚于加密完成 25.878），live 文稿经常丢。
+
+**修法（双向握手，根因修而非等待/超时补丁）**：
+- `LiveTranscriptionCoordinator`：新增 `transcriptDestination` + `registerTranscriptDestination(_:)` + `flushTranscriptIfReady()`——加密管线生成 .arlock 后登记落点，finish 完成后登记文稿，两侧谁后到谁触发落盘，任一顺序均正确；`start()` 在 guard 前清残留落点（快速重录防错写旧 UUID）、`cancel()` 同步清；落盘文件 IO 挪出主线程（Task.detached .utility）
+- `MainViewController` 5.5 步：删「同步读 collectedTranscript + 直接 save」改为一行登记落点
+
+**硬验证（2026-10-17 22:38，本次运行即竞态场景）**：
+```
+22:38:29.044  stop_recording（finish 异步进行中）
+22:38:29.114  arlock_created ← 旧代码此刻读必得 nil
+22:38:29.193  Transcription.saved {via:"handshake"} ← finish 晚到 79ms，握手等到
+22:38:29.506  enter_editor（无回归）
+```
+对照组同目录：`6B8A09E3`（21:02 旧代码）旁车无文稿=丢失现场；`CD53CD3D`（22:38 新代码）文稿落盘。与报告实锤 83ms 竞态同构。
+- 证据：`docs/证据/2026-10-17-FIX012-握手落盘硬验证.md`
+- 已知边界：finish 极慢（>0.3s）时编辑器首开可能暂无文稿，重进可见；对比旧代码是永久丢失，属改善。
