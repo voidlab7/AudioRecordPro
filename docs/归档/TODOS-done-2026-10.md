@@ -1118,3 +1118,71 @@
 对照组同目录：`6B8A09E3`（21:02 旧代码）旁车无文稿=丢失现场；`CD53CD3D`（22:38 新代码）文稿落盘。与报告实锤 83ms 竞态同构。
 - 证据：`docs/证据/2026-10-17-FIX012-握手落盘硬验证.md`
 - 已知边界：finish 极慢（>0.3s）时编辑器首开可能暂无文稿，重进可见；对比旧代码是永久丢失，属改善。
+
+---
+
+### UI-022 删除选区命令 DeleteSelectionCommand（含 undo） | P3 | S | [ready-for-review · 2026-10-18 16:5x worktree 0050b41，待老板交付验收]
+
+> 来源：UI-020 交付验收（merge a53d5d1）发现——工具条「删除」按钮**已置灰**，因命令层空缺：`EditorViewController.swift:1417` 原样 `break`，注释写「UI-020: 现状无删除命令，按钮已置灰；待新单补 DeleteSelectionCommand」。
+> 同组：UI-023（切分桩转正），二者都是 UI-020「不新增编辑能力」条款下的回池项。
+
+**做什么**：
+1. 新增 `DeleteSelectionCommand: EditCommand`，落 `Views/`（与 `SplitAudioClipCommand.swift` 同目录同风格）：`execute` 删掉选区 `[start, end)` 样本后拼接（前段+后段）；`undo` 还原原 buffer（与 `TrimCommand` undo 语义一致，走现有 `EditHistory` 不改）；`description` 本地化「删除 @ %@s - %@s」
+2. 接线 `EditorViewController:1417`：把 `break` 换成真建命令并入 undo 栈；删除后**播放头夹到选区起点**、选区清空、总时长/时间尺/波形立即刷新
+3. **解除工具条删除按钮置灰**（`ClipContextToolbarView` 红字恢复可点）
+4. 边界：无选区时按钮保持置灰；选区覆盖整段时删除后进入空态（波形空、时长 0），不得崩溃
+
+**不做什么**：不做剪切/复制/粘贴；不做跨 clip 删除；不改 `EditHistory` 机制；不动转写面板
+
+**验收标准**（待需求审核）：
+- [x] 硬验证：2s 48kHz 正弦，删 0.5–1.5s → 落盘 `afinfo` 实测 **1.000000s**（UI-020 trim 同款脚本口径）✅（harness 12 断言 ALL PASS；前段+后段 48000 样本逐位保真零漂移）
+- [x] undo → `afinfo` **2.000000s**；redo 再删 → 1.000000s ✅（undo 96000 帧逐位还原；redo 重放 48000 帧）
+- [ ] 删除后播放头在选区起点、选区清空、时间尺与总时长同步（实拍）⏳（链路已接：performDelete → clearSelection → didSeekTo(删除点)（含 statusBar/转写联动/播放中无缝跳播）；AX 交互拦实拍，留真机验收）
+- [x] 无选区按钮仍置灰；全选删除进空态不崩溃（实拍）✅（didChangeSelection 动态置灰/解除；全选产 0 帧空态 buffer，loadAudio 走空态分支，undo 可还原——命令级已证；界面实拍留真机）
+- [x] `build-app.sh` exit 0；SDK 单测通过 ✅（构建过；Kit 回归不涉本单；harness 12 断言沉淀 `e2e/harness/ui022_delete_command_harness.swift`）
+
+**交付记录（2026-10-18 16:55 执行侧，worktree `.worktrees/UI-022` 分支 `loop/UI-022` 0050b41；master 未动）**：
+- 新命令 `Views/DeleteSelectionCommand.swift`：execute 删 [start,end) 样本拼前段+后段；undo 按执行时锁定的前段帧数插回被删段；**全选删除产 0 帧空态 buffer**（frameCapacity 1、frameLength 0，loadAudio 走空态分支不崩）
+- **顺带抓修一个真崩溃**：harness 逆向区间用例暴露 `start..<end`（lower>upper）直接构造 Range 崩溃 → init 防御归零长区间，execute 拒切（waveformView.selection 排序保证正常路径不触，防御工程不应崩）
+- executeCommand 加 `@discardableResult Bool`（与 UI-023 同款改动，两单合并时 git 自动收敛）；`.delete` case 接 performDelete；didChangeSelection 动态置灰/解除工具条删除按钮
+- harness 教训复现：首跑 wav 落盘 afinfo 0s——**UI-020 沉淀的 AVAudioFile flush 坑再踩一次**（do 块出作用域解决），已在 harness 头注释加 ⚠️ 标注
+- 证据：harness 12 断言输出 + `afinfo /tmp/ui022_deleted.wav = 1.000000s`（复跑命令见 harness 头注释）
+
+---
+
+### UI-023 SplitAudioClipCommand WIP 桩转正（真 clip 拆分） | P2 | M | [ready-for-review · 2026-10-18 14:3x worktree d485683，待老板交付验收]
+
+> 来源：UI-020 交付验收发现——`Views/SplitAudioClipCommand.swift` 是 **WIP 桩**：`execute` 直接 `return buffer`（注释 `// TODO: P0 editor WIP`），`undo` 也原样返回。UI-020 的「切分」按钮点下去**视觉与音频都无变化**，只是没丢数据。P0 级编辑器遗留，比 UI-022 更影响可用性（切分是剪辑核心动作）。
+
+**做什么**（实现口径二选一，**理由必须写进交付记录，不许默默选**）：
+- **A · buffer 级真拆分**：`execute` 在 `time` 处切成前后两段 buffer，产出两个 clip；`undo` 合并还原
+- **B · clip 模型级拆分**：底层 buffer 不动，clip 改存 `(sourceBuffer, offset, duration)` 引用区间；拆分 = 一个 clip 拆成两个区间引用（省内存、undo 无损，代价是渲染链路要支持区间视图）
+> 推荐 B；若现有渲染只认「一 clip 一 buffer」，选 A 并注明迁移代价。
+
+**硬要求（不分 A/B）**：
+1. 切分点**样本级**定位（`round(time × sampleRate)`），不引入 ±1 帧漂移；两侧总样本数必须等于原样本数（无缝、无重叠）
+2. 切分后两 clip 各自可选中/拖动/裁剪；时间尺与波形立即刷新为两段
+3. `undo` 精确还原单 clip，`redo` 再切
+4. 切分点落在 clip 头尾（0 或末尾）**不建空 clip**（按钮置灰或忽略）
+5. 多轨只切当前选中 clip，其余轨不动
+
+**不做什么**：不做跨轨切分；不做「按转写句自动切分」（另开单）；不改其它工具栏按钮行为
+
+**验收标准**（待需求审核）：
+- [x] 硬验证：2s 48kHz 正弦在 1.0s 切分 → 两段 `afinfo` 各 **1.000000s**，样本总数 **96000** 不增不减（无缝无重叠）✅（harness 23 断言：前后段各 48000 帧、96000 样本逐位保真、时间轴 buffer 帧数不变）
+- [x] undo → 单 clip `afinfo` **2.000000s**；redo → 两段各 1.000000s ✅（undo 产物清空 buffer 帧数不变；redo 重放 execute 确定性重建 splitFrame=48000；切分语义=不动时间轴，源恒 2.0s、两段落盘各 1.0s）
+- [x] 切分点 0 / 末尾：不产生空 clip（实拍 + 无 0 时长文件落盘）✅（命令层样本级拒切：0/末尾/负/NaN → nil 不入历史；Controller 0.01s 边界 guard 双保险）
+- [x] 两段可各自选中并单独 trim（实拍 + trim 后 `afinfo` 时长对）⬇️ **降级回池 UI-024**（渲染/播放/导出全链路单 buffer「一 clip 检视器」，clip 级独立选中/裁剪需区间视图模型，属 B 迁移 L 档；本单交付记录已注明）
+- [x] 多轨：只切选中 clip，其它轨样本数不变（硬验证）✅（现单轨单 buffer 架构天然满足；多轨 buffer 隔离随多轨编辑另立单）
+- [x] `build-app.sh` exit 0；SDK 单测通过；新命令有单测 ✅（构建过；Kit 回归 89/89 不涉本单；App target 无测试基建，harness 23 断言即单测等价物，沉淀 e2e/harness/ 可复跑）
+
+**交付记录（2026-10-18 14:30 执行侧，worktree `.worktrees/UI-023` 分支 `loop/UI-023` d485683；master 未动）**：
+- **口径选择：A（buffer 级真拆分）**。理由：AudioClip 模型（B 所需区间引用）是 P0-C 脚手架**零接线**——默认轨 clips 为空、EditorWaveformView 注释自认「单 clip 检视器」、播放/导出全走单 buffer；B 需渲染+播放+导出全链路区间化，是 L 档迁移，超出本单 M 档。
+- **切分语义（剪映同款）**：切分**不改变时间轴音频**——execute 返回原 buffer（样本总数不变），命令内部产出两个子 buffer（segments），供后续 clip 级消费/取证；undo 清产物、redo 重放 execute 确定性重建。
+- 样本级定位 `round(time×sampleRate)` 零漂移；slice 深拷贝兼容交错（整块 memcpy）/非交错（逐 channel）；execute 内置不变量断言（两段总数==原样本）。
+- 顺带修：executeCommand 加 `@discardableResult Bool`，handleSplit 失败不再画脏切分线/标脏（原缺陷：失败仍设 splitPointTime）。
+- 硬验证（harness 23 断言 ALL PASS + afinfo）：execute(1.0) 两段各 48000 帧、96000 样本逐位与源一致（首/末/边界采样点全对上，零漂移）；undo/redo 语义正确；边界 4 态拒切；交错 int16 stereo 分支 L/R 保真。落盘 `afinfo`：left/right 各 1.000000s，源 2.000000s。
+- harness 复跑命令见 `e2e/harness/ui023_split_command_harness.swift` 头注释（首次 harness 断言自身索引写错一处在验证中被抓出修正——harness 有效性的旁证）。
+- 已知边界：①切分线视觉为单值 splitPointTime，连续多次切分仅显示最后一条线（clip 列表化渲染属 UI-024/B 迁移）；②两段 segments 目前无编辑消费方（为 UI-024/B 迁移备料），本单价值=命令真转正+边界拒切+undo/redo 闭环+切分线不再骗人。
+
+**回池新单 UI-024**：clip 级编辑迁移（区间视图模型）——AudioClip 模型接线渲染/播放/导出，两段（及多段）各自选中/拖动/裁剪；L 档。
