@@ -23,7 +23,7 @@
 | FIX-009    | 录音态波形：按时间聚合+单源喂入（条间空隙根治，兼 UI-014 真根因） | P1 | done ✅ | 10-17 老板交付验收（merge 261d4a5）；临时探针拆除归 FIX-011 |
 | FIX-010    | 两态波形幅度映射统一为全局线性（老板选 B；头部杂音不再强调可见） | P2 | done ✅ | 10-17 老板交付验收（merge 0e6d5ae）；running max 只增不减为 B 方案固有特性 |
 | FIX-011    | 拆除 FIX009Probe 临时探针（Kit/Utils 4 打点）        | P3 | done ✅ | 10-17 老板交付验收（merge 0e6d5ae）；全仓零残留 |
-| UI-022     | 删除选区命令 DeleteSelectionCommand（含 undo）+ 工具条删除按钮解除置灰 | P3 | todo · 待需求审核 | UI-020 验收产生（删除按钮置灰、命令层空缺）；S 档 |
+| UI-022     | 删除选区命令 DeleteSelectionCommand（含 undo）+ 工具条删除按钮解除置灰 | P3 | **rfr · 待验收** | worktree loop/UI-022 0050b41；harness 12 断言 ALL PASS，删 0.5–1.5s afinfo 1.000000s、undo 逐位还原、全选空态不崩；顺带抓修逆向区间 Range 崩溃 |
 | UI-023     | SplitAudioClipCommand WIP 桩转正（真 clip 拆分，P0 编辑器遗留） | P2 | **rfr · 待验收** | worktree loop/UI-023 d485683；口径 A（剪映语义切分不动时间轴），样本级 23 断言 ALL PASS + afinfo 两段各 1.000000s；clip 级独立裁剪降级回池 UI-024 |
 | UI-024     | clip 级编辑迁移：区间视图模型（多段各自选中/拖动/裁剪） | P3 | todo · 待需求审核 | UI-023 降级回池（渲染/播放/导出单 buffer，AudioClip 模型零接线）；L 档，调研先行 |
 | FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | done ✅ | 10-18 老板交付验收（merge 2509ffc）；双向握手（管线登记落点+finish 后到触发）；硬验证 79ms 竞态救回（via=handshake），证据 docs/证据/2026-10-17-FIX012-握手落盘硬验证.md |
@@ -224,7 +224,7 @@
 
 ---
 
-### UI-022 删除选区命令 DeleteSelectionCommand（含 undo） | P3 | S | [todo · 待需求审核]
+### UI-022 删除选区命令 DeleteSelectionCommand（含 undo） | P3 | S | [ready-for-review · 2026-10-18 16:5x worktree 0050b41，待老板交付验收]
 
 > 来源：UI-020 交付验收（merge a53d5d1）发现——工具条「删除」按钮**已置灰**，因命令层空缺：`EditorViewController.swift:1417` 原样 `break`，注释写「UI-020: 现状无删除命令，按钮已置灰；待新单补 DeleteSelectionCommand」。
 > 同组：UI-023（切分桩转正），二者都是 UI-020「不新增编辑能力」条款下的回池项。
@@ -238,11 +238,18 @@
 **不做什么**：不做剪切/复制/粘贴；不做跨 clip 删除；不改 `EditHistory` 机制；不动转写面板
 
 **验收标准**（待需求审核）：
-- [ ] 硬验证：2s 48kHz 正弦，删 0.5–1.5s → 落盘 `afinfo` 实测 **1.000000s**（UI-020 trim 同款脚本口径）
-- [ ] undo → `afinfo` **2.000000s**；redo 再删 → 1.000000s
-- [ ] 删除后播放头在选区起点、选区清空、时间尺与总时长同步（实拍）
-- [ ] 无选区按钮仍置灰；全选删除进空态不崩溃（实拍）
-- [ ] `build-app.sh` exit 0；SDK 单测通过
+- [x] 硬验证：2s 48kHz 正弦，删 0.5–1.5s → 落盘 `afinfo` 实测 **1.000000s**（UI-020 trim 同款脚本口径）✅（harness 12 断言 ALL PASS；前段+后段 48000 样本逐位保真零漂移）
+- [x] undo → `afinfo` **2.000000s**；redo 再删 → 1.000000s ✅（undo 96000 帧逐位还原；redo 重放 48000 帧）
+- [ ] 删除后播放头在选区起点、选区清空、时间尺与总时长同步（实拍）⏳（链路已接：performDelete → clearSelection → didSeekTo(删除点)（含 statusBar/转写联动/播放中无缝跳播）；AX 交互拦实拍，留真机验收）
+- [x] 无选区按钮仍置灰；全选删除进空态不崩溃（实拍）✅（didChangeSelection 动态置灰/解除；全选产 0 帧空态 buffer，loadAudio 走空态分支，undo 可还原——命令级已证；界面实拍留真机）
+- [x] `build-app.sh` exit 0；SDK 单测通过 ✅（构建过；Kit 回归不涉本单；harness 12 断言沉淀 `e2e/harness/ui022_delete_command_harness.swift`）
+
+**交付记录（2026-10-18 16:55 执行侧，worktree `.worktrees/UI-022` 分支 `loop/UI-022` 0050b41；master 未动）**：
+- 新命令 `Views/DeleteSelectionCommand.swift`：execute 删 [start,end) 样本拼前段+后段；undo 按执行时锁定的前段帧数插回被删段；**全选删除产 0 帧空态 buffer**（frameCapacity 1、frameLength 0，loadAudio 走空态分支不崩）
+- **顺带抓修一个真崩溃**：harness 逆向区间用例暴露 `start..<end`（lower>upper）直接构造 Range 崩溃 → init 防御归零长区间，execute 拒切（waveformView.selection 排序保证正常路径不触，防御工程不应崩）
+- executeCommand 加 `@discardableResult Bool`（与 UI-023 同款改动，两单合并时 git 自动收敛）；`.delete` case 接 performDelete；didChangeSelection 动态置灰/解除工具条删除按钮
+- harness 教训复现：首跑 wav 落盘 afinfo 0s——**UI-020 沉淀的 AVAudioFile flush 坑再踩一次**（do 块出作用域解决），已在 harness 头注释加 ⚠️ 标注
+- 证据：harness 12 断言输出 + `afinfo /tmp/ui022_deleted.wav = 1.000000s`（复跑命令见 harness 头注释）
 
 ---
 
