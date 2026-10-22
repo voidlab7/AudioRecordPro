@@ -16,6 +16,12 @@
 
 | 单号         | 标题                                 | P  | 状态          | 备注                                     |
 | ---------- | ---------------------------------- | -- | ----------- | -------------------------------------- |
+| REL-001    | 分发收款链路启动：Apple Dev 个人账号 + Paddle Individual + Payoneer | P0 | 待需求审核 | 老板拍板 2026-10-19：直售+Paddle+免费Pro买断；**护照是 Paddle 验证硬前置**；⚠️ 老板定：REL 系列先调研证实，功能完善优先 |
+| INFRA-005  | 自进化循环机制 LoopBody MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | 已审核 | 老板 2026-10-19 00:39 审核通过；自测步用 `scripts/test-ui-lite.sh`（INFRA-006）+ Kit 单测，LOOP-05 XCUITest 恢复后补深度回归 |
+| INFRA-006  | UI 自验 lite 通道：触发器 uitest 位 + App 内脚本化命令序列 + 外部 UXEvents 断言脚本 | P1 | **rfr · 待验收** | 老板 2026-10-22 拍板方案①AX+②selftest；worktree loop/INFRA-006 8df581b；端到端 6/6 PASS；首跑钓出 loadAudio use-after-free（已修）+ UXEventLog 不落盘（已修）；LOOP-05 降级为深度回归补齐 |
+| REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | 待需求审核 | 依据 REQ-i18n 排查报告 §A1/A3 + 4 处中文逻辑依赖解耦 |
+| REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
+| REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
 | UI-018     | 编辑页整体重设计：调研+两套设计稿（只出设计，不改代码） | P2 | done ✅ | **老板已拍板方案 B（轨道主导）**；设计稿+8 状态 PNG 进 git（be73879，10-17） |
 | UI-019     | 编辑页重设计 R1：布局骨架（三段式 + 轨道头 88 + 转写分栏可拖拽） | P1 | done ✅ | 10-17 老板交付验收（merge a49d925）；真机拖拽/折叠留日常观察 |
 | UI-020     | 编辑页重设计 R2：Clip 上下文工具条 + 选区读数可键入 + Trim 柄 | P2 | done ✅ | 10-17 老板交付验收（merge a53d5d1）；删除/切分缺口已拆 UI-022/UI-023 |
@@ -29,7 +35,7 @@
 | FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | done ✅ | 10-18 老板交付验收（merge 2509ffc）；双向握手（管线登记落点+finish 后到触发）；硬验证 79ms 竞态救回（via=handshake），证据 docs/证据/2026-10-17-FIX012-握手落盘硬验证.md |
 | FEAT-005   | 转写词级时间戳（逐词高亮前置）——引擎升级或自定义对齐 | P3 | todo · 待需求审核 | UI-021 限制回池（TranscriptSegment 仅 start/end，Apple audioTimeRange 粒度不够逐词）；L 档，涉及转写引擎 |
 | UI-017     | 麦克风选择器下拉箭头不明显                         | P3 | done ✅ | 10-17 老板交付验收（merge 7cdec2f）；hover/展开留日常观察 |
-| LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 等老板在 WorkBuddy 外跑 `scripts/test-ui.sh` |
+| LOOP-05    | XCUITest 11 个失败修复 ≡INFRA-001       | P1 | **blocked** | 10-20 诊断锁死系统层（Runner 沙盒初始化陷阱 + containermanagerd 僵死 3 实例，等重启验证）；80% 覆盖已由 INFRA-006 lite 通道补位，本单降级为深度回归补齐 |
 | FIX-008    | 录音态波形动画卡顿（连续平移+右端冒头 R2）      | P2 | done ✅ | 10-17 老板交付验收（merge 409993b）；真实速度重核归 FIX-009 |
 | LOOP-08    | 录音准备态与实时采集态视觉分离 ≡UI-002            | P1 | done ✅ | 10-17 老板交付验收；细项留日常观察                          |
 | FIX-006    | 开麦混录说话无电平（原「QQ音乐电平」误报口径）      | P2 | done ✅ | 10-13 12:12 签收                              |
@@ -96,6 +102,29 @@
 ### LOOP-08 录音准备态与实时采集态视觉分离 | P1 | [done ✅ 2026-10-17 老板交付验收] ≡UI-002
 
 > 正文已迁 `docs/归档/TODOS-done-2026-10.md`。
+
+### INFRA-006 UI 自验 lite 通道（AX + App 内 selftest，绕开 XCUITest Runner） | P1 | M | [rfr · 2026-10-22 worktree loop/INFRA-006 8df581b，待老板交付验收]
+
+> 背景：LOOP-05 诊断锁死系统层（XCUITest Runner 沙盒初始化陷阱），但 INFRA-005 自测步不能无限等。
+> 老板 2026-10-22 拍板方案 ①AX 脚本 + ②App 内 selftest 通道。原理：不走 testmanagerd 拉起沙盒 Runner 的链路——
+> App 自己跑固定流程、自己吐 UXEventLog 事件，外部脚本读日志断言。
+
+**做什么**：
+1. 触发器扩展：`selftest-record.txt` 支持 `N mix uitest` 多 flag（向后兼容单 flag）
+2. `EditorViewController.runLiteSelftest()`：baseline / split / delete / undo / redo / ax_enumerate 六步脚本化序列，每步吐 `UXEventLog("UITest", step)`；`suppressCommandAlerts` 防 runModal 卡死无人值守
+3. `MainViewController`：`pendingLiteUITest` 标志，enterEditor 后 2s 触发
+4. `scripts/test-ui-lite.sh`：快照起点 → 触发 → 轮询 `UITest.done` → 逐步断言 → exit 0/1；测试音防御 BUG-1 静音拦截；即 INFRA-005 LoopBody 自测步的调用入口
+
+**验收标准**：
+- [x] `build-app.sh` exit 0 ✅
+- [x] 端到端：`test-ui-lite.sh` 全绿 ✅（475136 帧 @48kHz：split 不动时间轴、delete 237568 精确、undo 逐位恢复、redo 回落；AX 树 1 窗 138 节点可达）
+- [x] 无人值守可复跑（无弹窗、无人工介入、exit code 语义正确）✅
+- [x] 幂等：连续两次运行结果一致 ✅（首轮调试期已多次复跑）
+- [x] 首跑钓出的 bug 闭环 ✅：loadAudio Phase2 use-after-free（SIGSEGV .ips 实锤→捕获 buffer 保活）+ UXEventLog 写后不落盘（→synchronizeFile）
+
+**已知边界**：`button_count=0`——自定义控件未设 accessibility role，AX 暴露度为后续改进项（真机点按钮仍留老板真机/LOOP-05）；转写/导出链路不在六步内，后续按需扩步。
+
+---
 
 ### INFRA-003 App 更名 Loocap（代码侧 + Bundle ID 迁移） | P1 | M | [done ✅ 2026-10-13 11:32 老板签收（重新授权+录音终验通过）]
 
@@ -279,3 +308,110 @@
 - [ ] 旧录音（无词级数据）打开正常，只走句级高亮，不崩溃（实拍）
 - [ ] 导出 md/txt 与 UI-021 版本逐字一致（无回归）
 - [ ] `build-app.sh` exit 0；SDK 单测通过
+
+---
+
+### REL-001 分发收款链路启动：Apple Dev 个人账号 + Paddle Individual + Payoneer | P0 | [待需求审核]
+
+> 背景（2026-10-19 老板拍板）：上架走**官网直售**（MAS 二期），收款 **Paddle**（Individual），定价**免费档 + Pro 买断**。全链路个人身份可走通，无需公司（个人年度 $5 万结汇额度内）。
+
+**做什么**：
+1. 注册 Apple Developer Program 个人账号（$99/年，支付宝可付）→ 具备 Developer ID 签名+公证能力
+2. Paddle 注册（业务类型 Individual，大陆地址）：护照身份验证 + 域名邮箱（Zoho 免费版绑自有域名，禁 @gmail）+ 网站审核（三政策页前置，依赖 REL-004）
+3. Payoneer 个人账户开通并与 Paddle 绑定提现（外币入账约 1%）
+
+**验收标准**：
+- [ ] Apple Developer 账号 active，可签 Developer ID 证书
+- [ ] 收到 Paddle 账号 approval 邮件（网站审核+身份验证全通过）
+- [ ] Payoneer 绑定 Paddle 成功，提现路径验证（可小额测试）
+- [ ] 首次提交即一次备齐审核材料（产品截图/定价页链接），避免多轮拖延
+
+**老板动作**：①确认护照在手（不在则先办，1-2 周，关键路径）②支付 $99 Apple Developer 年费
+**状态注（2026-10-19 00:25 老板定）**：REL 系列均需先调研证实（Paddle 收款合规细节 / 公证与分发的实际操作），**功能完善优先**，本单采购动作暂缓，待调研结论后再启动。
+
+---
+
+### REL-002 i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | [待需求审核]
+
+> 依据 `docs/需求/REQ-i18n-国际化改造排查.md`（09-20）。注意品牌更名后显示名用 **Loocap**（报告中的 Tapture 仅为排查时点事实）。
+
+**做什么**：
+1. project.yml 加 `knownRegions`（en base + zh-Hans），建 `.lproj`/xcstrings 基建
+2. TCC 权限文案：`NSMicrophoneUsageDescription` / `NSAudioCaptureUsageDescription` 英文 base + zh-Hans 本地化（**审核红线 A1**）
+3. Info.plist 增 `CFBundleDisplayName`（Loocap）并本地化；「关于」面板产品名排查
+4. 4 处中文逻辑依赖解耦（报告 §四，改造前必须先解耦）
+
+**验收标准**：
+- [ ] 英文系统冷启动：权限弹窗全英文、Dock/菜单栏显示 Loocap（实拍）
+- [ ] 中文系统冷启动：全中文，与现版无回归
+- [ ] 4 处逻辑依赖改造后有单测覆盖（不依赖文案判断的断言）
+- [ ] `build-app.sh` exit 0
+
+---
+
+### REL-003 i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | [待需求审核]
+
+**做什么**：按排查报告 A 级清单迁移用户可见中文：AppDelegate 菜单栏 20+ 处、App 侧 36 文件 ~480 处、Kit 侧 31 文件 ~300 处；⚠️ 09-20 报告之后的新代码（UI-019~023 编辑器重设计、FIX-009~012）新增字符串一并纳入，入池后先重跑全仓 `\p{Han}` 扫描取基线。
+
+**验收标准**：
+- [ ] 重跑 `\p{Han}` 扫描：用户可见字符串清零（注释/测试断言除外，测试断言改造单列不阻塞）
+- [ ] en / zh-Hans 双语切换冒烟：录音→编辑（切分/删除/裁剪）→转写→导出全流程实拍
+- [ ] `build-app.sh` exit 0；SDK 单测通过
+
+---
+
+### REL-004 官网英文落地页 + 定价 + 三政策页 + Paddle checkout | P0 | [待需求审核]
+
+> 落点 `projects/MicroVSite/loocap/`（现仅 1 个 index.html）。三政策页是 **Paddle 网站审核前置**，本单须在 REL-001 的 Paddle 提交前交付。推广策略已定（Reddit r/macapps + Product Hunt + SEO 长尾），落地页 SEO 词由词根轴反哺。
+
+**做什么**：
+1. 英文落地页（Loocap｜路文，Capture & Transcribe）：功能亮点/截图/定价（Free / Pro $29 一次性，首发 $19）/FAQ
+2. 三政策页：Terms of Service / Privacy Policy / Refund Policy（英文）
+3. Paddle checkout 接入（Overlay checkout）+ License Key 发放验证
+
+**验收标准**：
+- [ ] 落地页+三政策页上线可访问（microv.site 或独立域），移动端可看
+- [ ] Paddle 沙箱/test 购买走通：付款 → 收到 License Key 邮件
+- [ ] App 内激活入口可用（激活页 UI 如缺，先走菜单栏占位，单列不阻塞）
+- [ ] Lighthouse SEO/性能分 ≥90（截图）
+
+
+---
+
+### INFRA-005 自进化循环机制 LoopBody MVP（先建机制并 run 起来，调度形式后定） | P0 | [已审核 2026-10-19 00:39]
+
+> 方向（2026-10-19 00:25 老板定，00:40 修订）：**人 out of loop**——MicroJarvis 自己进化：自己测试、自己发现问题、自己规划需求、自己修复、自己总结反哺。老板只在两处出现：**定大方向**（一次性，已定：30 天内 Loocap 上架）+ **两道关卡**（需求审核/交付验收，批量轻量、手机端完成）。调度（夜跑/手动/定时）只是触发器，**循环体才是资产**。
+
+**核心：调度无关的循环体（LoopBody），每轮七步**（协议规格正本：`docs/需求/INFRA-005-LoopBody自进化循环机制.md`，含观察步五问/A-B 分诊边界/降级跑法）：
+1. **观察**：build + 单测 + XCUITest + lint + 运行时冒烟 + 读「日常观察」项 → 收集问题信号
+2. **提案**：信号 → 自己写需求单（证据 + 根因假设 + 验收判据）→ 入池（入池前重读池防撞号）
+3. **分诊**：按授权级别分流——
+   - **A 类（预先授权，视为已审核直接开工）**：测试失败修复、构建修复、回归 bug 且判据可硬验证、判据文档/知识库同步
+   - **B 类（需老板审核）**：功能新增、方向性改动、L 档调研、有歧义需求
+4. **执行**：开发 Agent 领 A 类单 / 已审核 B 类单 → git worktree 隔离、**禁动 master**
+5. **自测**：硬验证证据落盘（afinfo/断言/录屏），修 ≤3 轮刹车
+6. **交付**：状态写 ready-for-review + 战报（硬证据 + 回滚命令）
+7. **反哺**：总结进判据文档/知识库 → 下一轮观察更准（自进化的闭环点）
+
+**触发方式（循环体外挂，MVP 只需第一种）**：
+- 手动：「跑一轮 LoopBody」——**机制 run 起来的最小形态，前置打通后立即可用**
+- 定时班次：WorkBuddy 自动化挂载（白天班/夜班随意配，机制不变）
+- 夜跑长班：22:00→08:00 跑到池空或刹车（caffeinate；此为原 NightLoop，降级为一种触发配置）
+
+**前置依赖（必须先证实，未证实本单 blocked）**：
+1. **LOOP-05**：XCUITest 在真实终端跑通——自测地基现在是坏的，循环无从谈起
+2. build + SDK 单测在无人值守会话内跑通（沙箱外执行路径证实；`docs/夜跑收工-2026-10-13.md` 有先例可查）
+
+**MVP 范围（先跑通单轮，再谈多轮/夜跑）**：
+1. 单轮 LoopBody 打通：观察→提案→分诊→执行→自测→交付→反哺，全程零老板参与，产出战报
+2. 分诊规则落文档：A/B 类授权边界写进 LOOP-adapter，避免执行侧自行扩权
+3. 刹车三保险：同一单失败 ≤3 轮即停并记录；全程 worktree 隔离、**禁动 master**；战报必含回滚命令
+4. 验收证据适配手机端：①动态交互=自动录屏（mock 状态机 + `screencapture -v`，≤60s，开头 3 秒点题）②静态视觉=标注截图 ③数据=战报文本；证据包经企业微信推送，老板手机端完成验收（rfr→done）
+
+**验收标准**：
+- [ ] 单轮 LoopBody 真实跑通 ≥1 次：观察产出真信号 → 自动提案入池 → A 类直接开工 → 自验硬证据 → rfr
+- [ ] 分诊规则文档化且执行侧遵守（A 类零误扩权）
+- [ ] 战报含硬验证证据与可执行的回滚命令
+- [ ] master 零未授权变更（git log 佐证）
+- [ ] 手机端验收闭环验证一次：证据包（≤60s 视频+标注截图+战报）成功推送企业微信，老板在手机端完成一次验收
+- [ ] （后续）连续 3 晚定时班次真实运行后，才算机制稳定，再评估加码
