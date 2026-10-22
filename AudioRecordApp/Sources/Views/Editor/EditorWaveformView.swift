@@ -208,8 +208,11 @@ class EditorWaveformView: NSView {
         needsDisplay = true
 
         // Phase 2: 后台精细计算完整 peak（使用指针算术避免 Swift Range 开销）
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self = self else { return }
+        // INFRA-006 竞态修复: 必须捕获 buffer 保活——此前只捕 weak self、却解引用外层 channelData 裸指针，
+        // 连续编辑（undo/redo/delete）替换 audioBuffer 后旧 buffer 释放 → 后台闭包 use-after-free（SIGSEGV，
+        // 崩溃报告 Loocap-2026-10-22-225344.ips 实锤；lite 通道毫秒级连发首跑钓出）。
+        DispatchQueue.global(qos: .utility).async { [weak self, buffer] in
+            guard let self = self, let channelData = buffer.floatChannelData else { return }
 
             let targetBars = max(200, min(2000, Int(viewWidth > 0 ? viewWidth / (barW + barS) : 600)))
             let framesPerBucket = max(1, totalFrames / targetBars)

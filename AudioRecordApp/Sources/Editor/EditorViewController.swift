@@ -401,6 +401,9 @@ class EditorViewController {
     
     // MARK: - Edit Operations
     
+    /// INFRA-006: 无人值守自验时抑制失败弹窗（runModal 会卡死自测流水线）
+    var suppressCommandAlerts = false
+
     /// 执行编辑命令；返回是否成功（失败已弹提示且不入历史）。UI-023/UI-022: 结果回传供调用方分流 UI 状态。
     @discardableResult
     func executeCommand(_ command: EditCommand) -> Bool {
@@ -418,6 +421,10 @@ class EditorViewController {
             logger.info("执行编辑操作: \(command.description)")
             return true
         } else {
+            guard !suppressCommandAlerts else {
+                logger.warning("命令失败（自验静默）: \(command.description)")
+                return false
+            }
             // BUG-008 fix: 操作失败时提示用户
             let alert = NSAlert()
             alert.messageText = "操作失败".localized
@@ -427,6 +434,99 @@ class EditorViewController {
             alert.runModal()
             return false
         }
+    }
+
+    // MARK: - INFRA-006 UI 自验 lite 通道
+
+    /// 触发器 "N uitest" → 录音停止自动进编辑器后由 MainViewController 调用本方法。
+    /// App 内脚本化执行 split/delete/undo/redo + 自进程 AX 按钮枚举（XCUITest 同源视角，自身进程免 TCC），
+    /// 每步结果吐 UXEventLog("UITest", step)；外部 `scripts/test-ui-lite.sh` 读日志断言。
+    /// 无人值守闭环的关键：不依赖 XCUITest Runner，绕开 LOOP-05 卡死的系统拉起链路。
+    func runLiteSelftest() {
+        var failures: [String] = []
+        suppressCommandAlerts = true
+        defer { suppressCommandAlerts = false }
+        func report(_ step: String, _ pass: Bool, _ detail: [String: Any]) {
+            UXEventLog.shared.module("UITest", step, ok: pass, detail: detail)
+            if !pass { failures.append(step) }
+        }
+
+        guard let buffer = audioBuffer, let format = audioFormat, buffer.frameLength > 0 else {
+            report("baseline", false, ["reason": "no buffer"])
+            UXEventLog.shared.module("UITest", "done", ok: false, detail: ["failures": "baseline"])
+            return
+        }
+        let sr = format.sampleRate
+        let n0 = Int(buffer.frameLength)
+        let dur = Double(buffer.frameLength) / sr
+        report("baseline", true, ["frames": n0, "sr": sr, "duration_sec": (dur * 1000).rounded() / 1000])
+
+        // 1) split @ 中点（口径 A：切分不动时间轴）→ 命令成功 + 切分线落位 + 样本数不变
+        // （切分线在 handleSplit 的 UI 侧职责内，lite 序列直接调命令层须自画，模拟完整用户路径）
+        let splitOK = executeCommand(SplitAudioClipCommand(time: dur / 2))
+        if splitOK {
+            waveformView.splitPointTime = dur / 2
+            waveformView.needsDisplay = true
+        }
+        let framesAfterSplit = Int(audioBuffer?.frameLength ?? 0)
+        report("split", splitOK && waveformView.splitPointTime != nil && framesAfterSplit == n0,
+               ["ok": splitOK, "split_point": waveformView.splitPointTime ?? -1, "frames": framesAfterSplit])
+
+        // 2) delete 中段 [25%, 75%] → 样本数按公式精确减少（±2 容差防 rounding 边缘）
+        let del = DeleteSelectionCommand(startTime: dur * 0.25, endTime: dur * 0.75,
+                                         sampleRate: sr, totalFrames: audioBuffer?.frameLength ?? 0)
+        let delOK = executeCommand(del)
+        let nDel = Int(audioBuffer?.frameLength ?? 0)
+        let expectDel = n0 - Int((dur * 0.5 * sr).rounded())
+        report("delete", delOK && abs(nDel - expectDel) <= 2,
+               ["ok": delOK, "frames": nDel, "expected": expectDel])
+
+        // 3) undo → 恢复 n0；4) redo → 回到删除后
+        undo()
+        let nUndo = Int(audioBuffer?.frameLength ?? 0)
+        report("undo", nUndo == n0, ["frames": nUndo, "expected": n0])
+        redo()
+        let nRedo = Int(audioBuffer?.frameLength ?? 0)
+        report("redo", abs(nRedo - expectDel) <= 2, ["frames": nRedo, "expected": expectDel])
+
+        // 5) 自进程 AX 枚举：验证 AX 树可达性（XCUITest 查询的就是这条树）。
+        // 判据 = windows 可读且遍历完成；按钮数作信息字段（自定义控件未设 accessibility role 时为 0，是真实暴露度信息）
+        let axApp = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        var buttons: [String] = []
+        var nodeCount = 0
+        func walk(_ el: AXUIElement, depth: Int) {
+            guard depth < 10 else { return }
+            nodeCount += 1
+            var roleRef: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXRoleAttribute as CFString, &roleRef) == .success,
+                  let role = roleRef as? String else { return }
+            if role == "AXButton" {
+                var tRef: CFTypeRef?, dRef: CFTypeRef?
+                let title = (AXUIElementCopyAttributeValue(el, kAXTitleAttribute as CFString, &tRef) == .success) ? (tRef as? String) ?? "" : ""
+                let desc = (AXUIElementCopyAttributeValue(el, kAXDescriptionAttribute as CFString, &dRef) == .success) ? (dRef as? String) ?? "" : ""
+                buttons.append(title.isEmpty ? desc : title)
+            }
+            var kidsRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(el, kAXChildrenAttribute as CFString, &kidsRef) == .success,
+               let kids = kidsRef as? [AXUIElement] {
+                kids.forEach { walk($0, depth: depth + 1) }
+            }
+        }
+        var axOK = false
+        var winCount = 0
+        var winsRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(axApp, kAXWindowsAttribute as CFString, &winsRef) == .success,
+           let wins = winsRef as? [AXUIElement] {
+            winCount = wins.count
+            wins.forEach { walk($0, depth: 0) }
+            axOK = winCount > 0 && nodeCount > 0
+        }
+        report("ax_enumerate", axOK, ["windows": winCount, "nodes": nodeCount,
+                                      "button_count": buttons.count, "buttons": Array(buttons.prefix(12))])
+
+        UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
+                                 detail: ["failures": failures.joined(separator: ","),
+                                          "steps": 6 - failures.count])
     }
     
     func undo() {
