@@ -1186,3 +1186,34 @@
 - 已知边界：①切分线视觉为单值 splitPointTime，连续多次切分仅显示最后一条线（clip 列表化渲染属 UI-024/B 迁移）；②两段 segments 目前无编辑消费方（为 UI-024/B 迁移备料），本单价值=命令真转正+边界拒切+undo/redo 闭环+切分线不再骗人。
 
 **回池新单 UI-024**：clip 级编辑迁移（区间视图模型）——AudioClip 模型接线渲染/播放/导出，两段（及多段）各自选中/拖动/裁剪；L 档。
+
+---
+
+## INFRA-006 UI 自验 lite 通道（AX + App 内 selftest，绕开 XCUITest Runner） | P1 | done ✅ 2026-10-24
+
+> 背景：LOOP-05 诊断锁死系统层（XCUITest Runner 沙盒初始化陷阱 + containermanagerd 僵死 3 实例），但 INFRA-005 自测步不能无限等。
+> 老板 2026-10-22 拍板方案 ①AX 脚本 + ②App 内 selftest 通道。原理：不走 testmanagerd 拉起沙盒 Runner 的链路——App 自己跑固定流程、自己吐 UXEventLog 事件，外部脚本读日志断言。
+
+**做什么**：
+1. 触发器扩展：`selftest-record.txt` 支持 `N mix uitest` 多 flag（向后兼容单 flag）
+2. `EditorViewController.runLiteSelftest()`：baseline / split / delete / undo / redo / ax_enumerate 六步脚本化序列，每步吐 `UXEventLog("UITest", step)`；`suppressCommandAlerts` 防 runModal 卡死无人值守
+3. `MainViewController`：`pendingLiteUITest` 标志，enterEditor 后 2s 触发
+4. `scripts/test-ui-lite.sh`：快照起点 → 触发 → 轮询 `UITest.done` → 逐步断言 → exit 0/1；测试音防御 BUG-1 静音拦截；即 INFRA-005 LoopBody 自测步的调用入口
+
+**验收标准**：
+- [x] `build-app.sh` exit 0 ✅
+- [x] 端到端：`test-ui-lite.sh` 全绿 ✅（首验 475136 帧；验收复跑 467968 帧 @48kHz：split 不动时间轴、delete 233984 精确、undo 逐位恢复、redo 回落；AX 树 1 窗 145 节点可达）
+- [x] 无人值守可复跑（无弹窗、无人工介入、exit code 语义正确）✅
+- [x] 幂等：连续两次运行结果一致 ✅（首轮调试期已多次复跑，验收时再复跑一致）
+- [x] 首跑钓出的 bug 闭环 ✅：loadAudio Phase2 use-after-free（SIGSEGV .ips 实锤→捕获 buffer 保活）+ UXEventLog 写后不落盘（→synchronizeFile）
+
+**交付记录（2026-10-24 老板交付验收，merge 980cacf；worktree loop/INFRA-006 8df581b 单提交 6 文件 +238/-9）**：
+- 验收方式：执行侧现场复跑 `test-ui-lite.sh` 出新鲜证据（6/6 PASS exit 0），老板看证据拍板——非陈旧文件翻看。
+- 正向意外：自验时已知边界 `button_count=0`，验收复跑实测 **18 个按钮可枚举且名可读**（导出/缩小/放大/适应全部…），AX 暴露度显著好于自验时点。
+- 测试音说明（验收中老板问询确认）：`afplay` 播 440Hz 正弦波 20s 为设计内行为——mix 源必须经真实输出设备产生信号，防御 BUG-1 静音拦截；「系统静音跑 mix 场景」物理上做不到，无人在场时段跑属天然解。
+- 双 bug 修复随本单一并验收：loadAudio UAF（计划外收益，SIGSEGV 实锤）+ UXEventLog synchronizeFile。
+- 已知边界（验收确认接受）：转写/导出链路不在六步内（后续按需扩步）；LOOP-05 XCUITest 深度回归补齐仍 blocked（等系统重启验证）。
+
+**回写关系**：
+- **解锁 INFRA-005**：LoopBody 自测步正式启用 `scripts/test-ui-lite.sh`（原前置依赖之一就地消除）。
+- **FIX-013 假设分支①消除**：loadAudio UAF 随 merge 进入 master，若 ~17s SIGSEGV 仍复现则定性为独立根因，FIX-013 继续查。

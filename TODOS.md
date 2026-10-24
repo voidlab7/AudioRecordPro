@@ -17,11 +17,14 @@
 | 单号         | 标题                                 | P  | 状态          | 备注                                     |
 | ---------- | ---------------------------------- | -- | ----------- | -------------------------------------- |
 | REL-001    | 分发收款链路启动：Apple Dev 个人账号 + Paddle Individual + Payoneer | P0 | 待需求审核 | 老板拍板 2026-10-19：直售+Paddle+免费Pro买断；**护照是 Paddle 验证硬前置**；⚠️ 老板定：REL 系列先调研证实，功能完善优先 |
-| INFRA-005  | 自进化循环机制 LoopBody MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | 已审核 | 老板 2026-10-19 00:39 审核通过；自测步用 `scripts/test-ui-lite.sh`（INFRA-006）+ Kit 单测，LOOP-05 XCUITest 恢复后补深度回归 |
-| INFRA-006  | UI 自验 lite 通道：触发器 uitest 位 + App 内脚本化命令序列 + 外部 UXEvents 断言脚本 | P1 | **rfr · 待验收** | 老板 2026-10-22 拍板方案①AX+②selftest；worktree loop/INFRA-006 8df581b；端到端 6/6 PASS；首跑钓出 loadAudio use-after-free（已修）+ UXEventLog 不落盘（已修）；LOOP-05 降级为深度回归补齐 |
+| INFRA-005  | 自进化循环机制 LoopBody MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | 已审核 | 老板 2026-10-19 00:39 审核通过；自测步用 `scripts/test-ui-lite.sh`（INFRA-006 ✅ 10-24 验收，通道就绪）+ Kit 单测，LOOP-05 XCUITest 恢复后补深度回归 |
+| INFRA-006  | UI 自验 lite 通道：触发器 uitest 位 + App 内脚本化命令序列 + 外部 UXEvents 断言脚本 | P1 | done ✅ | 10-24 老板交付验收（merge 980cacf）；验收现场复跑 6/6 PASS，AX 18 按钮可达；即 INFRA-005 自测步正式入口 |
+| FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | todo · A类预授权·待通道 | 观察源⑤钓出（R2 报告）；根因假设=INFRA-006 未 merge 的 loadAudio UAF 同族或独立 ~17s 定时任务 UAF；执行需 shell 通道（build+复现），详见 docs/LoopBody/R2-2026-10-23-观察报告.md |
+| INFRA-007  | LoopBody 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | **待需求审核** | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
 | REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | 待需求审核 | 依据 REQ-i18n 排查报告 §A1/A3 + 4 处中文逻辑依赖解耦 |
 | REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
 | REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
+| FEAT-006   | 本地优先隐私定位：转写全离线取证 + 「音频不出设备、不训练」承诺落地（取证+文案层） | P2 | 待需求审核 | 来源 MicroRadar 2026-10-23（reddit r/software 无 AI 转写需求，dc:reddit:1xamt7c）；与 REL-004 FAQ/隐私政策、FEAT-005 whisper 路线联动，不改转写代码 |
 | UI-018     | 编辑页整体重设计：调研+两套设计稿（只出设计，不改代码） | P2 | done ✅ | **老板已拍板方案 B（轨道主导）**；设计稿+8 状态 PNG 进 git（be73879，10-17） |
 | UI-019     | 编辑页重设计 R1：布局骨架（三段式 + 轨道头 88 + 转写分栏可拖拽） | P1 | done ✅ | 10-17 老板交付验收（merge a49d925）；真机拖拽/折叠留日常观察 |
 | UI-020     | 编辑页重设计 R2：Clip 上下文工具条 + 选区读数可键入 + Trim 柄 | P2 | done ✅ | 10-17 老板交付验收（merge a53d5d1）；删除/切分缺口已拆 UI-022/UI-023 |
@@ -103,26 +106,48 @@
 
 > 正文已迁 `docs/归档/TODOS-done-2026-10.md`。
 
-### INFRA-006 UI 自验 lite 通道（AX + App 内 selftest，绕开 XCUITest Runner） | P1 | M | [rfr · 2026-10-22 worktree loop/INFRA-006 8df581b，待老板交付验收]
+### INFRA-006 UI 自验 lite 通道（AX + App 内 selftest，绕开 XCUITest Runner） | P1 | M | [done ✅ 2026-10-24 老板交付验收 → merge 980cacf]
 
-> 背景：LOOP-05 诊断锁死系统层（XCUITest Runner 沙盒初始化陷阱），但 INFRA-005 自测步不能无限等。
-> 老板 2026-10-22 拍板方案 ①AX 脚本 + ②App 内 selftest 通道。原理：不走 testmanagerd 拉起沙盒 Runner 的链路——
-> App 自己跑固定流程、自己吐 UXEventLog 事件，外部脚本读日志断言。
+> 正文已迁 `docs/归档/TODOS-done-2026-10.md`；验收现场复跑 6/6 PASS（含 loadAudio UAF 修复），即 INFRA-005 LoopBody 自测步正式入口。
+
+---
+
+### FIX-013 Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | S-M | [todo · A类预授权 · 待 shell 通道]
+
+> 来源：LoopBody R2 观察源⑤（`docs/LoopBody/R2-2026-10-23-观察报告.md`）。
+> 现象：`~/Library/Logs/DiagnosticReports/Retired/Loocap-2026-10-22-{225344,225744,230030}.ips`——同一二进制（slice_uuid b6efc5ef），启动后恒定 17–18s 崩，EXC_BAD_ACCESS/SIGSEGV/KERN_INVALID_ADDRESS，三崩地址不同、faulting thread 不同（8/4/12）。
+> 根因假设（未证实）：①与 INFRA-006 worktree 已修的 loadAudio Phase2 use-after-free 同族（修复未 merge，master 二进制带病）；②或独立的启动后 ~17s 一次性后台任务 UAF。寄存器见 `Range<Int>` 元数据。
 
 **做什么**：
-1. 触发器扩展：`selftest-record.txt` 支持 `N mix uitest` 多 flag（向后兼容单 flag）
-2. `EditorViewController.runLiteSelftest()`：baseline / split / delete / undo / redo / ax_enumerate 六步脚本化序列，每步吐 `UXEventLog("UITest", step)`；`suppressCommandAlerts` 防 runModal 卡死无人值守
-3. `MainViewController`：`pendingLiteUITest` 标志，enterEditor 后 2s 触发
-4. `scripts/test-ui-lite.sh`：快照起点 → 触发 → 轮询 `UITest.done` → 逐步断言 → exit 0/1；测试音防御 BUG-1 静音拦截；即 INFRA-005 LoopBody 自测步的调用入口
+1. 符号化三份 .ips 完整栈（`atos` + slice_uuid dSYM），定性崩点函数
+2. 对照 INFRA-006 修复（loop/INFRA-006 8df581b）：若同根因 → 走 INFRA-006 merge 验收闭环，本单以「重建后复测不再崩」关闭；若异根因 → worktree 开修
+3. 硬验证：重建 master（含修复）后冷启复跑老板当晚场景 ≥3 次，DiagnosticReports 零新增
+
+**不做什么**：不在定性前盲改代码；不阻塞 INFRA-006 验收
 
 **验收标准**：
-- [x] `build-app.sh` exit 0 ✅
-- [x] 端到端：`test-ui-lite.sh` 全绿 ✅（475136 帧 @48kHz：split 不动时间轴、delete 237568 精确、undo 逐位恢复、redo 回落；AX 树 1 窗 138 节点可达）
-- [x] 无人值守可复跑（无弹窗、无人工介入、exit code 语义正确）✅
-- [x] 幂等：连续两次运行结果一致 ✅（首轮调试期已多次复跑）
-- [x] 首跑钓出的 bug 闭环 ✅：loadAudio Phase2 use-after-free（SIGSEGV .ips 实锤→捕获 buffer 保活）+ UXEventLog 写后不落盘（→synchronizeFile）
+- [ ] 三份 .ips 符号化结论落盘（崩点函数 + 与 INFRA-006 修复的定性关系）
+- [ ] 重建后冷启 ≥3 次零崩溃（DiagnosticReports 零新增 Loocap*.ips）
+- [ ] `build-app.sh` exit 0；SDK 单测基线不回退
 
-**已知边界**：`button_count=0`——自定义控件未设 accessibility role，AX 暴露度为后续改进项（真机点按钮仍留老板真机/LOOP-05）；转写/导出链路不在六步内，后续按需扩步。
+---
+
+### INFRA-007 LoopBody 触发通道：14:30 自动化沙箱无 shell 通道 | P1 | S | [待需求审核]
+
+> 来源：LoopBody R2（2026-10-23 首次尝试由定时自动化执行完整一轮，失败）。
+> 实证：本自动化主会话与 general-purpose 子代理均无 Bash——git worktree / build-app.sh / swift test 全不可执行；观察 6 源仅 ⑤崩溃日志（Glob 直读）⑥读池 可达（2/6）；④执行步不可达。
+> 后果链：心跳 fail（health.jsonl 10-23 `fails:[heartbeat]`，R1 后 96h+ 停摆）；FIX-013 这类 A 类单只能入池无人能领。
+> 对照：R1（10-19）由老板手动触发的有 shell 会话跑通 5/6 源并完成 A 类修复闭环——循环体本身没问题，**是触发器能力不对等**。
+
+**做什么**（老板拍板通道形态后执行，方向三选一）：
+1. **自动化接 shell 执行器**：给 14:30 班次配置可执行 shell 的运行通道（观察/构建/自测全恢复 6/6）
+2. **执行轮改有 shell 会话跑**：14:30 自动化定格为「只读巡逻」（观察源⑤⑥+提案入池+晨报素材），执行轮由老板手动「跑 loop」触发（现状最优路径的显式化）
+3. **混合**：巡逻自动提案 + 晨批后老板一键触发执行轮
+
+**验收标准**（待需求审核，起草）：
+- [ ] 选定形态落进 LOOP-adapter §6（环境约束）与本自动化 prompt，触发器能力与循环步的映射关系成文
+- [ ] 新形态下连续 2 轮 LoopBody 心跳 verdict=ok（health.jsonl 佐证）
+- [ ] 观察源覆盖 ≥5/6（LOOP-05 豁免除外）
 
 ---
 
@@ -308,6 +333,27 @@
 - [ ] 旧录音（无词级数据）打开正常，只走句级高亮，不崩溃（实拍）
 - [ ] 导出 md/txt 与 UI-021 版本逐字一致（无回归）
 - [ ] `build-app.sh` exit 0；SDK 单测通过
+
+---
+
+### FEAT-006 本地优先隐私定位：转写全离线取证 + 「音频不出设备、不训练」承诺落地 | P2 | S-M | [todo · 待需求审核]
+
+> 来源（MicroRadar 反哺 2026-10-23）：reddit r/software「Looking for a speech to text software without AI」（痛点卡 `dc:reddit:1xamt7c`，3.5 分）——在线学生拒绝 Word（付费 + 数据用于训练），求无云端/无训练的讲座转写工具；市面转写工具清一色以 AI 为卖点，**「隐私优先转写」定位无人占位**。同日 APP 轴弱竞品 Voice recorder, audio recorder（iOS 4.14★/815 评：崩溃/无蓝牙麦/付费无快进）印证录音工具底子差。
+> 核心洞察：用户嘴上说 no AI，工程上等价于 **no cloud / no training / no generative**（所有现代 ASR 都是神经网络，反 AI 用户真正拒绝的是上云+训练+生成式功能）。Loocap 转写走 Apple SpeechAnalyzer（FEAT-001，本机执行），大概率天然满足，但从未作为卖点说出来——这是当前**成本最低的一条差异化路**：不用换引擎、不用加功能，取证 + 把事实写出来。
+
+**做什么**（先取证，后写文案）：
+1. **离线取证**：断网状态实测 录音→转写→导出 全流程；抓网络请求证据（nettop/console 或抓包）确认当前转写引擎零外发。若发现任何联网环节，**单列修复单**，不回改本单
+2. **承诺文案**：设置页/关于页（或转写面板脚注）明示「Transcription runs entirely on your device. Your audio never leaves your Mac and is never used to train any model.」（en/zh 双语，走 REL-003 i18n 通道，不新增硬编码中文）
+3. **REL-004 联动**：落地页 FAQ 起草两条「Do you upload my audio? / Do you train AI models?」答案；Privacy Policy 写明 on-device transcription 条目（随 REL-004 一并上线）
+4. **卖点克制**：不宣称 "no AI"（技术上是神经网络 ASR，站不住），统一口径 **"on-device / your audio never leaves your device / no training"**
+
+**不做什么**：不换转写引擎（whisper.cpp 路线属 FEAT-005 调研范围）；不改转写代码逻辑；**不加任何生成式功能**（摘要/问答/AI 润色——本单来源人群明确反感，保持 Capture & Transcribe 定位）；不动 REL-001 分发链路
+
+**验收标准**（待需求审核）：
+- [ ] 断网全流程实测通过，网络请求证据落盘 `docs/证据/FEAT006-离线取证/`（截图/抓包记录 + 结论一行）
+- [ ] 承诺文案 en/zh 双语上界面（实拍；中文系统与英文系统各一张）
+- [ ] REL-004 FAQ 两条 + Privacy Policy 条目草稿落盘（交付物进 `projects/MicroVSite/loocap/` 对应单）
+- [ ] `build-app.sh` exit 0；无新增硬编码中文（REL-003 扫描口径不回退）
 
 ---
 
