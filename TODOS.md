@@ -17,10 +17,10 @@
 | 单号         | 标题                                 | P  | 状态          | 备注                                     |
 | ---------- | ---------------------------------- | -- | ----------- | -------------------------------------- |
 | REL-001    | 分发收款链路启动：Apple Dev 个人账号 + Paddle Individual + Payoneer | P0 | 待需求审核 | 老板拍板 2026-10-19：直售+Paddle+免费Pro买断；**护照是 Paddle 验证硬前置**；⚠️ 老板定：REL 系列先调研证实，功能完善优先 |
-| INFRA-005  | 自进化循环机制 LoopBody MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | 已审核 | 老板 2026-10-19 00:39 审核通过；自测步用 `scripts/test-ui-lite.sh`（INFRA-006 ✅ 10-24 验收，通道就绪）+ Kit 单测，LOOP-05 XCUITest 恢复后补深度回归 |
+| INFRA-005  | 自进化循环机制 LoopBuddy MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | 已审核 | 老板 2026-10-19 00:39 审核通过；自测步用 `scripts/test-ui-lite.sh`（INFRA-006 ✅ 10-24 验收，通道就绪）+ Kit 单测，LOOP-05 XCUITest 恢复后补深度回归 |
 | INFRA-006  | UI 自验 lite 通道：触发器 uitest 位 + App 内脚本化命令序列 + 外部 UXEvents 断言脚本 | P1 | done ✅ | 10-24 老板交付验收（merge 980cacf）；验收现场复跑 6/6 PASS，AX 18 按钮可达；即 INFRA-005 自测步正式入口 |
-| FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | todo · A类预授权·待通道 | 观察源⑤钓出（R2 报告）；根因假设=INFRA-006 未 merge 的 loadAudio UAF 同族或独立 ~17s 定时任务 UAF；执行需 shell 通道（build+复现），详见 docs/LoopBody/R2-2026-10-23-观察报告.md |
-| INFRA-007  | LoopBody 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | **待需求审核** | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
+| FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | todo · A类预授权·待通道 | 观察源⑤钓出（R2 报告）；根因假设=INFRA-006 未 merge 的 loadAudio UAF 同族或独立 ~17s 定时任务 UAF；执行需 shell 通道（build+复现），详见 docs/LoopBuddy/R2-2026-10-23-观察报告.md |
+| INFRA-007  | LoopBuddy 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | **待需求审核** | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
 | REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | 待需求审核 | 依据 REQ-i18n 排查报告 §A1/A3 + 4 处中文逻辑依赖解耦 |
 | REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
 | REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
@@ -108,13 +108,13 @@
 
 ### INFRA-006 UI 自验 lite 通道（AX + App 内 selftest，绕开 XCUITest Runner） | P1 | M | [done ✅ 2026-10-24 老板交付验收 → merge 980cacf]
 
-> 正文已迁 `docs/归档/TODOS-done-2026-10.md`；验收现场复跑 6/6 PASS（含 loadAudio UAF 修复），即 INFRA-005 LoopBody 自测步正式入口。
+> 正文已迁 `docs/归档/TODOS-done-2026-10.md`；验收现场复跑 6/6 PASS（含 loadAudio UAF 修复），即 INFRA-005 LoopBuddy 自测步正式入口。
 
 ---
 
 ### FIX-013 Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | S-M | [todo · A类预授权 · 待 shell 通道]
 
-> 来源：LoopBody R2 观察源⑤（`docs/LoopBody/R2-2026-10-23-观察报告.md`）。
+> 来源：LoopBuddy R2 观察源⑤（`docs/LoopBuddy/R2-2026-10-23-观察报告.md`）。
 > 现象：`~/Library/Logs/DiagnosticReports/Retired/Loocap-2026-10-22-{225344,225744,230030}.ips`——同一二进制（slice_uuid b6efc5ef），启动后恒定 17–18s 崩，EXC_BAD_ACCESS/SIGSEGV/KERN_INVALID_ADDRESS，三崩地址不同、faulting thread 不同（8/4/12）。
 > 根因假设（未证实）：①与 INFRA-006 worktree 已修的 loadAudio Phase2 use-after-free 同族（修复未 merge，master 二进制带病）；②或独立的启动后 ~17s 一次性后台任务 UAF。寄存器见 `Range<Int>` 元数据。
 
@@ -132,9 +132,9 @@
 
 ---
 
-### INFRA-007 LoopBody 触发通道：14:30 自动化沙箱无 shell 通道 | P1 | S | [待需求审核]
+### INFRA-007 LoopBuddy 触发通道：14:30 自动化沙箱无 shell 通道 | P1 | S | [待需求审核]
 
-> 来源：LoopBody R2（2026-10-23 首次尝试由定时自动化执行完整一轮，失败）。
+> 来源：LoopBuddy R2（2026-10-23 首次尝试由定时自动化执行完整一轮，失败）。
 > 实证：本自动化主会话与 general-purpose 子代理均无 Bash——git worktree / build-app.sh / swift test 全不可执行；观察 6 源仅 ⑤崩溃日志（Glob 直读）⑥读池 可达（2/6）；④执行步不可达。
 > 后果链：心跳 fail（health.jsonl 10-23 `fails:[heartbeat]`，R1 后 96h+ 停摆）；FIX-013 这类 A 类单只能入池无人能领。
 > 对照：R1（10-19）由老板手动触发的有 shell 会话跑通 5/6 源并完成 A 类修复闭环——循环体本身没问题，**是触发器能力不对等**。
@@ -146,7 +146,7 @@
 
 **验收标准**（待需求审核，起草）：
 - [ ] 选定形态落进 LOOP-adapter §6（环境约束）与本自动化 prompt，触发器能力与循环步的映射关系成文
-- [ ] 新形态下连续 2 轮 LoopBody 心跳 verdict=ok（health.jsonl 佐证）
+- [ ] 新形态下连续 2 轮 LoopBuddy 心跳 verdict=ok（health.jsonl 佐证）
 - [ ] 观察源覆盖 ≥5/6（LOOP-05 豁免除外）
 
 ---
@@ -424,11 +424,11 @@
 
 ---
 
-### INFRA-005 自进化循环机制 LoopBody MVP（先建机制并 run 起来，调度形式后定） | P0 | [已审核 2026-10-19 00:39]
+### INFRA-005 自进化循环机制 LoopBuddy MVP（先建机制并 run 起来，调度形式后定） | P0 | [已审核 2026-10-19 00:39]
 
 > 方向（2026-10-19 00:25 老板定，00:40 修订）：**人 out of loop**——MicroJarvis 自己进化：自己测试、自己发现问题、自己规划需求、自己修复、自己总结反哺。老板只在两处出现：**定大方向**（一次性，已定：30 天内 Loocap 上架）+ **两道关卡**（需求审核/交付验收，批量轻量、手机端完成）。调度（夜跑/手动/定时）只是触发器，**循环体才是资产**。
 
-**核心：调度无关的循环体（LoopBody），每轮七步**（协议规格正本：`docs/需求/INFRA-005-LoopBody自进化循环机制.md`，含观察步五问/A-B 分诊边界/降级跑法）：
+**核心：调度无关的循环体（LoopBuddy），每轮七步**（协议规格正本：`docs/需求/INFRA-005-LoopBuddy自进化循环机制.md`，含观察步五问/A-B 分诊边界/降级跑法）：
 1. **观察**：build + 单测 + XCUITest + lint + 运行时冒烟 + 读「日常观察」项 → 收集问题信号
 2. **提案**：信号 → 自己写需求单（证据 + 根因假设 + 验收判据）→ 入池（入池前重读池防撞号）
 3. **分诊**：按授权级别分流——
@@ -440,7 +440,7 @@
 7. **反哺**：总结进判据文档/知识库 → 下一轮观察更准（自进化的闭环点）
 
 **触发方式（循环体外挂，MVP 只需第一种）**：
-- 手动：「跑一轮 LoopBody」——**机制 run 起来的最小形态，前置打通后立即可用**
+- 手动：「跑一轮 LoopBuddy」——**机制 run 起来的最小形态，前置打通后立即可用**
 - 定时班次：WorkBuddy 自动化挂载（白天班/夜班随意配，机制不变）
 - 夜跑长班：22:00→08:00 跑到池空或刹车（caffeinate；此为原 NightLoop，降级为一种触发配置）
 
@@ -449,13 +449,13 @@
 2. build + SDK 单测在无人值守会话内跑通（沙箱外执行路径证实；`docs/夜跑收工-2026-10-13.md` 有先例可查）
 
 **MVP 范围（先跑通单轮，再谈多轮/夜跑）**：
-1. 单轮 LoopBody 打通：观察→提案→分诊→执行→自测→交付→反哺，全程零老板参与，产出战报
+1. 单轮 LoopBuddy 打通：观察→提案→分诊→执行→自测→交付→反哺，全程零老板参与，产出战报
 2. 分诊规则落文档：A/B 类授权边界写进 LOOP-adapter，避免执行侧自行扩权
 3. 刹车三保险：同一单失败 ≤3 轮即停并记录；全程 worktree 隔离、**禁动 master**；战报必含回滚命令
 4. 验收证据适配手机端：①动态交互=自动录屏（mock 状态机 + `screencapture -v`，≤60s，开头 3 秒点题）②静态视觉=标注截图 ③数据=战报文本；证据包经企业微信推送，老板手机端完成验收（rfr→done）
 
 **验收标准**：
-- [ ] 单轮 LoopBody 真实跑通 ≥1 次：观察产出真信号 → 自动提案入池 → A 类直接开工 → 自验硬证据 → rfr
+- [ ] 单轮 LoopBuddy 真实跑通 ≥1 次：观察产出真信号 → 自动提案入池 → A 类直接开工 → 自验硬证据 → rfr
 - [ ] 分诊规则文档化且执行侧遵守（A 类零误扩权）
 - [ ] 战报含硬验证证据与可执行的回滚命令
 - [ ] master 零未授权变更（git log 佐证）
