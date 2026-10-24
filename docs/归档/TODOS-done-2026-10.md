@@ -1217,3 +1217,8 @@
 **回写关系**：
 - **解锁 INFRA-005**：LoopBody 自测步正式启用 `scripts/test-ui-lite.sh`（原前置依赖之一就地消除）。
 - **FIX-013 假设分支①消除**：loadAudio UAF 随 merge 进入 master，若 ~17s SIGSEGV 仍复现则定性为独立根因，FIX-013 继续查。
+
+**回滚命令**（merge 为 no-ff 独立提交，整单可逆）：
+```
+git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
+```
