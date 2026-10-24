@@ -118,15 +118,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
            !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             try? FileManager.default.removeItem(at: triggerURL)
             // FIX-004 诊断基建扩展（FIX-006）：支持 "N mix" —— 开启麦克风混录后自测 N 秒
+            // INFRA-006 扩展：flag 改为多段解析，"N mix uitest" = 混录 + 进编辑器后跑 lite 自验序列
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             let parts = trimmed.split(separator: " ").map(String.init)
             guard let secs = Int(parts.first ?? ""), secs > 0 else { return }
-            let flag = parts.count > 1 ? parts[1].lowercased() : ""
-            let mixMic = (flag == "mix")
-            let mixMicMidway = (flag == "mixmid")
-            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")\(mixMicMidway ? " + 录音中切麦" : "")")
+            let flags = parts.dropFirst().map { $0.lowercased() }
+            let mixMic = flags.contains("mix")
+            let mixMicMidway = flags.contains("mixmid")
+            let uitest = flags.contains("uitest")
+            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")\(mixMicMidway ? " + 录音中切麦" : "")\(uitest ? " + lite自验序列" : "")")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic, mixMicMidway: mixMicMidway)
+                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic, mixMicMidway: mixMicMidway, uitest: uitest)
             }
         }
     }

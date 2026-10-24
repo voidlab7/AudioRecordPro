@@ -18,6 +18,8 @@ class MainViewController: NSViewController {
     
     // Recording state
     private var isRecording = false
+    /// INFRA-006: 自验 lite 通道待跑标志（触发器 "N uitest" 置位，enterEditor 消费）
+    private var pendingLiteUITest = false
     private var recordingStartTime: Date?
     private var captureStartTime: Date?
     private var recordingTimer: Timer?
@@ -230,8 +232,9 @@ class MainViewController: NSViewController {
 
     /// FIX-004 诊断自测（临时）：无头驱动一轮真实录音——启动 N 秒后自动停。
     /// 用法：Loocap --selftest-record 5（3 秒后开始，录 5 秒，自动停）
-    func runSelftestRecording(seconds: Int, mixMic: Bool = false, mixMicMidway: Bool = false) {
-        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停, mixMic=\(mixMic), mixMidway=\(mixMicMidway)）")
+    func runSelftestRecording(seconds: Int, mixMic: Bool = false, mixMicMidway: Bool = false, uitest: Bool = false) {
+        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停, mixMic=\(mixMic), mixMidway=\(mixMicMidway), uitest=\(uitest)）")
+        pendingLiteUITest = uitest
         if mixMic {
             // FIX-006 复现钩子：等价手点「同时录入麦克风」，走 MixedAudioRecorder 混录链路
             mainWindowView.setMicrophoneMixEnabled(true)
@@ -1481,6 +1484,16 @@ extension MainViewController {
         mainWindowView.updateStatus("编辑: %@".localized(file.name))
         // UI 状态已切换：记录状态 + 视图树快照（验证编辑器视图真实挂载）
         UXEventLog.shared.state("editor_shown", detail: ["file": file.name], snapshotWindow: true)
+        // INFRA-006: 自验 lite 通道——触发器带 uitest 位时，编辑器就绪后自动跑脚本化命令序列
+        if pendingLiteUITest {
+            pendingLiteUITest = false
+            let editor = currentEditor
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+                guard let editor = editor else { return }
+                self?.logger.info("🔬 [INFRA006] lite selftest: 开始脚本化序列")
+                editor.runLiteSelftest()
+            }
+        }
     }
     
     func exitEditor() {

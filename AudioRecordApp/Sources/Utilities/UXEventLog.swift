@@ -331,6 +331,9 @@ final class UXEventLog {
         guard let handle = fileHandle, let data = line.data(using: .utf8) else { return }
         handle.seekToEndOfFile()
         handle.write(data)
+        // INFRA-006: 写后同步落盘——UXEventLog 是自验/取证的控制流信号（lite 通道轮询它断言），
+        // FileHandle 无缓冲刷新会滞留内存直到进程退出，外部脚本实时读不到。
+        handle.synchronizeFile()
     }
 
     /// 当前事件流文件路径（供测试脚本读取）
