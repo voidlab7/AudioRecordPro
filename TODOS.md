@@ -17,9 +17,9 @@
 | 单号         | 标题                                 | P  | 状态          | 备注                                     |
 | ---------- | ---------------------------------- | -- | ----------- | -------------------------------------- |
 | REL-001    | 分发收款链路启动：Apple Dev 个人账号 + Paddle Individual + Payoneer | P0 | 待需求审核 | 老板拍板 2026-10-19：直售+Paddle+免费Pro买断；**护照是 Paddle 验证硬前置**；⚠️ 老板定：REL 系列先调研证实，功能完善优先 |
-| INFRA-005  | 自进化循环机制 LoopBuddy MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | 已审核 · **单轮跑通达成** | 老板 2026-10-19 00:39 审核通过；**R3 轮（10-25）七步真实跑通**：观察 6/6 源 → 2 提案全 A 类零扩权 → FIX-013 闭环 + build-app.sh TCC 修复（均 rfr）；战报 docs/LoopBuddy/R3-2026-10-25-战报.md；剩余验收项=手机端证据包验收闭环 |
+| INFRA-005  | 自进化循环机制 LoopBuddy MVP：观察→提案→分诊→执行→自测→交付→反哺的调度无关循环体；夜跑/手动/定时均只是触发方式 | P0 | done ✅ | 老板 2026-10-19 审核通过；R3 轮（10-25）七步真实跑通，观察 6/6 源 → 2 提案全 A 类零扩权 → FIX-013 + build TCC 修复双交付；**2026-10-25 21:46 老板会话内「验收」闭环**；战报 docs/LoopBuddy/R3-2026-10-25-战报.md |
 | INFRA-006  | UI 自验 lite 通道：触发器 uitest 位 + App 内脚本化命令序列 + 外部 UXEvents 断言脚本 | P1 | done ✅ | 10-24 老板交付验收（merge 980cacf）；验收现场复跑 6/6 PASS，AX 18 按钮可达；即 INFRA-005 自测步正式入口 |
-| FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | **rfr · 待验收** | R3 轮（10-25）符号化实锤：三份 .ips 同崩 `EditorWaveformView.loadAudio` closure #1，与 INFRA-006 修复同根因；重建后冷启 3/3 存活零崩溃、SDK 89/89；无代码变更，证据 docs/证据/2026-10-25-FIX013-符号化与复测结论.md |
+| FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | done ✅ | R3 轮（10-25）符号化实锤同根因（loadAudio UAF，修复实体=INFRA-006）；复测 3/3 零崩溃；**2026-10-25 验收** merge 3c3bac0；证据 docs/证据/2026-10-25-FIX013-符号化与复测结论.md |
 | INFRA-007  | LoopBuddy 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | **待需求审核** | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
 | REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | 待需求审核 | 依据 REQ-i18n 排查报告 §A1/A3 + 4 处中文逻辑依赖解耦 |
 | REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
@@ -112,25 +112,15 @@
 
 ---
 
-### FIX-013 Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | S-M | [rfr · 2026-10-25 R3 轮闭环，待老板交付验收]
+### FIX-013 Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | S-M | [done ✅ 2026-10-25 老板交付验收 → merge 3c3bac0]
 
-> **R3 轮结论（2026-10-25）**：三份 .ips 符号化同崩 `closure #1 in EditorWaveformView.loadAudio +1980`（线程 8/4/12）——与 INFRA-006 修复的 loadAudio use-after-free **同根因**（10-22 晚跑的是 merge 前旧二进制）。
-> 复测：master（含 INFRA-006 修复，merge 980cacf）重建后冷启 3/3 存活 25s（越过 17s 崩溃窗口），DiagnosticReports 零新增；SDK 单测 89/89。
-> **无代码变更**（修复实体 = INFRA-006），本单以「重建后复测不再崩」闭环。
-> 验收标准对照（全达成）：
-> - [x] 三份 .ips 符号化结论落盘 → `docs/证据/2026-10-25-FIX013-符号化与复测结论.md`
-> - [x] 重建后冷启 ≥3 次零崩溃（3/3 存活 + 零新增 .ips）
-> - [x] `build-app.sh` exit 0；SDK 单测基线不回退（89/89）
-> 回滚：无独立代码；整体回退 = `git revert -m 1 980cacf`（同 INFRA-006）。
+> 正文已迁 `docs/归档/TODOS-done-2026-10.md`。
 
 ---
 
-### INFRA-005 R3 轮附带：build-app.sh 清理步 TCC 兼容 | P3 | S | [rfr · worktree loop/INFRA-005-r3 0a011ff，待老板交付验收]
+### INFRA-005 R3 轮附带：build-app.sh 清理步 TCC 兼容 | P3 | S | [done ✅ 2026-10-25 老板交付验收 → merge 3c3bac0]
 
-> R3 轮观察源①钓出（A 类构建修复，随本轮交付）：`rm -rf build/` 撞 macOS 26 App Management TCC（拦 rm 已签名 bundle），`set -e` 断链（10-22 首踩、10-25 复踩）。
-> 修复：build-app.sh 清理步先 `mv` 到 `build.trash-<ts>` 再尽力 rm，rm 失败不阻断；回归连续两次构建 exit 0（含 build 已存在场景）。
-> 反哺：LOOP-adapter §9 教训条目已随 worktree（4c12b31）。
-> 回滚：`git worktree remove .worktrees/INFRA-005-r3 && git branch -D loop/INFRA-005-r3`。
+> 正文已迁 `docs/归档/TODOS-done-2026-10.md`。
 
 ---
 

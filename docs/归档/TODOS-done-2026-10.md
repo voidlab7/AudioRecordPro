@@ -1222,3 +1222,20 @@
 ```
 git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 ```
+
+---
+
+### FIX-013 Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | S-M | [done ✅ 2026-10-25 老板交付验收 → merge 3c3bac0]
+
+> **R3 轮结论（2026-10-25）**：三份 .ips 符号化同崩 `closure #1 in EditorWaveformView.loadAudio +1980`（线程 8/4/12）——与 INFRA-006 修复的 loadAudio use-after-free **同根因**（10-22 晚跑的是 merge 前旧二进制）。
+> 复测：master（含 INFRA-006 修复，merge 980cacf）重建后冷启 3/3 存活 25s（越过 17s 崩溃窗口），DiagnosticReports 零新增；SDK 单测 89/89。
+> **无代码变更**（修复实体 = INFRA-006），本单以「重建后复测不再崩」闭环。
+> 验收标准对照（全达成）：.ips 符号化落盘（docs/证据/2026-10-25-FIX013-符号化与复测结论.md）；冷启 ≥3 次零崩溃；build exit 0 + SDK 89/89。
+> 回滚：无独立代码；整体回退 = `git revert -m 1 980cacf`（同 INFRA-006）。
+
+### INFRA-005 R3 轮附带：build-app.sh 清理步 TCC 兼容 | P3 | S | [done ✅ 2026-10-25 老板交付验收 → merge 3c3bac0]
+
+> R3 轮观察源①钓出（A 类构建修复，随本轮交付）：`rm -rf build/` 撞 macOS 26 App Management TCC（拦 rm 已签名 bundle），`set -e` 断链（10-22 首踩、10-25 复踩）。
+> 修复（0a011ff）：build-app.sh 清理步先 `mv` 到 `build.trash-<ts>` 再尽力 rm，rm 失败不阻断；回归连续两次构建 exit 0（含 build 已存在场景）。验收现场 master 复跑 exit 0。
+> 反哺：LOOP-adapter §9 教训条目（4c12b31）。
+> 回滚：`git revert -m 1 3c3bac0`。
