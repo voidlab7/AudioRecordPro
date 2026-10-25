@@ -14,7 +14,13 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
 echo "🔨 [1/5] 清理旧构建..."
-rm -rf "$BUILD_DIR"
+# macOS 26 App Management TCC 会拦截 rm 已签名 bundle（Operation not permitted）：
+# 先 mv 挪走再删，rm 失败也不阻断构建（旧目录留在 build.trash-*，无副作用）
+if [ -d "$BUILD_DIR" ]; then
+  TRASH_DIR="${BUILD_DIR}.trash-$(date +%s)"
+  mv "$BUILD_DIR" "$TRASH_DIR" 2>/dev/null || true
+  rm -rf "$TRASH_DIR" 2>/dev/null || true
+fi
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 echo "📦 [2/5] 收集源文件..."
