@@ -54,7 +54,7 @@ class EditorWaveformView: NSView {
     
     // P0-C: Clip 视觉边界
     var showClipBorders: Bool = true
-    var clipColor: NSColor = IndustrialColors.waveformCoral
+    var clipColor: NSColor = IndustrialColors.waveformBase
 
     /// P0-C: Clip 名称（绘制在 clip 块上方，作为占位标签）
     /// 后续接入 AudioClip 模型后，改用 `clip.name`
@@ -643,86 +643,42 @@ class EditorWaveformView: NSView {
     
     private func drawWaveformBars(in rect: NSRect) {
         guard !allSamples.isEmpty, visibleDuration > 0 else { return }
-        
+
         let centerY = waveformRect.midY
         let drawHeight = waveformRect.height * 0.82
-        
-        // P0-1: 填充波形渲染（Filled Waveform）
-        // 构建上下包络路径，替代离散柱状条
-        let pixelWidth = waveformRect.width
-        let pixelCount = Int(pixelWidth)
-        guard pixelCount > 0 else { return }
-        
+
+        // UI-025: 密集镜像柱状渲染（对标参考图——2px 级细柱、上下镜像、尖峰感）
+        // 与 tile 路径（drawWaveformTiles）同套柱状语言，替代原 P0-1 填充包络
+        let step = barWidth + barSpacing
+        let barCount = Int(waveformRect.width / step)
+        guard barCount > 0 else { return }
+
         let startSampleIndex = Int(Double(allSamples.count) * visibleStartTime / totalDuration)
         let endSampleIndex = min(allSamples.count, Int(Double(allSamples.count) * (visibleStartTime + visibleDuration) / totalDuration))
         let sampleRange = max(1, endSampleIndex - startSampleIndex)
-        
-        // 为每个像素列计算 min/max 峰值（降采样）
-        let bucketsCount = min(pixelCount, sampleRange)
-        guard bucketsCount > 0 else { return }
-        let samplesPerBucket = max(1, sampleRange / bucketsCount)
-        
-        // 构建上包络路径（从左到右）
-        let upperPath = NSBezierPath()
-        var lowerPoints: [(x: CGFloat, y: CGFloat)] = []
-        var firstPoint = true
-        
-        for i in 0..<bucketsCount {
-            let bucketStart = startSampleIndex + i * samplesPerBucket
-            let bucketEnd = min(bucketStart + samplesPerBucket, endSampleIndex)
+        let samplesPerBar = max(1, sampleRange / barCount)
+
+        for i in 0..<barCount {
+            let bucketStart = startSampleIndex + i * samplesPerBar
+            let bucketEnd = min(bucketStart + samplesPerBar, endSampleIndex)
             guard bucketStart < allSamples.count, bucketEnd <= allSamples.count else { break }
-            
-            // 取桶内最大值作为包络
+
+            // 取桶内最大值作为柱高（镜像对称，同参考图）
             var maxVal: Float = 0
             for j in bucketStart..<bucketEnd {
                 let s = allSamples[j]
                 if s > maxVal { maxVal = s }
             }
-            
-            let x = waveformRect.minX + CGFloat(i) / CGFloat(bucketsCount) * pixelWidth
-            let amplitude = CGFloat(maxVal) * drawHeight * 0.48
-            
-            let upperY = centerY + amplitude
-            let lowerY = centerY - amplitude
-            
-            if firstPoint {
-                upperPath.move(to: NSPoint(x: x, y: upperY))
-                lowerPoints.append((x, lowerY))
-                firstPoint = false
-            } else {
-                upperPath.line(to: NSPoint(x: x, y: upperY))
-                lowerPoints.append((x, lowerY))
-            }
+
+            let x = waveformRect.minX + CGFloat(i) * step
+            // FIX-004 同款下限：静音段保留 1.5pt 细基线带
+            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight * 0.48)
+
+            let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
+            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
+            IndustrialColors.waveformBase.setFill()
+            path.fill()
         }
-        
-        guard !lowerPoints.isEmpty else { return }
-        
-        // 合并为闭合填充路径：上包络 → 下包络反向 → 闭合
-        let filledPath = NSBezierPath()
-        filledPath.append(upperPath)
-        for pt in lowerPoints.reversed() {
-            filledPath.line(to: NSPoint(x: pt.x, y: pt.y))
-        }
-        filledPath.close()
-        
-        // 绘制填充
-        IndustrialColors.waveformCoral.withAlphaComponent(0.75).setFill()
-        filledPath.fill()
-        
-        // 绘制包络线（增加波形边缘清晰度）
-        let lowerPath = NSBezierPath()
-        if let first = lowerPoints.first {
-            lowerPath.move(to: NSPoint(x: first.x, y: first.y))
-            for pt in lowerPoints.dropFirst() {
-                lowerPath.line(to: NSPoint(x: pt.x, y: pt.y))
-            }
-        }
-        
-        IndustrialColors.waveformCoral.withAlphaComponent(0.95).setStroke()
-        upperPath.lineWidth = 1.0
-        upperPath.stroke()
-        lowerPath.lineWidth = 1.0
-        lowerPath.stroke()
 
         // 选区外遮罩已由 drawSelectionOverlay 处理，这里不重复
     }
@@ -928,12 +884,12 @@ class EditorWaveformView: NSView {
                 
                 let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
                 let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-                IndustrialColors.waveformCoral.withAlphaComponent(alpha).setFill()
+                IndustrialColors.waveformBase.withAlphaComponent(alpha).setFill()
                 path.fill()
             }
         }
     }
-    
+
     private func drawSkeletonWaveform(in rect: NSRect) {
         let centerY = waveformRect.midY
         let drawHeight = waveformRect.height * 0.82
@@ -948,7 +904,7 @@ class EditorWaveformView: NSView {
             
             let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
             let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-            IndustrialColors.waveformCoral.withAlphaComponent(0.12).setFill()
+            IndustrialColors.waveformBase.withAlphaComponent(0.12).setFill()
             path.fill()
         }
     }

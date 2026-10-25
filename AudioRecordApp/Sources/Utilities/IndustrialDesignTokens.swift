@@ -139,8 +139,14 @@ struct IndustrialColors {
     /// 播放头/录制焦点
     static let waveformAccent = NSColor(hex: "#E85050")
     
-    /// 主波形条（签名色）
+    /// 主波形条（签名色）——UI-025 后仅用于语义警示场景（静音按钮/clip 调色板），波形渲染改用 waveformBase
     static let waveformCoral = NSColor(hex: "#E87850")
+
+    /// UI-025: 波形主体色（对标参考图采样 #75BFB8；老板拍板 a 明度分层——波纹浅青、强调 #13BBA3 不动）
+    static let waveformBase = NSColor(hex: "#75BFB8")
+
+    /// UI-025: 波形亮部（已播放/选中经过段，参考图波峰亮部采样）
+    static let waveformBright = NSColor(hex: "#84CFC7")
 
     /// UI-019 token 收编：转写进行中进度环/进度强调（原代码写死 #B387FF，规格表 §1.1）
     static let transcriptProgress = NSColor(hex: "#B387FF")

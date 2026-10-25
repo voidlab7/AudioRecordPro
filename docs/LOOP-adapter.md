@@ -23,7 +23,7 @@
 
 | 命令 | 判据 / 基线 | 豁免 |
 |---|---|---|
-| `bash scripts/test_sdk.sh` | 77/77 PASS（基线 2026-10-12）。**worktree 内首跑必挂 SPM manifest sandbox 死点（无 .build 缓存）→ 用 `cd AudioRecordKit && swift test --disable-sandbox` 直跑** | |
+| `bash scripts/test_sdk.sh` | 89/89 PASS（基线 2026-10-25）。**2026-10-25 起系统层 `sandbox_apply: Operation not permitted`（任何目录、沙箱内外均同，与 LOOP-05 同族）→ 统一用 `cd AudioRecordKit && swift test --disable-sandbox` 直跑** | |
 | selftest（App 内置触发器） | 按单声明（如 `N mix` 开麦混录 / `N mixmid` 录音中切麦）；波形自验：容器 tmp 放 `fix008_trigger` 文件后冷启（见 WaveformView 钩子） | |
 | ~~`scripts/test-snapshot.sh`~~ | **已停用**（2026-10-13 LOOP-05：SnapshotTesting 包引擎沙箱死点，包已摘除；源码保留 `AudioRecordMacSnapshotTests/`） | 整层豁免 |
 | ~~`scripts/test-ui.sh`（XCUITest）~~ | **blocked**（LOOP-05：runner bootstrap 死点，等外部终端验证） | 整层豁免，禁试 |
