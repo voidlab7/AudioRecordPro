@@ -35,7 +35,7 @@
 | UI-022     | 删除选区命令 DeleteSelectionCommand（含 undo）+ 工具条删除按钮解除置灰 | P3 | done ✅ | 10-18 老板交付验收（merge fb0894e）；12 断言 + afinfo 1.0s；顺带抓修逆向区间 Range 崩溃 |
 | UI-023     | SplitAudioClipCommand WIP 桩转正（真 clip 拆分，P0 编辑器遗留） | P2 | done ✅ | 10-18 老板交付验收（merge 827b810）；口径 A 样本级真拆分，23 断言 + afinfo 两段各 1.000000s；clip 级独立裁剪降级回池 UI-024 |
 | UI-024     | clip 级编辑迁移：区间视图模型（多段各自选中/拖动/裁剪） | P3 | todo · 待需求审核 | UI-023 降级回池（渲染/播放/导出单 buffer，AudioClip 模型零接线）；L 档，调研先行 |
-| UI-025     | 波纹样式重设计：颜色+形状对标参考图（青绿密集镜像尖峰柱状） | P2 | **doing · 已审核** | 老板 2026-10-25 23:07 审核通过，拍板 **a 明度分层**（波纹浅青 #75BFB8/亮部 #84CFC7，强调保持 #13BBA3）；参考图 docs/需求/参考图/UI-025-波纹样式参考.png |
+| UI-025     | 波纹样式重设计：颜色+形状对标参考图（青绿密集镜像尖峰柱状） | P2 | **rfr · 待验收** | 老板拍板 a 明度分层；worktree loop/UI-025 5db9730：waveformBase #75BFB8/Bright #84CFC7 三处包络→柱状；build 0/SDK 89/89/lite 6/6/实拍像素取证全过；证据 docs/证据/2026-10-25-UI025-波纹样式重设计-硬验证.md |
 | UI-026     | 编辑工具栏照抄剪映风格重构 + 去掉右侧保存按钮 | P2 | todo · 待需求审核 | 老板 2026-10-25 23:10 下发双截图（剪映工具栏 + 现工具栏，docs/需求/参考图/UI-026-*.png）；「保存」按钮无用去除；工具保持我们自己的功能集 |
 | FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | done ✅ | 10-18 老板交付验收（merge 2509ffc）；双向握手（管线登记落点+finish 后到触发）；硬验证 79ms 竞态救回（via=handshake），证据 docs/证据/2026-10-17-FIX012-握手落盘硬验证.md |
 | FEAT-005   | 转写词级时间戳（逐词高亮前置）——引擎升级或自定义对齐 | P3 | todo · 待需求审核 | UI-021 限制回池（TranscriptSegment 仅 start/end，Apple audioTimeRange 粒度不够逐词）；L 档，涉及转写引擎 |
