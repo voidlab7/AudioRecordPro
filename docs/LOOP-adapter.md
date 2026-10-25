@@ -71,4 +71,5 @@
 - FIX-006：报障场景没复现就定性 = 坑（曾误定性「场景 B」返工一轮）；先复现再定性
 - BUG-1 遗留：录制器层修复要查三处同构接线（MicrophoneRecorder / CoreAudioProcessTapRecorder / MixedAudioRecorder），当年只改两处漏一处
 - UI-014：速度/观感类主观需求，先做最保守档位试探，不一步到位
+- **macOS 26 App Management TCC 拦 rm 已签名 bundle（2026-10-25 R3 轮实证）**：`rm -rf build/` 遇已签名 Loocap.app 报 Operation not permitted（沙箱内外一致），`set -e` 下直接断链；`mv` 不在其列。构建/清理脚本一律 **mv 优先、rm 兜底**（build-app.sh 已修，loop/INFRA-005-r3 0a011ff）；残留 `build.trash-*` 无害
 - FEAT-004：绑定 API 时序坑（installTap 后 AUHAL 拒换设备）与 HALOutput 回调配方（SetInputCallback 而非 SetRenderCallback）——改动音频引擎前先查 `docs/需求/FEAT-004*` 实验记录
