@@ -927,30 +927,35 @@ class WaveformView: NSView {
         )
         let centerY = rect.midY
         let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
-        let step = barWidth + barSpacing
-        let maxVisibleBars = Int(floor(timelineRect.width / step))
+        let maxVisibleBars = Int(floor(timelineRect.width / (barWidth + barSpacing)))
         
         // 左起右滚：最新数据在右端，填满后左侧数据被裁切
         let startIndex = max(0, waveformData.count - maxVisibleBars)
         let visibleData = Array(waveformData[startIndex...])
         guard visibleData.count > 1 else { return }
 
-        // UI-025: 密集镜像柱状渲染（对标参考图；替代原 P0-1 填充包络）
+        // UI-025 R2: 剪映式实心镜像剪影（柱状打回，老板对比图 10-25）——
+        // 可见数据线性重采样到 1pt 列后包络填充，与编辑页同语言
         let startX = timelineRect.minX
+        let columnCount = max(2, Int(timelineRect.width))
+        let n = visibleData.count
+        var points: [(x: CGFloat, amp: CGFloat)] = []
+        points.reserveCapacity(columnCount)
 
-        for (offset, level) in visibleData.enumerated() {
-            let x = startX + CGFloat(offset) * step
-            guard x + barWidth <= timelineRect.maxX else { break }
-
-            let normalized = CGFloat(max(0, level))
-            // FIX-004: 最低振幅 1.5pt——静音段呈现细基线带（0.5pt 视觉上不可见）
-            let amplitude = max(1.5, normalized * drawHeight * 0.48)
-
-            let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
-            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-            IndustrialColors.waveformBase.setFill()
-            path.fill()
+        for i in 0..<columnCount {
+            let pos = CGFloat(i) / CGFloat(columnCount - 1) * CGFloat(n - 1)
+            let idx = min(n - 1, Int(pos))
+            let frac = pos - CGFloat(idx)
+            let v0 = CGFloat(max(0, visibleData[idx]))
+            let v1 = CGFloat(max(0, visibleData[min(idx + 1, n - 1)]))
+            let level = v0 + (v1 - v0) * frac
+            let x = startX + CGFloat(i) / CGFloat(columnCount - 1) * timelineRect.width
+            // FIX-004: 最低振幅 1.5pt——静音段呈现细基线带
+            points.append((x: x, amp: max(1.5, level * drawHeight * 0.48)))
         }
+
+        WaveformEnvelopeRenderer.smooth(&points)
+        WaveformEnvelopeRenderer.fillMirror(points: points, centerY: centerY, color: IndustrialColors.waveformBase)
     }
 
     private func drawPlayhead(in rect: NSRect) {
@@ -972,41 +977,52 @@ class WaveformView: NSView {
         let totalBars = data.count
         guard totalBars > 1 else { return }
         
-        // UI-025: 密集镜像柱状渲染（对标参考图；替代原 P0-1 填充包络）
+        // UI-025 R2: 剪映式实心镜像剪影——数据重采样到 1pt 列后包络填充；
+        // 明度分层保留：已播放亮部 waveformBright，未播放主体 waveformBase@0.45，
+        // 播放点处两段共享接缝端点避免缝隙
         let pixelWidth = timelineRect.width
-        let step = barWidth + barSpacing
-        let barCount = Int(pixelWidth / step)
-        let bucketsCount = min(barCount, totalBars)
-        guard bucketsCount > 1 else { return }
-        let samplesPerBucket = max(1, totalBars / bucketsCount)
+        let columnCount = max(2, Int(pixelWidth))
+        let progressX = timelineRect.minX + playbackProgress * pixelWidth
 
-        let progressBucket = Int(playbackProgress * CGFloat(bucketsCount))
+        var points: [(x: CGFloat, amp: CGFloat)] = []
+        points.reserveCapacity(columnCount)
 
-        for i in 0..<bucketsCount {
-            let bucketStart = i * samplesPerBucket
-            let bucketEnd = min(bucketStart + samplesPerBucket, totalBars)
-            var maxVal: Float = 0
-            for j in bucketStart..<bucketEnd {
-                if data[j] > maxVal { maxVal = data[j] }
-            }
-
-            let x = timelineRect.minX + CGFloat(i) * step
+        for i in 0..<columnCount {
+            let pos = CGFloat(i) / CGFloat(columnCount - 1) * CGFloat(totalBars - 1)
+            let idx = min(totalBars - 1, Int(pos))
+            let frac = pos - CGFloat(idx)
+            let v0 = CGFloat(max(0, data[idx]))
+            let v1 = CGFloat(max(0, data[min(idx + 1, totalBars - 1)]))
+            let level = v0 + (v1 - v0) * frac
+            let x = timelineRect.minX + CGFloat(i) / CGFloat(columnCount - 1) * pixelWidth
             // FIX-004 同款下限：静音段保留细基线带
-            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight * 0.48)
-
-            let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
-            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-
-            // 已播放亮部 waveformBright，未播放主体 waveformBase（明度分层）
-            let isPlayed = i <= progressBucket && playbackProgress > 0
-            if isPlayed {
-                IndustrialColors.waveformBright.withAlphaComponent(0.95).setFill()
-            } else {
-                IndustrialColors.waveformBase.withAlphaComponent(0.45).setFill()
-            }
-            path.fill()
+            points.append((x: x, amp: max(1.5, level * drawHeight * 0.48)))
         }
-        
+
+        WaveformEnvelopeRenderer.smooth(&points)
+
+        if playbackProgress > 0, progressX > timelineRect.minX {
+            var played = points.filter { $0.x < progressX }
+            var unplayed = points.filter { $0.x >= progressX }
+            // 接缝端点：两段共享同一 amp，填充无缝
+            if let lastPlayed = played.last, let firstUnplayed = unplayed.first {
+                let seamAmp = (lastPlayed.amp + firstUnplayed.amp) / 2
+                played.append((x: progressX, amp: seamAmp))
+                unplayed.insert((x: progressX, amp: seamAmp), at: 0)
+            }
+            if played.count >= 2 {
+                WaveformEnvelopeRenderer.fillMirror(points: played, centerY: centerY,
+                                                    color: IndustrialColors.waveformBright.withAlphaComponent(0.95))
+            }
+            if unplayed.count >= 2 {
+                WaveformEnvelopeRenderer.fillMirror(points: unplayed, centerY: centerY,
+                                                    color: IndustrialColors.waveformBase.withAlphaComponent(0.45))
+            }
+        } else {
+            WaveformEnvelopeRenderer.fillMirror(points: points, centerY: centerY,
+                                                color: IndustrialColors.waveformBase.withAlphaComponent(0.45))
+        }
+
         // 绘制播放进度游标线
         if playbackProgress > 0 {
             let playheadX = timelineRect.minX + playbackProgress * pixelWidth
