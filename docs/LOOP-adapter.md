@@ -65,6 +65,7 @@
 - 主分支名：`master`
 - 提交格式：`type(<单号>): ...`（type = feat/fix/ui/infra/chore/revert）
 - 需求池入库：是（TODOS.md 随 git 跟踪；worktree 内禁改，见引擎 §八.2）
+- **池状态列书写纪律**（R6 反哺）：速览表「状态」列必须用规范六态词或其规范变体（`todo` / `doing` / `self-verify` / `rfr · 待验收` / `blocked` / `done ✅` / `待需求审核` / `已审核`）——`health.py norm_status` 按 startswith 匹配，复合前缀（如 `todo · 待需求审核`）会漏统计（误报「全卡审核关卡」）；需两段信息时写「`todo`（待需求审核）」圆括号补充而非斜杠拼前缀
 - push 由老板确认
 - 独占资源：selftest 拉起的 App 实例同 bundle id（com.microlab.loocap），多班次并行须错峰（现班次 10:30/14:30 串行，天然错峰）
 
