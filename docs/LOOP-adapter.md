@@ -36,6 +36,7 @@
 | 录音文件加密产物 | `/tmp/arlock_decrypt/arlock_decrypt` 解密后验（注意它是目录，二进制在其中） |
 | selftest 链路打点 | 日志 grep 关键行（如「麦克风首帧 peak=」） |
 | 窗口/截图 | Quartz onscreen 列举 + `screencapture -l`（TCC 辅助功能缺，AX/System Events 不可用，不得用 AX 当截图验收） |
+| **App 存活/冒烟**（R4 反哺） | **只认 App 自身日志尾部时间戳推进**（`~/Library/Containers/com.microlab.loocap/.../Logs/audiorecord_*.log`）；**沙箱内 pgrep/ps 判进程不可信**（2026-10-26 R4 实证：App 活着写日志，pgrep -x 两连 DEAD 假信号） |
 
 ## 5. 执行者
 
@@ -45,6 +46,8 @@
 
 - 平台：macOS 26.2 / Xcode 26.x / swiftc 直编（build-app.sh 不走 pbxproj）
 - **WorkBuddy 执行容器内不可用**（2026-10-13 实证，禁试）：`xcodebuild test`（包解析与 runner 双死点）、`log show/stream`（Cannot run while sandboxed）、`ps`、`crontab`、`launchctl submit`、osascript 发 Apple Events；`dangerouslyDisableSandbox` ≠ 无沙箱
+- **沙箱内 pgrep/log show 同样不可信**（2026-10-26 R4 实证）：pgrep 对 open 拉起的 App 返回空（假 DEAD）、log show 报「did not refer to a valid log archive」——进程存活判定见 §4 App 存活行
+- **并发轮约束**（2026-10-26 R4 实证，机制化方案待 INFRA-008 审）：同一时刻只允许一个 LoopBuddy 轮；后到会话发现他轮痕迹（目标单 worktree 已占用/他轮构建或单测进程在跑）应**让路换下一张已审核单**，不得同单双执行；lite/selftest 拉起的 App 同 bundle id，两轮同时跑观察步会互踩独占资源
 - 沙箱外拉起通道（Terminal/launchctl/cron/LaunchAgent）全会话内被拒 → 需真实终端的验证一律置 blocked 留老板
 - 防休眠：班次内任务短，无需专门处理
 
