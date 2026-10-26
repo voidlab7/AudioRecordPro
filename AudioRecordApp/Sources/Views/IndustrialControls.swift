@@ -352,6 +352,81 @@ final class IndustrialToggleView: NSView {
     }
 }
 
+// MARK: - IndustrialSwitchView
+/// UI-027 方案 A: pill 形开关 — 轨道+圆形滑块；ON=accent 轨道，OFF=中性轨道+描边。
+/// accent 只出现在开态轨道（与 ✓ 同级的仅存强调位）；OFF→ON 直接切换无动画（最保守档位，UI-014 教训）。
+final class IndustrialSwitchView: NSView {
+    var onChange: ((Bool) -> Void)?
+    var isOn: Bool = false { didSet { updateAppearance() } }
+
+    private let thumb = NSView()
+    private var thumbLeading: NSLayoutConstraint!
+    private var thumbTrailing: NSLayoutConstraint!
+    private var isHovering = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setupView()
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        setupView()
+    }
+
+    private func setupView() {
+        wantsLayer = true
+        translatesAutoresizingMaskIntoConstraints = false
+
+        thumb.wantsLayer = true
+        thumb.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(thumb)
+
+        thumbLeading = thumb.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2)
+        thumbTrailing = trailingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 2)
+
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 36),
+            heightAnchor.constraint(equalToConstant: 20),
+            thumb.centerYAnchor.constraint(equalTo: centerYAnchor),
+            thumb.widthAnchor.constraint(equalToConstant: 16),
+            thumb.heightAnchor.constraint(equalToConstant: 16),
+            thumbLeading,
+        ])
+
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
+        updateAppearance()
+    }
+
+    private func updateAppearance() {
+        layer?.cornerRadius = 10
+        layer?.backgroundColor = isOn ? IndustrialColors.primary.cgColor : IndustrialColors.surfaceContainerHigh.cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = isOn ? IndustrialColors.primary.cgColor : (isHovering ? IndustrialColors.outline.withAlphaComponent(0.3).cgColor : IndustrialColors.outlineVariant.cgColor)
+        thumb.layer?.backgroundColor = IndustrialColors.onSurface.cgColor
+        thumb.layer?.cornerRadius = 8
+        thumbLeading.isActive = !isOn
+        thumbTrailing.isActive = isOn
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        NSCursor.pointingHand.set()
+        updateAppearance()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        NSCursor.arrow.set()
+        updateAppearance()
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        isOn.toggle()
+        onChange?(isOn)
+    }
+}
+
 // MARK: - IndustrialTabButtonView
 final class IndustrialTabButtonView: NSView {
     var onClick: (() -> Void)?
