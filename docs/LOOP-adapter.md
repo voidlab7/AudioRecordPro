@@ -48,6 +48,7 @@
 - **WorkBuddy 执行容器内不可用**（2026-10-13 实证，禁试）：`xcodebuild test`（包解析与 runner 双死点）、`log show/stream`（Cannot run while sandboxed）、`ps`、`crontab`、`launchctl submit`、osascript 发 Apple Events；`dangerouslyDisableSandbox` ≠ 无沙箱
 - **沙箱内 pgrep/log show 同样不可信**（2026-10-26 R4 实证）：pgrep 对 open 拉起的 App 返回空（假 DEAD）、log show 报「did not refer to a valid log archive」——进程存活判定见 §4 App 存活行
 - **并发轮约束**（2026-10-26 R4 实证，机制化方案待 INFRA-008 审）：同一时刻只允许一个 LoopBuddy 轮；后到会话发现他轮痕迹（目标单 worktree 已占用/他轮构建或单测进程在跑）应**让路换下一张已审核单**，不得同单双执行；lite/selftest 拉起的 App 同 bundle id，两轮同时跑观察步会互踩独占资源
+- **并发停摆接手**（2026-10-26 R5 实证）：发现他轮实现已落盘（worktree 有提交）但停在交付步前（无进程、工作区干净、池状态未更新）时，接手动作=**独立复测后交付**——不重写已落盘实现、不采信对方自述的测试数字（上下文分离），复测全绿才置 rfr；证据文档若已在 worktree，随 merge 进 master
 - 沙箱外拉起通道（Terminal/launchctl/cron/LaunchAgent）全会话内被拒 → 需真实终端的验证一律置 blocked 留老板
 - 防休眠：班次内任务短，无需专门处理
 
