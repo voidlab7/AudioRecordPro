@@ -54,7 +54,7 @@ class EditorWaveformView: NSView {
     
     // P0-C: Clip 视觉边界
     var showClipBorders: Bool = true
-    var clipColor: NSColor = IndustrialColors.waveformCoral
+    var clipColor: NSColor = IndustrialColors.waveformBase
 
     /// P0-C: Clip 名称（绘制在 clip 块上方，作为占位标签）
     /// 后续接入 AudioClip 模型后，改用 `clip.name`
@@ -643,87 +643,40 @@ class EditorWaveformView: NSView {
     
     private func drawWaveformBars(in rect: NSRect) {
         guard !allSamples.isEmpty, visibleDuration > 0 else { return }
-        
-        let centerY = waveformRect.midY
+
         let drawHeight = waveformRect.height * 0.82
-        
-        // P0-1: 填充波形渲染（Filled Waveform）
-        // 构建上下包络路径，替代离散柱状条
-        let pixelWidth = waveformRect.width
-        let pixelCount = Int(pixelWidth)
-        guard pixelCount > 0 else { return }
-        
+
+        // UI-025 R2: 剪映式实心镜像剪影（老板 10-25 深夜对比图打回柱状——回改连续填充包络，
+        // 底版=原 P0-1 填充波形，加 FIX-004 静音基线与包络平滑）
+        let pixelCount = max(2, Int(waveformRect.width))
         let startSampleIndex = Int(Double(allSamples.count) * visibleStartTime / totalDuration)
         let endSampleIndex = min(allSamples.count, Int(Double(allSamples.count) * (visibleStartTime + visibleDuration) / totalDuration))
         let sampleRange = max(1, endSampleIndex - startSampleIndex)
-        
-        // 为每个像素列计算 min/max 峰值（降采样）
-        let bucketsCount = min(pixelCount, sampleRange)
-        guard bucketsCount > 0 else { return }
-        let samplesPerBucket = max(1, sampleRange / bucketsCount)
-        
-        // 构建上包络路径（从左到右）
-        let upperPath = NSBezierPath()
-        var lowerPoints: [(x: CGFloat, y: CGFloat)] = []
-        var firstPoint = true
-        
-        for i in 0..<bucketsCount {
-            let bucketStart = startSampleIndex + i * samplesPerBucket
-            let bucketEnd = min(bucketStart + samplesPerBucket, endSampleIndex)
+        let samplesPerColumn = max(1, sampleRange / pixelCount)
+
+        var points: [(x: CGFloat, amp: CGFloat)] = []
+        points.reserveCapacity(pixelCount)
+
+        for i in 0..<pixelCount {
+            let bucketStart = startSampleIndex + i * samplesPerColumn
+            let bucketEnd = min(bucketStart + samplesPerColumn, endSampleIndex)
             guard bucketStart < allSamples.count, bucketEnd <= allSamples.count else { break }
-            
-            // 取桶内最大值作为包络
+
+            // 取桶内最大值作为包络（镜像对称）
             var maxVal: Float = 0
             for j in bucketStart..<bucketEnd {
                 let s = allSamples[j]
                 if s > maxVal { maxVal = s }
             }
-            
-            let x = waveformRect.minX + CGFloat(i) / CGFloat(bucketsCount) * pixelWidth
-            let amplitude = CGFloat(maxVal) * drawHeight * 0.48
-            
-            let upperY = centerY + amplitude
-            let lowerY = centerY - amplitude
-            
-            if firstPoint {
-                upperPath.move(to: NSPoint(x: x, y: upperY))
-                lowerPoints.append((x, lowerY))
-                firstPoint = false
-            } else {
-                upperPath.line(to: NSPoint(x: x, y: upperY))
-                lowerPoints.append((x, lowerY))
-            }
-        }
-        
-        guard !lowerPoints.isEmpty else { return }
-        
-        // 合并为闭合填充路径：上包络 → 下包络反向 → 闭合
-        let filledPath = NSBezierPath()
-        filledPath.append(upperPath)
-        for pt in lowerPoints.reversed() {
-            filledPath.line(to: NSPoint(x: pt.x, y: pt.y))
-        }
-        filledPath.close()
-        
-        // 绘制填充
-        IndustrialColors.waveformCoral.withAlphaComponent(0.75).setFill()
-        filledPath.fill()
-        
-        // 绘制包络线（增加波形边缘清晰度）
-        let lowerPath = NSBezierPath()
-        if let first = lowerPoints.first {
-            lowerPath.move(to: NSPoint(x: first.x, y: first.y))
-            for pt in lowerPoints.dropFirst() {
-                lowerPath.line(to: NSPoint(x: pt.x, y: pt.y))
-            }
-        }
-        
-        IndustrialColors.waveformCoral.withAlphaComponent(0.95).setStroke()
-        upperPath.lineWidth = 1.0
-        upperPath.stroke()
-        lowerPath.lineWidth = 1.0
-        lowerPath.stroke()
 
+            let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
+            // FIX-004 同款下限：静音段保留 3pt 基线带（半高 1.5）
+            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight * 0.5)
+            points.append((x: x, amp: amplitude))
+        }
+
+        smoothEnvelope(&points)
+        fillMirrorEnvelope(points: points, centerY: waveformRect.midY, color: IndustrialColors.waveformBase)
         // 选区外遮罩已由 drawSelectionOverlay 处理，这里不重复
     }
 
@@ -889,68 +842,74 @@ class EditorWaveformView: NSView {
     
     private func drawWaveformTiles(in rect: NSRect) {
         guard visibleDuration > 0 else { return }
-        
-        let centerY = waveformRect.midY
-        let drawHeight = waveformRect.height * 0.82
-        let step = barWidth + barSpacing
-        
+
         if currentTiles.isEmpty {
             // No tiles available yet — draw skeleton placeholder
             drawSkeletonWaveform(in: rect)
             return
         }
-        
+
+        // UI-025 R2: 剪映式实心镜像剪影——peak 序列一次包络填充（离散柱状打回，老板对比图 10-25）。
+        // FIX-010 幅度映射保留（WaveformAmplitudeMapper.normalized，静音门限仍生效）；
+        // 柱状时代的 per-bar alpha 渐变随柱状语言退役——剪影单色填充，与 bars 路径行为对齐。
+        var points: [(x: CGFloat, amp: CGFloat)] = []
+        let drawHeight = waveformRect.height * 0.82
+
         for tile in currentTiles {
             guard !tile.peaks.isEmpty, tile.duration > 0 else { continue }
-            
+
             let peakDuration = tile.duration / Double(tile.peaks.count)
-            
+
             for (i, peak) in tile.peaks.enumerated() {
                 let peakTime = tile.sourceStartTime + Double(i) * peakDuration
-                
+
                 // Skip peaks outside visible range
                 guard peakTime + peakDuration >= visibleStartTime,
                       peakTime <= visibleStartTime + visibleDuration else { continue }
-                
-                let x = timeToPixel(peakTime)
-                guard x >= waveformRect.minX - step, x <= waveformRect.maxX + step else { continue }
 
-                // FIX-010: tile 路径幅度过同一映射函数（参考值 = 满刻度 1.0，本就全局线性；
-                // 收益 = 静音门限 −60 dBFS 生效，真静音不出噪点）。alpha 公式不动（单子铁律）。
+                let x = timeToPixel(peakTime)
+                // ±2pt 容差桥接 tile 边界，避免剪影在 tile 接缝断开
+                guard x >= waveformRect.minX - 2, x <= waveformRect.maxX + 2 else { continue }
+
                 let mapped = WaveformAmplitudeMapper.normalized(peak.amplitude, referenceMax: 1.0)
                 let amplitude = max(1.5, CGFloat(mapped) * drawHeight * 0.5)
-
-                let isInSelection = selection.map { $0.contains(peakTime) } ?? true
-                let level = CGFloat(mapped)
-                let alpha: CGFloat = isInSelection
-                    ? max(0.34, min(1.0, 0.34 + level * 0.66))
-                    : max(0.15, min(0.4, 0.15 + level * 0.25))
-                
-                let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
-                let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-                IndustrialColors.waveformCoral.withAlphaComponent(alpha).setFill()
-                path.fill()
+                points.append((x: x, amp: amplitude))
             }
         }
+
+        guard !points.isEmpty else { return }
+        points.sort { $0.x < $1.x }
+        smoothEnvelope(&points)
+        fillMirrorEnvelope(points: points, centerY: waveformRect.midY, color: IndustrialColors.waveformBase)
     }
-    
+
     private func drawSkeletonWaveform(in rect: NSRect) {
-        let centerY = waveformRect.midY
         let drawHeight = waveformRect.height * 0.82
-        let step = barWidth + barSpacing
-        let barCount = Int(waveformRect.width / step)
-        
-        // Draw low-opacity placeholder bars with subtle animation hint
-        for i in 0..<barCount {
-            let x = waveformRect.minX + CGFloat(i) * step
+        let pixelCount = max(2, Int(waveformRect.width))
+
+        // UI-025 R2: 占位剪影（同包络语言，低透明度 + 呼吸动画）
+        var points: [(x: CGFloat, amp: CGFloat)] = []
+        points.reserveCapacity(pixelCount)
+        for i in 0..<pixelCount {
+            let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
             let phase = sin(CGFloat(i) * 0.15 + skeletonPhase) * 0.3 + 0.5
-            let amplitude = max(1.5, phase * drawHeight * 0.2)
-            
-            let barRect = NSRect(x: x, y: centerY - amplitude, width: barWidth, height: amplitude * 2)
-            let path = NSBezierPath(roundedRect: barRect, xRadius: 0.6, yRadius: 0.6)
-            IndustrialColors.waveformCoral.withAlphaComponent(0.12).setFill()
-            path.fill()
+            points.append((x: x, amp: max(1.5, phase * drawHeight * 0.2)))
         }
+        smoothEnvelope(&points)
+        fillMirrorEnvelope(points: points, centerY: waveformRect.midY, color: IndustrialColors.waveformBase.withAlphaComponent(0.12))
+    }
+
+    // MARK: - UI-025 R2: 剪映式实心镜像剪影共用件（类内薄封装，实现在文件尾 WaveformEnvelopeRenderer）
+
+    /// 由幅度点列构建上下镜像闭合包络，一次填充（连续剪影，替代离散柱状）。
+    /// points 需按 x 升序且无重复；amp 为半高（centerY±amp），已含静音基线下限。
+    private func fillMirrorEnvelope(points: [(x: CGFloat, amp: CGFloat)], centerY: CGFloat, color: NSColor) {
+        WaveformEnvelopeRenderer.fillMirror(points: points, centerY: centerY, color: color)
+    }
+
+    /// 包络点 3 点加权移动平均（首尾保形）：削像素级锯齿，保留峰谷自然起伏（对标剪映参考轮廓）
+    private func smoothEnvelope(_ points: inout [(x: CGFloat, amp: CGFloat)]) {
+        WaveformEnvelopeRenderer.smooth(&points)
     }
 }
 
@@ -1188,5 +1147,38 @@ extension EditorWaveformView {
         }
         path.close()
         path.fill()
+    }
+}
+
+/// UI-025 R2: 剪映式实心镜像剪影渲染共用件（EditorWaveformView / WaveformView 两态同语言）
+enum WaveformEnvelopeRenderer {
+
+    /// 由幅度点列构建上下镜像闭合包络，一次填充（连续剪影，替代离散柱状）。
+    /// points 需按 x 升序且无重复；amp 为半高（centerY±amp），已含静音基线下限。
+    static func fillMirror(points: [(x: CGFloat, amp: CGFloat)], centerY: CGFloat, color: NSColor) {
+        guard let first = points.first, let last = points.last else { return }
+        color.setFill()
+        guard points.count >= 2, last.x > first.x else {
+            // 退化：单点/零宽 → FIX-004 同款 3pt 基线带
+            NSBezierPath(rect: NSRect(x: first.x, y: centerY - 1.5,
+                                      width: max(1, last.x - first.x), height: 3)).fill()
+            return
+        }
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: first.x, y: centerY - first.amp))
+        for p in points.dropFirst() { path.line(to: NSPoint(x: p.x, y: centerY - p.amp)) }
+        for p in points.reversed() { path.line(to: NSPoint(x: p.x, y: centerY + p.amp)) }
+        path.close()
+        path.fill()
+    }
+
+    /// 包络点 3 点加权移动平均（首尾保形）：削像素级锯齿，保留峰谷自然起伏（对标剪映参考轮廓）
+    static func smooth(_ points: inout [(x: CGFloat, amp: CGFloat)]) {
+        guard points.count > 2 else { return }
+        var result = points
+        for i in 1..<(points.count - 1) {
+            result[i].amp = (points[i - 1].amp + points[i].amp * 2 + points[i + 1].amp) / 4
+        }
+        points = result
     }
 }
