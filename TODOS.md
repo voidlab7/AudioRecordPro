@@ -22,7 +22,7 @@
 | FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | done ✅ | R3 轮（10-25）符号化实锤同根因（loadAudio UAF，修复实体=INFRA-006）；复测 3/3 零崩溃；**2026-10-25 验收** merge 3c3bac0；证据 docs/证据/2026-10-25-FIX013-符号化与复测结论.md |
 | INFRA-007  | LoopBuddy 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | **待需求审核** | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
 | INFRA-008  | LoopBuddy 并发互斥：多会话/多轮同刻执行无保护（worktree 双占用/独占资源互踩/池双写） | P1 | **待需求审核** | R4 轮（10-26 23:08）实证：本会话观察步期间另一并发会话同刻在 `.worktrees/UI-028` 跑 swift-test；本轮 UI-028 靠执行侧自律让路，非机制保证；B 类：互斥形态需老板拍板（lockfile / 调度约定 / 仅检测告警） |
-| INFRA-009  | lite 通道去蜂鸣：移除测试音外放（440Hz afplay 对断言链无判定作用，老板 10-26 反馈难受） | P3 | **rfr · 待验收** | 老板 10-26 直提（需求已审）；去音后 lite 6/6 PASS 且 frames 与带音版逐位一致（437760）；FIX-007 首帧打点仍到达（混录收音证据不变）；代价=mix「真实信号源」验证弱化为首帧打点（记录在案）；worktree loop/INFRA-009 7afcdf5 |
+| INFRA-009  | lite 通道去蜂鸣：移除测试音外放（440Hz afplay 对断言链无判定作用，老板 10-26 反馈难受） | P3 | **rfr · 待验收** | R1 去声源 → **R2 老板修订改放歌**（20e3afd）：查找链 env→婚礼音乐→Downloads 最新→回退柔和琶音；放歌版 lite 6/6 PASS；lite 启动清残留/结束停歌；worktree loop/INFRA-009 20e3afd |
 | REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | 待需求审核 | 依据 REQ-i18n 排查报告 §A1/A3 + 4 处中文逻辑依赖解耦 |
 | REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
 | REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
@@ -544,6 +544,8 @@
 **代价记录**：mix 混录链路「真实信号源」验证弱化为首帧打点（peak 含环境底噪即为收音证）；若未来需要 RMS 级断言（如防静音录音回归），再开单设计无声注入方案（虚拟设备/tap 层实验）。
 
 **位置与回滚**：worktree `loop/INFRA-009` 7afcdf5；回滚 `git worktree remove .worktrees/INFRA-009 && git branch -D loop/INFRA-009`
+
+> **R2 修订（2026-10-26 老板追加「删除蜂鸣声的用例。换一个比如播放一首歌」）**：方向从「静默」改为「播放一首歌」——声源查找链 `$LOOCAP_TEST_MUSIC` → `~/Downloads/婚礼音乐/` → Downloads 最新 mp3/m4a → 回退生成 C 大调分解和弦琶音（每音淡入淡出包络，柔和不刺耳）；lite 启动清残留 afplay、结束时停歌（长歌不外溢）。验证：放歌版 lite 6/6 PASS（声源=A Thousand Years - Christina Perri.mp3）。commit 20e3afd。
 
 ---
 
