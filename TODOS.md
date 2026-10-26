@@ -44,7 +44,7 @@
 | UI-029     | clip 描边默认移除：编辑器 clip 不默认画青绿选中框 | P2 | todo | 老板 10-27 发编辑器截图：「默认没有这个选中的边框」；**10-27 需求审核通过，选中态拍板 a（选中保留细描边，剪映同款）**；落点=波形视图 clip 边框/选中绘制逻辑 |
 | UI-030     | 播放头剪映化：红线+底部三角 → 白色细线+顶部 U 形手柄 | P2 | todo | 老板 10-27 发双图：「这个样式优化成剪映的样式」；**10-27 需求审核通过，拍板「全部抄」——编辑器播放头 + 录制窗静态预览游标统一剪映白线风格**；⚠️ UI-025 时「播放头红色不动」注记由本单取代 |
 | UI-031     | 轨道头重构：去橙色卡片、波形图标绿色化、静音改喇叭图标（去 M）、删 S、音量保留 | P2 | todo | 老板 10-27 发双图；**10-27 需求审核通过（「同意」，S 功能与 UI 一并移除）**；⚠️ AX 树变化需同步 lite 断言自查 |
-| FIX-014    | uitest 自验豁免 BUG-1 峰值拦截：深夜/系统静音下外放声源不可达，lite 连挂 4 次 | P1 | rfr · 待验收 | R7 轮（10-27 凌晨）观察步钓出：INFRA-009 声源改版的隐藏依赖（峰值拦截依赖有声源）——peak=0.0028 纯底噪被静默丢弃→不进编辑器→lite 超时；修复=peak 拦截加 !pendingLiteUITest（duration<1s 核心拦截保留）；同一静音环境修复前 4 连挂→修复后 6/6 PASS（frames 442880）；build 0 / SDK 89/89；worktree loop/FIX-014 61933de |
+| FIX-014    | uitest 自验豁免 BUG-1 峰值拦截：深夜/系统静音下外放声源不可达，lite 连挂 4 次 | P1 | ready-for-review · 待验收 | R7 轮（10-27 凌晨）观察步钓出：INFRA-009 声源改版的隐藏依赖（峰值拦截依赖有声源）——peak=0.0028 纯底噪被静默丢弃→不进编辑器→lite 超时；修复=peak 拦截加 !pendingLiteUITest（duration<1s 核心拦截保留）；同一静音环境修复前 4 连挂→修复后 6/6 PASS（frames 442880）；build 0 / SDK 89/89；worktree loop/FIX-014 61933de |
 | FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | done ✅ | 10-18 老板交付验收（merge 2509ffc）；双向握手（管线登记落点+finish 后到触发）；硬验证 79ms 竞态救回（via=handshake），证据 docs/证据/2026-10-17-FIX012-握手落盘硬验证.md |
 | FEAT-005   | 转写词级时间戳（逐词高亮前置）——引擎升级或自定义对齐 | P3 | todo（待需求审核）| UI-021 限制回池（TranscriptSegment 仅 start/end，Apple audioTimeRange 粒度不够逐词）；L 档，涉及转写引擎 |
 | UI-017     | 麦克风选择器下拉箭头不明显                         | P3 | done ✅ | 10-17 老板交付验收（merge 7cdec2f）；hover/展开留日常观察 |
