@@ -6,7 +6,14 @@
 #
 # 用法: bash scripts/test-ui-lite.sh [app 路径，默认仓库 build/Loocap.app]
 # 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（6 步全过）
-# 依赖: python3 / afplay（测试音防御 BUG-1 静音拦截）
+# 依赖: python3 / afplay
+# INFRA-009: 声源改版——原 440Hz 正弦蜂鸣（刺耳）核对断言链后确认无判定作用：
+#   baseline 仅断言 frameLength>0，split/delete/undo/redo 全命令级帧断言，
+#   FIX-007「首帧 peak=」是一次性日志打点、无人消费数值；BUG-1 的 0 秒文件
+#   由 frames/duration 断言拦截，与有无声源无关。
+#   R2（老板 10-26 修订「删除蜂鸣用例，换播放一首歌」）：声源换为本地歌曲——
+#   查找顺序 $LOOCAP_TEST_MUSIC → 婚礼音乐目录 → Downloads 最新 mp3/m4a →
+#   回退生成 C 大调分解和弦琶音（柔和不刺耳）。lite 结束时 kill 播放。
 set -uo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,24 +21,39 @@ APP="${1:-$REPO/build/Loocap.app}"
 REC_DIR="$HOME/Library/Containers/com.microlab.loocap/Data/Documents/AudioRecordings"
 LOG_DIR="$REC_DIR/Logs/UXEvents"
 TRIGGER="$REC_DIR/selftest-record.txt"
-TONE=/tmp/loocap_lite_tone.wav
 SECS=10
+ARPEG=/tmp/loocap_lite_arpeggio.wav
 
 [ -d "$APP" ] || { echo "FAIL: App 不存在: $APP"; exit 1; }
 [ -d "$LOG_DIR" ] || { echo "FAIL: UXEvents 目录不存在（先跑一次 App）: $LOG_DIR"; exit 1; }
 
-# 测试音：无则生成 20s 440Hz（覆盖 3s 延迟 + 10s 录音窗）
-if [ ! -f "$TONE" ]; then
-  python3 -c "
+# 测试声源：一首歌（INFRA-009 R2），找不到回退柔和琶音
+MUSIC="${LOOCAP_TEST_MUSIC:-$HOME/Downloads/婚礼音乐/A Thousand Years - Christina Perri.mp3}"
+if [ ! -f "$MUSIC" ]; then
+  MUSIC=$(find "$HOME/Downloads" -maxdepth 2 -type f \( -name "*.mp3" -o -name "*.m4a" \) 2>/dev/null | sort | tail -1)
+fi
+if [ -n "$MUSIC" ] && [ -f "$MUSIC" ]; then
+  SRC_DESC="歌: $(basename "$MUSIC")"
+else
+  MUSIC="$ARPEG"
+  if [ ! -f "$ARPEG" ]; then
+    python3 -c "
 import wave, math, struct
-f = wave.open('$TONE', 'w')
-f.setnchannels(2); f.setsampwidth(2); f.setframerate(44100)
-for i in range(44100*20):
-    v = int(12000*math.sin(2*math.pi*440*i/44100))
-    f.writeframes(struct.pack('<hh', v, v))
+sr = 44100
+notes = [261.63, 329.63, 392.0, 523.25]  # C4 E4 G4 C5 分解和弦
+seg = int(sr * 0.375)
+f = wave.open('$ARPEG', 'w')
+f.setnchannels(2); f.setsampwidth(2); f.setframerate(sr)
+for rep in range(int(20 * sr / (seg * 4))):
+    for hz in notes:
+        for i in range(seg):
+            env = math.sin(math.pi * i / seg)  # 每音淡入淡出包络
+            v = int(6000 * env * math.sin(2 * math.pi * hz * i / sr))
+            f.writeframes(struct.pack('<hh', v, v))
 f.close()
 "
-  echo "已生成测试音: $TONE"
+  fi
+  SRC_DESC="回退琶音: $ARPEG"
 fi
 
 # 起点快照（最新日志文件 + 行数），只认其后新增的 UITest 事件
@@ -40,10 +62,12 @@ BEFORE_LINES=0
 [ -n "$BEFORE_FILE" ] && BEFORE_LINES=$(wc -l < "$BEFORE_FILE" | tr -d ' ')
 
 pkill -x Loocap 2>/dev/null
+pkill -x afplay 2>/dev/null
 sleep 1
 printf '10 mix uitest' > "$TRIGGER"
 open "$APP"
-(afplay "$TONE" &) 2>/dev/null
+(afplay "$MUSIC" &) 2>/dev/null
+echo "测试声源 → $SRC_DESC"
 echo "已触发（10s mix uitest），轮询 UITest 事件（最长 150s）..."
 
 python3 - "$LOG_DIR" "$BEFORE_FILE" "$BEFORE_LINES" <<'EOF'
@@ -105,4 +129,5 @@ sys.exit(0 if ok else 1)
 EOF
 RC=$?
 pkill -x Loocap 2>/dev/null
+pkill -x afplay 2>/dev/null  # INFRA-009 R2: 收尾停歌（长歌不外溢）
 exit $RC
