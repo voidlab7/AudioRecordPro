@@ -54,9 +54,7 @@ class EditorViewController {
     private let trackContainerView = TrackContainerView()
 
     /// UI-020: Clip 上下文工具条（选中 Clip 后上方浮出，浮在轨道区之上）
-    private let clipCtxToolbar = ClipContextToolbarView()
-    private var clipCtxToolbarTopConstraint: NSLayoutConstraint?
-    private var clipCtxToolbarCenterConstraint: NSLayoutConstraint?
+    // UI-028: ClipContextToolbarView 已移除——六命令统一从顶部导航栏（EditorNavigationBar）入口
     
     /// 便捷：主轨道波形视图（第一轨）
     private var waveformView: EditorWaveformView {
@@ -176,20 +174,8 @@ class EditorViewController {
         editorView.addSubview(transcriptPanel)
         editorView.addSubview(statusBar)
 
-        // UI-020: Clip 上下文工具条 — 浮在轨道区之上（最后 addSubview 保证在最顶层）
-        clipCtxToolbar.translatesAutoresizingMaskIntoConstraints = false
-        editorView.addSubview(clipCtxToolbar)
-        clipCtxToolbarTopConstraint = clipCtxToolbar.topAnchor.constraint(
-            equalTo: trackContainerView.topAnchor, constant: 26)
-        clipCtxToolbarCenterConstraint = clipCtxToolbar.centerXAnchor.constraint(equalTo: editorView.centerXAnchor)
-        NSLayoutConstraint.activate([
-            clipCtxToolbarTopConstraint!,
-            clipCtxToolbarCenterConstraint!,
-            clipCtxToolbar.heightAnchor.constraint(equalToConstant: IndustrialSpacing.editorCtxToolbarHeight),
-            clipCtxToolbar.widthAnchor.constraint(greaterThanOrEqualToConstant: 380)
-        ])
-        // UI-020: 删除现状无命令 → 置灰（记 TODO 回池）
-        clipCtxToolbar.setActionEnabled(.delete, enabled: false)
+        // UI-028: 浮动上下文工具条已移除——切分/删除并入导航栏工具组（EditorToolType）
+        navigationBar.setToolEnabled(.delete, enabled: false)
 
         // P0-B: 默认创建第一轨
         let defaultTrack = EditorAudioTrack(name: file.name, color: .coral)
@@ -258,8 +244,6 @@ class EditorViewController {
         trackContainerView.onTrackVolumeChange = { [weak self] _, volume in
             self?.previewPlayerNode?.volume = volume
         }
-        // UI-020: 上下文工具条 → 与常驻动作栏同命令（双入口等价）
-        clipCtxToolbar.delegate = self
         // UI-020: 读数三框可键入
         toolbar.selectionReadout.delegate = self
     }
@@ -875,12 +859,16 @@ extension EditorViewController: EditorNavigationBarDelegate {
         switch tool {
         case .trim:
             performTrim()
+        case .split:
+            handleSplit()   // UI-028: 原浮动条切分入口并入（播放头位置切分）
         case .silenceTrim:
             performSilenceTrim()
         case .normalize:
             performNormalize()
         case .fade:
             performFade()
+        case .delete:
+            performDelete()  // UI-028: 原浮动条删除选区入口并入（UI-022 命令）
         }
     }
 }
@@ -894,7 +882,7 @@ extension EditorViewController: EditorWaveformViewDelegate {
         navigationBar.setToolEnabled(.normalize, enabled: true)
         navigationBar.setToolEnabled(.silenceTrim, enabled: true)
         // UI-022: 上下文工具条删除按钮随选区动态置灰/解除
-        clipCtxToolbar.setActionEnabled(.delete, enabled: hasSelection)
+        navigationBar.setToolEnabled(.delete, enabled: hasSelection)  // UI-028: 删除选区依赖选区，置灰语义沿用
 
         // UI-020: 读数三框同步（selection == nil 时显示 —）
         if let r = range {
@@ -1525,27 +1513,6 @@ extension EditorViewController: PropertiesPanelViewDelegate {
     }
 }
 
-
-// MARK: - ClipContextToolbarDelegate（UI-020）
-/// 上下文工具条六命令与常驻动作栏同功能同命令（双入口等价）
-extension EditorViewController: ClipContextToolbarDelegate {
-    func clipContextToolbarDidTap(_ toolbar: ClipContextToolbarView, action: ClipContextToolbarView.Action) {
-        switch action {
-        case .trim:
-            handleTrim()
-        case .split:
-            handleSplit()
-        case .silenceTrim:
-            performSilenceTrim()
-        case .normalize:
-            performNormalize()
-        case .fade:
-            handleFade()
-        case .delete:
-            performDelete()  // UI-022: 删除选区命令已接入
-        }
-    }
-}
 
 // MARK: - SelectionReadoutDelegate（UI-020）
 extension EditorViewController: SelectionReadoutDelegate {
