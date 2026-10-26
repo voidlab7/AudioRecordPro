@@ -6,7 +6,12 @@
 #
 # 用法: bash scripts/test-ui-lite.sh [app 路径，默认仓库 build/Loocap.app]
 # 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（6 步全过）
-# 依赖: python3 / afplay（测试音防御 BUG-1 静音拦截）
+# 依赖: python3
+# INFRA-009: 移除测试音外放（原 afplay 440Hz 蜂鸣）——核对断言链后确认无判定作用：
+#   baseline 仅断言 frameLength>0，split/delete/undo/redo 全命令级帧断言，
+#   FIX-007「首帧 peak=」是一次性日志打点、无人消费数值；BUG-1 的 0 秒文件
+#   由 frames/duration 断言拦截，与有无声源无关。混录链路「真在收音」的验证
+#   保留于 FIX-007 首帧日志（peak 含环境底噪即为证）。
 set -uo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,25 +19,10 @@ APP="${1:-$REPO/build/Loocap.app}"
 REC_DIR="$HOME/Library/Containers/com.microlab.loocap/Data/Documents/AudioRecordings"
 LOG_DIR="$REC_DIR/Logs/UXEvents"
 TRIGGER="$REC_DIR/selftest-record.txt"
-TONE=/tmp/loocap_lite_tone.wav
 SECS=10
 
 [ -d "$APP" ] || { echo "FAIL: App 不存在: $APP"; exit 1; }
 [ -d "$LOG_DIR" ] || { echo "FAIL: UXEvents 目录不存在（先跑一次 App）: $LOG_DIR"; exit 1; }
-
-# 测试音：无则生成 20s 440Hz（覆盖 3s 延迟 + 10s 录音窗）
-if [ ! -f "$TONE" ]; then
-  python3 -c "
-import wave, math, struct
-f = wave.open('$TONE', 'w')
-f.setnchannels(2); f.setsampwidth(2); f.setframerate(44100)
-for i in range(44100*20):
-    v = int(12000*math.sin(2*math.pi*440*i/44100))
-    f.writeframes(struct.pack('<hh', v, v))
-f.close()
-"
-  echo "已生成测试音: $TONE"
-fi
 
 # 起点快照（最新日志文件 + 行数），只认其后新增的 UITest 事件
 BEFORE_FILE=$(ls "$LOG_DIR"/uxevents_*.jsonl 2>/dev/null | sort | tail -1)
@@ -43,7 +33,6 @@ pkill -x Loocap 2>/dev/null
 sleep 1
 printf '10 mix uitest' > "$TRIGGER"
 open "$APP"
-(afplay "$TONE" &) 2>/dev/null
 echo "已触发（10s mix uitest），轮询 UITest 事件（最长 150s）..."
 
 python3 - "$LOG_DIR" "$BEFORE_FILE" "$BEFORE_LINES" <<'EOF'
