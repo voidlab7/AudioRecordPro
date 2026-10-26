@@ -3,16 +3,20 @@ import Cocoa
 // MARK: - Editor Tool Type
 enum EditorToolType: String, CaseIterable {
     case trim = "裁剪"
+    case split = "切分"
     case silenceTrim = "静音裁剪"
     case normalize = "标准化"
     case fade = "淡入淡出"
+    case delete = "删除"
 
     var iconName: String {
         switch self {
         case .trim: return "scissors"
+        case .split: return "rectangle.split.2x1"
         case .silenceTrim: return "waveform.badge.minus"
         case .normalize: return "chart.bar.fill"
         case .fade: return "speaker.wave.2"
+        case .delete: return "trash"
         }
     }
 }
