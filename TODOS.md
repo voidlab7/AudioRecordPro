@@ -22,6 +22,7 @@
 | FIX-013    | Loocap master 二进制启动 ~17s 可复现 SIGSEGV（10-22 晚 ×3） | P1 | done ✅ | R3 轮（10-25）符号化实锤同根因（loadAudio UAF，修复实体=INFRA-006）；复测 3/3 零崩溃；**2026-10-25 验收** merge 3c3bac0；证据 docs/证据/2026-10-25-FIX013-符号化与复测结论.md |
 | INFRA-007  | LoopBuddy 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | **待需求审核** | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
 | INFRA-008  | LoopBuddy 并发互斥：多会话/多轮同刻执行无保护（worktree 双占用/独占资源互踩/池双写） | P1 | **待需求审核** | R4 轮（10-26 23:08）实证：本会话观察步期间另一并发会话同刻在 `.worktrees/UI-028` 跑 swift-test；本轮 UI-028 靠执行侧自律让路，非机制保证；B 类：互斥形态需老板拍板（lockfile / 调度约定 / 仅检测告警） |
+| INFRA-009  | lite 通道去蜂鸣：移除测试音外放（440Hz afplay 对断言链无判定作用，老板 10-26 反馈难受） | P3 | **rfr · 待验收** | 老板 10-26 直提（需求已审）；去音后 lite 6/6 PASS 且 frames 与带音版逐位一致（437760）；FIX-007 首帧打点仍到达（混录收音证据不变）；代价=mix「真实信号源」验证弱化为首帧打点（记录在案）；worktree loop/INFRA-009 7afcdf5 |
 | REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | 待需求审核 | 依据 REQ-i18n 排查报告 §A1/A3 + 4 处中文逻辑依赖解耦 |
 | REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
 | REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
@@ -520,6 +521,29 @@
 - [ ] 选定形态落进 LOOP-adapter（§6 或新增节）
 - [ ] 模拟双轮并发：第二轮被互斥/退出/告警，证据落盘
 - [ ] 正常单轮不受影响（连续 2 轮心跳 verdict=ok）
+
+---
+
+### INFRA-009 lite 通道去蜂鸣：移除测试音外放 | P3 | S | [rfr · 待验收 2026-10-26]
+
+> 来源：老板 10-26 会话内反馈「为什么单测有个蜂鸣声？能不能换一个测试用例？这个太难受了」（需求已审=老板直提）。
+> 蜂鸣源头：`test-ui-lite.sh` 每轮跑 lite 时 `afplay` 外放 20s 440Hz 正弦音（振幅 12000≈-8.7dBFS），注释称「测试音防御 BUG-1 静音拦截」。
+
+**核对结论（改动依据）**：
+- App 内 baseline 断言仅 `frameLength > 0`（EditorViewController.swift:454-462），无 RMS/峰值断言
+- split/delete/undo/redo 全部命令级帧数断言；AX 枚举无声音依赖
+- FIX-007「首帧 peak=」是一次性 `logger.info` 打点，无消费方
+- BUG-1（0 秒文件）由 frames/duration 断言拦截，与有无声源无关
+
+**验收标准**：
+- [x] 去 tone 后 lite 6/6 PASS，frames 与带音版逐位一致（437760）
+- [x] `afplay`/`TONE` 功能残留清零（仅注释保留说明）
+- [x] FIX-007 首帧打点仍到达（`frames=512 44100Hz x1ch`，混录链路收音证据不变）
+- [x] 脚本 `bash -n` 语法过；构建 exit 0
+
+**代价记录**：mix 混录链路「真实信号源」验证弱化为首帧打点（peak 含环境底噪即为收音证）；若未来需要 RMS 级断言（如防静音录音回归），再开单设计无声注入方案（虚拟设备/tap 层实验）。
+
+**位置与回滚**：worktree `loop/INFRA-009` 7afcdf5；回滚 `git worktree remove .worktrees/INFRA-009 && git branch -D loop/INFRA-009`
 
 ---
 
