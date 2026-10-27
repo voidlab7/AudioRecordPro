@@ -36,8 +36,8 @@ class EditorToolbar: NSView {
     // MARK: - UI Components
     private let previewPlayButton = IndustrialCompactIconButton(symbol: "▶")
     private let previewStopButton = IndustrialCompactIconButton(symbol: "■")
-    /// FEAT-001 S2: 文稿抽屉开关
-    private let transcriptButton = IndustrialCompactIconButton(symbol: "文")
+    /// FEAT-001 S2: 文稿抽屉开关（REL-003: 「文」字图标改 SF Symbol，图标无语言歧义）
+    private let transcriptButton = IndustrialCompactIconButton(symbol: "")
     private let topSeparator = CALayer()
 
     /// 缩放控件组（公开，供 EditorViewController 设置 delegate）

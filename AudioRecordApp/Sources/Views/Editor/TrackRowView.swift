@@ -159,7 +159,7 @@ class EditorTrackRowView: NSView {
         // UI-031: 静音按钮 — 剪映线性喇叭图标（去「M」字母，去边框），16×16 热区
         muteButton.isBordered = false
         muteButton.setButtonType(.momentaryChange)
-        muteButton.image = NSImage(systemSymbolName: "speaker", accessibilityDescription: "静音")
+        muteButton.image = NSImage(systemSymbolName: "speaker", accessibilityDescription: "静音".localized)
         muteButton.imageScaling = .scaleProportionallyDown
         muteButton.contentTintColor = IndustrialColors.textTertiary
         muteButton.target = self
@@ -272,7 +272,7 @@ class EditorTrackRowView: NSView {
     /// 更新 Mute 状态视觉（UI-031：静音=speaker.slash + coral，未静音=speaker + 灰；波形同步变暗）
     func updateMuteState(_ muted: Bool) {
         muteButton.image = NSImage(systemSymbolName: muted ? "speaker.slash" : "speaker",
-                                   accessibilityDescription: "静音")
+                                   accessibilityDescription: "静音".localized)
         muteButton.contentTintColor = muted ? IndustrialColors.waveformCoral : IndustrialColors.textTertiary
         waveformView.alphaValue = muted ? 0.3 : 1.0
     }

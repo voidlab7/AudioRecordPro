@@ -242,7 +242,7 @@ final class MicDeviceManager {
         if AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &name) == noErr {
             return name as String
         }
-        return "未知设备"
+        return "未知设备".localized  // REL-003
     }
 
     private func deviceUID(_ id: AudioDeviceID) -> String? {

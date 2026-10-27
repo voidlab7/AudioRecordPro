@@ -77,15 +77,15 @@ public enum TranscriptionError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .engineUnavailable:
-            return "SpeechTranscriber 在此设备不可用（需要 macOS 26+）"
+            return "SpeechTranscriber 在此设备不可用（需要 macOS 26+）".localized  // REL-003
         case .unsupportedLocale(let id):
-            return "语言 \"\(id)\" 不被转写引擎支持"
+            return "语言 \"%@\" 不被转写引擎支持".localized(id)  // REL-003
         case .noCompatibleAudioFormat:
-            return "无兼容音频格式可用"
+            return "无兼容音频格式可用".localized  // REL-003
         case .notAnArlockFile(let url):
-            return "不是加密录音文件: \(url.lastPathComponent)"
+            return "不是加密录音文件: %@".localized(url.lastPathComponent)  // REL-003
         case .decryptFailed(let why):
-            return "解密失败: \(why)"
+            return "解密失败: %@".localized(why)  // REL-003
         }
     }
 }

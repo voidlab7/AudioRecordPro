@@ -87,11 +87,11 @@ class EditorNavigationBar: NSView {
         // 编辑工具图标（参考剪映：纯图标一排）
         for tool in EditorToolType.allCases {
             let button = IndustrialCompactIconButton(symbol: "")
-            if let image = NSImage(systemSymbolName: tool.iconName, accessibilityDescription: tool.rawValue) {
+            if let image = NSImage(systemSymbolName: tool.iconName, accessibilityDescription: tool.rawValue.localized) {
                 let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .medium)
                 button.setImage(image.withSymbolConfiguration(config))
             }
-            button.toolTip = tool.rawValue
+            button.toolTip = tool.rawValue.localized  // REL-003: rawValue=中文 key，显示点走本地化
             button.translatesAutoresizingMaskIntoConstraints = false
             button.onClick = { [weak self] in
                 guard let self else { return }

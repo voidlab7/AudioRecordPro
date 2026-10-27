@@ -51,7 +51,7 @@ class FadeCommand: EditCommand {
         var parts: [String] = []
         if fadeIn > 0 { parts.append("淡入 %@s".localized(String(format: "%.1f", fadeIn))) }
         if fadeOut > 0 { parts.append("淡出 %@s".localized(String(format: "%.1f", fadeOut))) }
-        self.description = parts.joined(separator: " + ") + " (\(curve.rawValue))"
+        self.description = parts.joined(separator: " + ") + " (\(curve.rawValue.localized))"  // REL-003
     }
     
     func execute(on buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
