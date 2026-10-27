@@ -439,7 +439,10 @@ class MainViewController: NSViewController {
         maxPeakDuringRecording = 0
         
         // BUG-1 修复：0 秒/静音录音在落盘前拦截（不进入加密管线）
-        if recording.duration < 1.0 || peak < 0.01 {
+        // FIX-014：uitest 自验序列豁免峰值检查（仅 duration 拦截保留）——深夜/系统静音下
+        // 外放声源不可达（实测 peak=0.0028 纯底噪），峰值拦截会静默丢弃自验录音导致 lite
+        // 断链；自验有效性由 frames≈N 断言承担，混录链路「真在收音」由首帧 peak 日志留痕
+        if recording.duration < 1.0 || (peak < 0.01 && !pendingLiteUITest) {
             logger.warning("拦截无效录音: 时长=\(recording.duration)s, 峰值电平=\(peak)")
             fileManager.markRecordingFinished()
             SecureDelete.deleteFile(at: recording.fileURL)
