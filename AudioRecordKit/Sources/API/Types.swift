@@ -52,6 +52,17 @@ public enum RecordingState: Sendable {
     case stopping   // 停止中
     case playing    // 播放中
     case error      // 错误
+
+    /// REL-002: C API stateCallback 数值契约（0-3，对外稳定）
+    /// error/playing 在数值通道无独立槽位，归 0（与文案时代映射结果一致）
+    public var capiStateValue: Int32 {
+        switch self {
+        case .preparing: return 1
+        case .recording: return 2
+        case .stopping:  return 3
+        case .idle, .playing, .error: return 0
+        }
+    }
 }
 
 /// 音频进程信息

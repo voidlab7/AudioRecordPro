@@ -14,6 +14,9 @@ protocol AudioRecorderProtocol: AnyObject {
     var onLevel: ((Float) -> Void)? { get set }
     var onPeakLevel: ((Float) -> Void)? { get set }
     var onStatus: ((String) -> Void)? { get set }
+    /// REL-002: 结构化状态通道——状态机/逻辑判断一律订阅本通道（枚举驱动），
+    /// onStatus 文案通道仅供显示，禁止 contains 文案判断。
+    var onStateChange: ((RecordingState) -> Void)? { get set }
     var onRecordingStarted: (() -> Void)? { get set }
     var onRecordingComplete: ((AudioRecording) -> Void)? { get set }
     var onPlaybackComplete: (() -> Void)? { get set }
@@ -61,6 +64,8 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     var onLevel: ((Float) -> Void)?
     var onPeakLevel: ((Float) -> Void)?
     var onStatus: ((String) -> Void)?
+    /// REL-002: 结构化状态通道（协议见上）
+    var onStateChange: ((RecordingState) -> Void)?
     var onRecordingStarted: (() -> Void)?
     var onRecordingComplete: ((AudioRecording) -> Void)?
     var onPlaybackComplete: (() -> Void)?
@@ -73,7 +78,12 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
     func callOnStatus(_ message: String) {
         onStatus?(message)
     }
-    
+
+    @MainActor
+    func callOnStateChange(_ state: RecordingState) {
+        onStateChange?(state)
+    }
+
     @MainActor
     func callOnLevel(_ level: Float) {
         onLevel?(level)
@@ -140,6 +150,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
         }
         
         logger.info("录制已成功停止")
+        onStateChange?(.stopping)  // REL-002: 结构化通道（文案通道不变）
         onStatus?("录制已停止".localized)
     }
     
@@ -155,6 +166,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
         audioFile = try AVAudioFile(forWriting: url, settings: settings)
         outputURL = url
         
+        onStateChange?(.idle)  // REL-002
         onStatus?("文件创建成功: %@".localized(url.lastPathComponent))
         logger.info("音频文件创建成功: \(url.lastPathComponent)")
         logger.info("文件格式: \(audioFile?.processingFormat.settings ?? [:])")
@@ -190,6 +202,7 @@ class BaseAudioRecorder: NSObject, AudioRecorderProtocol {
             audioFile = try AVAudioFile(forWriting: defaultURL, settings: standardSettings)
             outputURL = defaultURL
             
+            onStateChange?(.idle)  // REL-002
             onStatus?("文件创建成功: %@".localized(fileName))
             logger.info("音频文件创建成功: \(fileName)")
             logger.info("文件格式: \(settings)")

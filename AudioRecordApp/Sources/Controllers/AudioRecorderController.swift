@@ -82,7 +82,14 @@ class AudioRecorderController: NSObject {
             activeRecorders.values.forEach { $0.onStatus = onStatus }
         }
     }
-    
+
+    /// REL-002: 结构化状态通道（didSet 同步转发给现有 recorder）
+    var onStateChange: ((RecordingState) -> Void)? {
+        didSet {
+            activeRecorders.values.forEach { $0.onStateChange = onStateChange }
+        }
+    }
+
     /// 管线真正启动（ProcessTap 5 步完成 / 麦克风引擎启动）回调
     var onRecordingStarted: (() -> Void)? {
         didSet {

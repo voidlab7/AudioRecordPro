@@ -144,9 +144,15 @@ class MainViewController: NSViewController {
         }
         
         audioRecorderController.onStatus = { [weak self] status in
+            // REL-002: 文案通道纯展示——状态机走 onStateChange 枚举通道
             DispatchQueue.main.async {
                 self?.mainWindowView.updateStatus(status)
-                if status.containsStatusFailure() {
+            }
+        }
+        audioRecorderController.onStateChange = { [weak self] state in
+            DispatchQueue.main.async {
+                self?.mainWindowView.updateRecordingState(state)
+                if state == .error {
                     self?.handleRecordingFailure()
                 }
             }

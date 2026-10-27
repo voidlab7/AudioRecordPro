@@ -96,6 +96,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
                 try await startSystemAudioCapture()
                 
                 isRunning = true
+                onStateChange?(.recording)  // REL-002
                 onStatus?("正在录制 (系统音频 + 麦克风混音)...".localized)
                 // FIX-006: 混音管线真正启动后才通知 UI 进录制态。
                 // 此前本类从未调用（MicrophoneRecorder:232 / CoreAudioProcessTapRecorder:294 均有），
@@ -107,6 +108,7 @@ class MixedAudioRecorder: BaseAudioRecorder {
             } catch {
                 let errorMsg = "融合录音启动失败: \(error.localizedDescription)"
                 logger.error(errorMsg)
+                onStateChange?(.error)  // REL-002
                 onStatus?(errorMsg)
                 silentKeepAlive.stop()  // FIX-006: 失败路径撤除保活
                 cleanup()
