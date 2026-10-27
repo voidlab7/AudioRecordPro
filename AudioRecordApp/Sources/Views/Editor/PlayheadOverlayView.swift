@@ -5,9 +5,11 @@ import Cocoa
 /// x 坐标公式与 TimeRulerView.timeToPixel 完全一致（基于 headerWidth 偏移），
 /// 保证 playhead 与 ruler 时间刻度"精准卡住"。
 ///
-/// 关键点：
-/// - 三角形手柄画在 ruler 底部（剪映风格，倒三角指向波形）
-/// - 垂直线从 ruler 底部一直贯穿到 trackContainer 底部（横跨多轨时也一致）
+/// UI-030 剪映风格：
+/// - 白色细竖线从 ruler 贯穿到容器底部
+/// - U 形圆角手柄恒在顶部、骑在 ruler 行内（老板 10-27 强调：严禁画在底部）
+/// - 播放头在 0:00 与末端时整体内收 clamp，手柄完整可见不越界
+/// 坐标惯例：本视图非翻转（y-up），视觉顶部 = y 大。
 class PlayheadOverlayView: NSView {
 
     // MARK: - Public Configuration
@@ -15,7 +17,7 @@ class PlayheadOverlayView: NSView {
     /// 左侧轨道头宽度 — 跳过此区域（与 TimeRulerView 保持一致）
     var headerWidth: CGFloat = 80
 
-    /// ruler 高度（手柄顶部锚到 ruler 底部）
+    /// ruler 高度（U 形手柄骑在 ruler 行内）
     var rulerHeight: CGFloat = 22
 
     /// 当前可见时间起点（秒）
@@ -74,7 +76,14 @@ class PlayheadOverlayView: NSView {
         return headerWidth + ratio * timeWidth
     }
 
-    // MARK: - Drawing
+    // MARK: - Drawing (UI-030 剪映风格)
+
+    /// U 形手柄描边宽
+    private static let handleStroke: CGFloat = 3
+    /// 臂中心到播放头 x 的偏移（= 底部圆弧半径）
+    private static let handleArmX: CGFloat = 4.5
+    /// 臂直线段长度（顶端到弧心）
+    private static let handleArmLen: CGFloat = 9
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -84,25 +93,37 @@ class PlayheadOverlayView: NSView {
               playbackTime <= visibleStartTime + visibleDuration else { return }
 
         let x = playheadX
+        let topY = bounds.height
 
-        // 1) 三角形手柄 — 倒三角，顶部贴 ruler 底部（剪映风格）
-        let handleTopY: CGFloat = rulerHeight - 1   // ruler 底部内侧 1px
-        let handleSize: CGFloat = 8
-        let triangle = NSBezierPath()
-        triangle.move(to: NSPoint(x: x, y: handleTopY))
-        triangle.line(to: NSPoint(x: x - handleSize / 2, y: handleTopY - handleSize))
-        triangle.line(to: NSPoint(x: x + handleSize / 2, y: handleTopY - handleSize))
-        triangle.close()
-        IndustrialColors.waveformAccent.setFill()
-        triangle.fill()
+        // 0:00 / 末端不越界：手柄半宽内收 clamp，竖线与手柄一起移动不分离
+        let halfHandle = Self.handleArmX + Self.handleStroke / 2
+        let drawX = min(max(x, headerWidth + halfHandle), bounds.width - halfHandle)
 
-        // 2) 垂直线 — 从 ruler 底部一直贯穿到 view 底部（横跨所有轨道行）
-        let lineStartY: CGFloat = handleTopY - handleSize
+        let armTopY = topY - Self.handleStroke / 2 - 1            // 臂顶端（贴容器顶内侧）
+        let armBottomY = armTopY - Self.handleArmLen              // 臂底端（弧心高度）
+
+        // 1) 白色细竖线 — 从手柄弧心高度贯穿到容器底部（顶端藏在手柄描边内）
         let line = NSBezierPath()
-        line.lineWidth = 1.5
-        line.move(to: NSPoint(x: x, y: lineStartY))
-        line.line(to: NSPoint(x: x, y: bounds.height))
-        IndustrialColors.waveformAccent.setStroke()
+        line.lineWidth = 1.25
+        line.move(to: NSPoint(x: drawX, y: 0))
+        line.line(to: NSPoint(x: drawX, y: armBottomY))
+        IndustrialColors.textPrimary.withAlphaComponent(0.92).setStroke()
         line.stroke()
+
+        // 2) U 形手柄 — 骑在 ruler 行，开口朝上（两臂向上、底部半圆弧封口）
+        let handle = NSBezierPath()
+        handle.lineWidth = Self.handleStroke
+        handle.lineCapStyle = .round
+        handle.move(to: NSPoint(x: drawX - Self.handleArmX, y: armTopY))
+        handle.line(to: NSPoint(x: drawX - Self.handleArmX, y: armBottomY))
+        // y-up：180°(左) → 270°(底部) → 360°(右)，逆时针经过底部
+        handle.appendArc(withCenter: NSPoint(x: drawX, y: armBottomY),
+                   radius: Self.handleArmX,
+                   startAngle: 180,
+                   endAngle: 360,
+                   clockwise: false)
+        handle.line(to: NSPoint(x: drawX + Self.handleArmX, y: armTopY))
+        IndustrialColors.textPrimary.withAlphaComponent(0.95).setStroke()
+        handle.stroke()
     }
 }
