@@ -394,7 +394,7 @@ final class TranscriptPanelView: NSView {
         for (idx, segment) in transcript.segments.enumerated() where !segment.text.isEmpty {
             let base = text.length
             let stamp = NSAttributedString(
-                string: String(format: "[%02d:%02d · %d 字]", Int(segment.start) / 60, Int(segment.start) % 60, segment.text.count),
+                string: String(format: "[%02d:%02d · %d 字]".localized, Int(segment.start) / 60, Int(segment.start) % 60, segment.text.count),  // REL-003
                 attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .regular),
                              .foregroundColor: IndustrialColors.onSurfaceVariant]
             )
@@ -488,33 +488,34 @@ final class TranscriptPanelView: NSView {
     /// Transcript → Markdown 文本（S2 导出格式）
     static func markdown(for transcript: Transcript, fileName: String) -> String {
         var md = "# \(fileName)\n\n"
-        md += "> 转写引擎：\(transcript.engine) ｜ 语言：\(transcript.locale) ｜ 生成于 \(transcript.createdAt.formatted(date: .abbreviated, time: .shortened))\n\n"
-        md += "## 全文\n\n\(transcript.fullText)\n"
+        // REL-003: 导出产物为用户可见内容，结构文案走本地化
+        md += "> " + "转写引擎：%@ ｜ 语言：%@ ｜ 生成于 %@".localized(transcript.engine, transcript.locale, transcript.createdAt.formatted(date: .abbreviated, time: .shortened)) + "\n\n"
+        md += "## " + "全文".localized + "\n\n\(transcript.fullText)\n"
         if transcript.segments.count > 1 {
-            md += "\n## 分段\n\n"
+            md += "\n## " + "分段".localized + "\n\n"
             for segment in transcript.segments where !segment.text.isEmpty {
                 let m = Int(segment.start) / 60, s = Int(segment.start) % 60
                 md += "- **\(String(format: "%02d:%02d", m, s))** \(segment.text)\n"
             }
         }
-        md += "\n---\n*由 Loocap 本机转写生成*\n"
+        md += "\n---\n*" + "由 Loocap 本机转写生成".localized + "*\n"
         return md
     }
 
     /// FEAT-002: Transcript → 纯文本（txt 导出格式，无 Markdown 语法标记）
     static func plainText(for transcript: Transcript, fileName: String) -> String {
         var txt = "\(fileName)\n"
-        txt += "转写引擎：\(transcript.engine) ｜ 语言：\(transcript.locale) ｜ 生成于 \(transcript.createdAt.formatted(date: .abbreviated, time: .shortened))\n"
+        txt += "转写引擎：%@ ｜ 语言：%@ ｜ 生成于 %@".localized(transcript.engine, transcript.locale, transcript.createdAt.formatted(date: .abbreviated, time: .shortened)) + "\n"
         txt += String(repeating: "─", count: 24) + "\n\n"
-        txt += "【全文】\n\(transcript.fullText)\n"
+        txt += "【" + "全文".localized + "】\n\(transcript.fullText)\n"
         if transcript.segments.count > 1 {
-            txt += "\n【分段】\n"
+            txt += "\n【" + "分段".localized + "】\n"
             for segment in transcript.segments where !segment.text.isEmpty {
                 let m = Int(segment.start) / 60, s = Int(segment.start) % 60
                 txt += "[\(String(format: "%02d:%02d", m, s))] \(segment.text)\n"
             }
         }
-        txt += "\n── 由 Loocap 本机转写生成 ──\n"
+        txt += "\n── " + "由 Loocap 本机转写生成".localized + " ──\n"
         return txt
     }
 }

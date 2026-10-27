@@ -212,7 +212,7 @@ class AudioFileEncryptor {
         // 从 .arlock 文件名（去掉扩展名）取回 UUID
         let uuidString = url.deletingPathExtension().lastPathComponent
         guard let recordingUUID = UUID(uuidString: uuidString) else {
-            throw CryptoError.invalidFormat("无法从文件名解析 UUID: \(url.lastPathComponent)")
+            throw CryptoError.invalidFormat("无法从文件名解析 UUID: %@".localized(url.lastPathComponent))  // REL-003
         }
 
         logger.info("更新 .arlock 元数据: \(recordingUUID.uuidString.prefix(8))...")
@@ -252,19 +252,19 @@ class AudioFileEncryptor {
     
     private func validateHeader(_ data: Data, url: URL) throws {
         guard data.count >= AudioCryptoConfig.HeaderOffset.metadataStart + 16 else {
-            throw CryptoError.invalidFormat("文件太小：\(data.count) bytes")
+            throw CryptoError.invalidFormat("文件太小：%d bytes".localized(data.count))  // REL-003
         }
         
         let magic = data.subdata(in: 0..<4)
         guard magic == AudioCryptoConfig.magic else {
             // 检查前4字节以提供更好的错误信息
             let hex = magic.map { String(format: "%02X", $0) }.joined(separator: " ")
-            throw CryptoError.invalidFormat("文件格式不正确 (期望 'ARLK'=41 52 4C 4B, 实际 \(hex))")
+            throw CryptoError.invalidFormat("文件格式不正确 (期望 'ARLK'=41 52 4C 4B, 实际 %@)".localized(hex))  // REL-003
         }
         
         let version = data[AudioCryptoConfig.HeaderOffset.version]
         guard version <= AudioCryptoConfig.containerVersion else {
-            throw CryptoError.unsupportedVersion("容器版本 \(version) 不受支持（当前 v\(AudioCryptoConfig.containerVersion)）")
+            throw CryptoError.unsupportedVersion("容器版本 %@ 不受支持（当前 v%@）".localized(String(version), String(AudioCryptoConfig.containerVersion)))  // REL-003
         }
     }
     
@@ -274,7 +274,7 @@ class AudioFileEncryptor {
             in: AudioCryptoConfig.HeaderOffset.keyID..<(AudioCryptoConfig.HeaderOffset.keyID + AudioCryptoConfig.keyIDLength)
         )
         guard let recordingUUID = UUID(uuidData: uuidBytes) else {
-            throw CryptoError.invalidFormat("无法解析录制 UUID")
+            throw CryptoError.invalidFormat("无法解析录制 UUID".localized)  // REL-003
         }
         
         // Extract audio nonce
@@ -301,11 +301,11 @@ enum CryptoError: Error, LocalizedError {
     
     var errorDescription: String? {
         switch self {
-        case .invalidFormat(let msg): return "文件格式错误: \(msg)"
-        case .unsupportedVersion(let msg): return "版本不兼容: \(msg)"
-        case .encryptionFailed(let msg): return "加密失败: \(msg)"
-        case .decryptionFailed(let msg): return "解密失败: \(msg)"
-        case .fileNotFound(let msg): return "文件不存在: \(msg)"
+        case .invalidFormat(let msg): return "文件格式错误: %@".localized(msg)
+        case .unsupportedVersion(let msg): return "版本不兼容: %@".localized(msg)
+        case .encryptionFailed(let msg): return "加密失败: %@".localized(msg)
+        case .decryptionFailed(let msg): return "解密失败: %@".localized(msg)
+        case .fileNotFound(let msg): return "文件不存在: %@".localized(msg)
         }
     }
 }

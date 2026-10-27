@@ -135,19 +135,19 @@ class AudioRecorderController: NSObject {
     ) {
         guard !isRunning else {
             logger.warning("录制已在进行中")
-            onStatus?("录制已在进行中")
+            onStatus?("录制已在进行中".localized)
             return
         }
         
         guard !pids.isEmpty else {
             logger.warning("没有指定要录制的进程")
-            onStatus?("请选择至少一个应用")
+            onStatus?("请选择至少一个应用".localized)
             return
         }
         
         guard #available(macOS 14.4, *) else {
             logger.warning("多进程独立录制需要 macOS 14.4+")
-            onStatus?("多进程独立录制需要 macOS 14.4+")
+            onStatus?("多进程独立录制需要 macOS 14.4+".localized)
             return
         }
         
@@ -197,7 +197,7 @@ class AudioRecorderController: NSObject {
         }
         
         let names = pids.compactMap { processNames[$0] }.joined(separator: ", ")
-        onStatus?("正在独立录制 \(pids.count) 个应用: \(names)")
+        onStatus?("正在独立录制 %d 个应用: %@".localized(pids.count, names))  // REL-003
     }
     
     /// 获取指定进程的当前电平
@@ -237,7 +237,7 @@ class AudioRecorderController: NSObject {
     ) {
         guard !isRunning else {
             logger.warning("录制已在进行中")
-            onStatus?("录制已在进行中")
+            onStatus?("录制已在进行中".localized)
             return
         }
         
@@ -274,7 +274,7 @@ class AudioRecorderController: NSObject {
                 newRecorders[.systemAudio] = systemRecorder
             } else {
                 logger.warning("系统音频录制需要 macOS 14.4+")
-                onStatus?("系统音频录制需要 macOS 14.4+，请升级系统")
+                onStatus?("系统音频录制需要 macOS 14.4+，请升级系统".localized)
             }
         }
         
@@ -289,14 +289,14 @@ class AudioRecorderController: NSObject {
                 newRecorders[.specificProcess] = processRecorder
             } else {
                 logger.warning("特定进程录制需要 macOS 14.4+")
-                onStatus?("特定进程录制需要 macOS 14.4+")
+                onStatus?("特定进程录制需要 macOS 14.4+".localized)
             }
         }
         
         // 检查是否有录制器
         guard !newRecorders.isEmpty else {
             logger.warning("没有可用的录制器")
-            onStatus?("请选择至少一个音频源")
+            onStatus?("请选择至少一个音频源".localized)
             return
         }
         
@@ -309,7 +309,7 @@ class AudioRecorderController: NSObject {
         }
         
         let sources = activeRecorders.keys.map { $0.rawValue }.joined(separator: ", ")
-        onStatus?("正在录制: \(sources)")
+        onStatus?("正在录制: %@".localized(sources))  // REL-003
     }
     
     /// 停止所有录制
@@ -414,10 +414,10 @@ class AudioRecorderController: NSObject {
             logger.info("启动混音录制器")
             mixedRecorder.startRecording()
             
-            onStatus?("正在录制当前目标 + 麦克风")
+            onStatus?("正在录制当前目标 + 麦克风".localized)
         } else {
             logger.warning("混音录制需要 macOS 14.4+")
-            onStatus?("混音录制需要 macOS 14.4+")
+            onStatus?("混音录制需要 macOS 14.4+".localized)
         }
     }
     
