@@ -43,7 +43,7 @@
 | UI-028     | 移除浮动上下文工具条（裁剪/切分/静音裁剪/标准化/淡入淡出/删除），6 动作并入顶部工具栏 | P1 | done ✅ | 2026-10-26 老板交付验收（merge e98a572）：浮动条删除、split/delete 并入顶栏（R5 独立复测全绿）；「切分/切割统一」=入口统一（剪刀≠切分均保留）；顶栏形态实机日常观察 |
 | UI-029     | clip 描边默认移除：编辑器 clip 不默认画青绿选中框 | P2 | done ✅ | 2026-10-27 老板交付验收（merge 见 git log）：默认无框/点击出描边/重进重置，实机过；worktree 已清 |
 | UI-030     | 播放头剪映化：红线+底部三角 → 白色细线+顶部 U 形手柄 | P2 | ready-for-review | 10-27 需求审核通过（拍板「全部抄」）；R9 轮（10-27）交付：worktree loop/UI-030 3b850e9，build 0 / SDK 89/89 / lite 6/6；形态证据=离屏渲染三场景+8x 特写（docs/证据/UI030-离屏-*.png，真源码直编）；实机形态对照并入交付验收看 |
-| UI-031     | 轨道头重构：去橙色卡片、波形图标绿色化、静音改喇叭图标（去 M）、删 S、音量保留 | P2 | todo | 老板 10-27 发双图；**10-27 需求审核通过（「同意」，S 功能与 UI 一并移除）**；⚠️ AX 树变化需同步 lite 断言自查 |
+| UI-031     | 轨道头重构：去橙色卡片、波形图标绿色化、静音改喇叭图标（去 M）、删 S、音量保留 | P2 | ready-for-review | 10-27 需求审核通过（「同意」，S 功能与 UI 一并移除）；R9 轮（10-27）交付：worktree loop/UI-031 6cadb6b，build 0 / SDK 89/89 / lite 6/6；AX 证据=lite 按钮列表 M,S→「静音」（S 消失、喇叭可达）；实机形态对照并入交付验收看 |
 | FIX-014    | uitest 自验豁免 BUG-1 峰值拦截：深夜/系统静音下外放声源不可达，lite 连挂 4 次 | P1 | done ✅ | 2026-10-27 老板交付验收（merge 6e8c33f）：uitest 自验豁免 BUG-1 峰值拦截；同环境 4 连挂→lite 6/6 PASS；静音断链根治；正文见战报 docs/LoopBuddy/R7-2026-10-27-战报.md |
 | FIX-012    | 实时转写落盘竞态：finishAndCollect 完成晚于加密管线读 collectedTranscript，live 文稿经常丢 | P1 | done ✅ | 10-18 老板交付验收（merge 2509ffc）；双向握手（管线登记落点+finish 后到触发）；硬验证 79ms 竞态救回（via=handshake），证据 docs/证据/2026-10-17-FIX012-握手落盘硬验证.md |
 | FEAT-005   | 转写词级时间戳（逐词高亮前置）——引擎升级或自定义对齐 | P3 | todo（待需求审核）| UI-021 限制回池（TranscriptSegment 仅 start/end，Apple audioTimeRange 粒度不够逐词）；L 档，涉及转写引擎 |
@@ -556,7 +556,7 @@
 
 ---
 
-### UI-031 轨道头重构：去橙色卡片 + 静音喇叭化 + 删 S | P2 | S-M | [todo · 已审核 2026-10-27]
+### UI-031 轨道头重构：去橙色卡片 + 静音喇叭化 + 删 S | P2 | S-M | [ready-for-review 2026-10-27 · R9 轮交付，worktree loop/UI-031 6cadb6b]
 
 > 来源：老板 10-27 发双图（已归档）：
 > - 现状：`docs/需求/参考图/UI-031-轨道头现状-橙卡-M-S-20261027.png`（左侧橙色竖条卡片 + 橙色波形小图标 + clip 名 + 音量滑条 + 「M」「S」圆钮）
@@ -573,11 +573,11 @@
 **不做什么**：不动 clip 本体/波形渲染/时间标尺；不动轨道增删结构与轨道头布局骨架；不动音量调节逻辑；不动导出/转写等编辑器其余按钮
 
 **边缘情况**：多轨场景逐轨适用；静音状态切换的图标反馈清晰（激活/未激活实拍）；**AX 树变化自查**——lite `ax_enumerate` 断言当前含「M」「S」按钮文字，按钮删除/改名后 lite 断言与 button_count 若硬编码需同步更新（执行侧自查，不算回归）
-**验收标准**（待需求审核，起草）：
-- [ ] 轨道头无橙色卡片/竖条；波形小图标为绿色，实拍
-- [ ] 静音=喇叭图标（无 M 字），点击切换静音功能正常且有激活态反馈，实拍
-- [ ] S 按钮消失（UI + AX 树均无残留）
-- [ ] 音量滑条拖动正常（回放增益生效）
-- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite 6/6 PASS（断言已适配新按钮集）
+**验收标准**（2026-10-27 R9 轮自验勾选）：
+- [x] 轨道头无橙色卡片/竖条；波形小图标为青绿（#75BFB8 waveformBase）——代码删除 colorBar+图标 tint 改 waveformBase；实拍并入交付验收看
+- [x] 静音=线性喇叭图标（无 M 字），激活态=speaker.slash+coral+波形变暗 0.3——SF Symbol 切换；lite ax_enumerate 按钮列表「M」→「静音」（AX 可达实证）
+- [x] S 按钮消失（UI + AX 树均无残留）——按钮/约束/updateSoloState/协议/实现/isSolo 全链删除；lite 按钮列表无「S」
+- [x] 音量滑条拖动正常——VolumeSliderView 与 onTrackVolumeChange 零改动
+- [x] `build-app.sh` exit 0；SDK 89/89；lite 6/6 PASS（ax_enumerate 判据 windows/nodes，无按钮硬编码断言需适配）
 
-**预估**：S-M ｜ **证据**：（开工后附）
+**预估**：S-M ｜ **证据**：worktree loop/UI-031 6cadb6b；lite 输出 buttons=[导出,,, ,,静音,缩小,…]（旧：…,M,S,…）；战报 docs/LoopBuddy/R9-2026-10-27-战报.md §执行二
