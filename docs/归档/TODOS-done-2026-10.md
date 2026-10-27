@@ -1352,3 +1352,10 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 - [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite 通道 6/6 PASS
 
 ---
+
+
+---
+
+### FIX-014 uitest 自验豁免 BUG-1 峰值拦截：深夜/系统静音下外放声源不可达，lite 连挂 4 次 | P1 | [done ✅ 2026-10-27 老板交付验收 → merge 6e8c33f]
+
+> R7 轮（10-27 凌晨）观察步钓出：INFRA-009 声源改版的隐藏依赖——峰值拦截依赖有声源，深夜系统静音下 peak=0.0028（纯底噪）< 0.01 被静默丢弃→不进编辑器→lite 超时。修复=peak 拦截条件加 `!pendingLiteUITest`（duration<1s 核心拦截保留）；自验有效性由 frames≈N 断言承担，混录「真在收音」由首帧 peak 日志留痕。同一静音环境修复前 4 连挂 → 修复后 lite 6/6 PASS（frames 442880）；build 0 / SDK 89/89。worktree loop/FIX-014 61933de（已清）；完整排障链见 `docs/LoopBuddy/R7-2026-10-27-战报.md`。
