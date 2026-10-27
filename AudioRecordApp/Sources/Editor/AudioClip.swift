@@ -61,7 +61,6 @@ class EditorAudioTrack {
     var color: ClipColor
     var clips: [AudioClip]
     var isMuted: Bool = false
-    var isSolo: Bool = false
     var isVisible: Bool = true
     /// UI-019: 轨道音量（0～1，线性；回放时由 Controller 映射到 playerNode gain）
     var volume: Float = 1.0

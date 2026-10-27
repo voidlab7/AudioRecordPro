@@ -181,13 +181,6 @@ extension TrackContainerView: EditorTrackRowViewDelegate {
         row.updateMuteState(tracks[index].isMuted)
     }
 
-    func trackRowDidRequestSolo(_ row: EditorTrackRowView) {
-        guard let index = trackRows.firstIndex(where: { $0 === row }),
-              index < tracks.count else { return }
-        tracks[index].isSolo.toggle()
-        row.updateSoloState(tracks[index].isSolo)
-    }
-
     /// UI-019: 轨道头音量滑块 → 模型（回放增益由 Controller 应用到 previewPlayerNode）
     func trackRowDidChangeVolume(_ row: EditorTrackRowView, volume: Float) {
         guard let index = trackRows.firstIndex(where: { $0 === row }),
