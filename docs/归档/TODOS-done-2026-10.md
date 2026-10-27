@@ -1443,3 +1443,34 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 
 **预估**：S-M ｜ **证据**：worktree loop/UI-031 6cadb6b（已清）；lite 输出 buttons=[导出,,, ,,静音,缩小,…]（旧：…,M,S,…）；战报 docs/LoopBuddy/R9-2026-10-27-战报.md §执行二
 **验收注**：老板 10-27 预览版实机（UI-030+031 临时合并构建）连看通过。范围外留观：TrackPanelView（主窗口旧面板）另有 M/S 一套未动，老板若要全 App 统一另开单。
+---
+
+### REL-002 i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | [done ✅ 2026-10-27 老板交付验收 → merge e6b7c74]
+
+> 依据 `docs/需求/REQ-i18n-国际化改造排查.md`（09-20）§A1/A3/§四。注意品牌更名后显示名用 Loocap。
+
+**做什么**（四项）：
+1. project.yml 加 `knownRegions`（en base + zh-Hans），建 `.lproj`/xcstrings 基建
+2. TCC 权限文案英文 base + zh-Hans 本地化（**审核红线 A1**）
+3. Info.plist 增 `CFBundleDisplayName`（Loocap）并本地化；「关于」面板产品名排查
+4. 4 处中文逻辑依赖解耦（报告 §四，改造前必须先解耦）
+
+**执行注记（R10 轮，2026-10-27）**：开工现场核查发现 1-3 已由历史提交就绪（FEAT-001 时代引入 `.localized` 体系：L10n 目录/build-app.sh lproj 拷贝链/TCC 英文 base/CFBundleDisplayName）。本单实际核心=**四处逻辑解耦**，实现升级为结构化状态通道：
+
+| # | 原文案判断 | 解耦后 |
+|---|---|---|
+| 1 | StatusBarView.updateStatus contains("录制中"/"失败"…) 猜状态灯 | 猜测删除，纯展示；状态灯只认 updateRecordingState(枚举) |
+| 2 | MainViewController containsStatusFailure → handleRecordingFailure | onStateChange(.error) 枚举驱动；helper 删除 |
+| 3 | AudioRecordSDK_C contains("录制中"/"准备"/"停止") → stateValue | 订阅 onStateChange，数值契约 0-3 不变（capiStateValue 公共可测） |
+| 4 | MicrophoneRecorder catch contains("permission"/"权限"/"denied") | 权限预检前置（AVCaptureDevice.authorizationStatus 确定性判断） |
+
+配套：协议+Base 新增 `onStateChange: ((RecordingState) -> Void)?` 结构化通道（发射点伴发 10 处）；AudioRecordAPI/AudioRecorderController 转发；补 en.lproj/InfoPlist.strings 三键；附带修正文案猜测的历史误标（如「录制中不能播放音频」提示曾误亮录制红灯）。
+
+**验收标准**（2026-10-27 R10 轮自验勾选）：
+- [x] 英文系统冷启动：权限弹窗全英文、Dock/菜单栏显示 Loocap——bundle 结构验证（en.lproj/InfoPlist.strings 落位、Info.plist 权限键英文 base、plutil lint OK）；老板验收认可
+- [x] 中文系统冷启动：全中文，与现版无回归——zh-Hans/InfoPlist.strings 中文文案在位
+- [x] 4 处逻辑依赖改造后有单测覆盖——RecordStateChannelTests 3 用例（CAPI 数值契约/双通道伴发/nil 订阅安全），全部枚举驱动零文案断言
+- [x] `build-app.sh` exit 0——零 error
+
+**预估**：M ｜ **证据**：worktree loop/REL-002 792c085（已清）；build 0 / SDK 92/92（89 基线+3 新增）/ lite 6/6 / 守门 grep 文案逻辑全仓零残留；战报 docs/LoopBuddy/R10-2026-10-27-战报.md
+**验收注**：老板 10-27 会话内交付验收通过（merge e6b7c74）。解锁 REL-003（i18n R2 全量文案迁移）。

@@ -23,7 +23,7 @@
 | INFRA-007  | LoopBuddy 触发通道：14:30 自动化沙箱无 shell，观察 6 源缺 3、执行步不可达、心跳 fail（停摆 96h+） | P1 | 待需求审核 | R2 实证：同循环体两触发器能力不对等（R1 手动会话 5/6 源 vs 本自动化 2/6 源）；B 类：通道形态需老板拍板（自动化接 shell 执行器 / 执行轮改有 shell 会话跑 / 本自动化定格为只读巡逻） |
 | INFRA-008  | LoopBuddy 并发互斥：多会话/多轮同刻执行无保护（worktree 双占用/独占资源互踩/池双写） | P1 | 待需求审核 | R4 轮（10-26 23:08）实证：本会话观察步期间另一并发会话同刻在 `.worktrees/UI-028` 跑 swift-test；本轮 UI-028 靠执行侧自律让路，非机制保证；B 类：互斥形态需老板拍板（lockfile / 调度约定 / 仅检测告警） |
 | INFRA-009  | lite 通道去蜂鸣：移除测试音外放（440Hz afplay 对断言链无判定作用，老板 10-26 反馈难受） | P3 | done ✅ | 2026-10-26 老板交付验收（merge fcd9128）：删 440Hz 蜂鸣 → 声源查找链 env→婚礼音乐→Downloads→琶音兜底；合并态回归 build 0 / SDK 89/89 / lite 6/6 |
-| REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | ready-for-review | 10-27 老板会话内需求审核通过；R10 轮交付：worktree loop/REL-002 792c085，build 0 / SDK 92/92（+3 新增）/ lite 6/6 / 守门 grep 文案逻辑零残留；4 处解耦=onStateChange 枚举通道+权限预检；英文/中文系统冷启动实拍并入交付验收看 |
+| REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | done ✅ | 2026-10-27 老板交付验收（merge e6b7c74）；正文迁归档；解锁 REL-003 |
 | REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | 待需求审核 | 排查报告 A2 + 编辑器重设计新增字符串；注意 09-20 报告后新代码又添中文 |
 | REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
 | FEAT-006   | 本地优先隐私定位：转写全离线取证 + 「音频不出设备、不训练」承诺落地（取证+文案层） | P2 | 待需求审核 | 来源 MicroRadar 2026-10-23（reddit r/software 无 AI 转写需求，dc:reddit:1xamt7c）；与 REL-004 FAQ/隐私政策、FEAT-005 whisper 路线联动，不改转写代码 |
@@ -380,23 +380,9 @@
 
 ---
 
-### REL-002 i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | [ready-for-review 2026-10-27 · R10 轮交付，worktree loop/REL-002 792c085]
+### REL-002 i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | [done ✅ 2026-10-27 老板交付验收 → merge e6b7c74]
 
-> 依据 `docs/需求/REQ-i18n-国际化改造排查.md`（09-20）。注意品牌更名后显示名用 **Loocap**（报告中的 Tapture 仅为排查时点事实）。
-
-**做什么**：
-1. project.yml 加 `knownRegions`（en base + zh-Hans），建 `.lproj`/xcstrings 基建
-2. TCC 权限文案：`NSMicrophoneUsageDescription` / `NSAudioCaptureUsageDescription` 英文 base + zh-Hans 本地化（**审核红线 A1**）
-3. Info.plist 增 `CFBundleDisplayName`（Loocap）并本地化；「关于」面板产品名排查
-4. 4 处中文逻辑依赖解耦（报告 §四，改造前必须先解耦）
-
-**验收标准**（2026-10-27 R10 轮自验勾选）：
-- [x] 英文系统冷启动：权限弹窗全英文、Dock/菜单栏显示 Loocap——bundle 结构验证（en.lproj/InfoPlist.strings 落位、Info.plist 权限键英文 base、plutil lint OK）；实拍并入交付验收看
-- [x] 中文系统冷启动：全中文，与现版无回归——zh-Hans/InfoPlist.strings 中文文案在位（历史已就绪）；实拍并入验收
-- [x] 4 处逻辑依赖改造后有单测覆盖——RecordStateChannelTests 3 用例（CAPI 数值契约/双通道伴发/nil 订阅安全），全部枚举驱动零文案断言
-- [x] `build-app.sh` exit 0——零 error
-
-**执行注记（R10）**：开工时现场核查发现基建/L10n 目录/TCC 英文 base/DisplayName 四项已由历史提交就绪（FEAT-001 时代引入 `.localized` 体系），本单实际核心=**四处逻辑解耦**（onStateChange 枚举通道 + 权限预检）+ en InfoPlist 补齐 + 单测。
+> 正文已迁 `docs/归档/TODOS-done-2026-10.md`。
 
 ---
 
