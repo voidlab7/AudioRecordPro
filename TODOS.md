@@ -24,7 +24,7 @@
 | INFRA-008  | LoopBuddy 并发互斥：多会话/多轮同刻执行无保护（worktree 双占用/独占资源互踩/池双写） | P1 | 待需求审核 | R4 轮（10-26 23:08）实证：本会话观察步期间另一并发会话同刻在 `.worktrees/UI-028` 跑 swift-test；本轮 UI-028 靠执行侧自律让路，非机制保证；B 类：互斥形态需老板拍板（lockfile / 调度约定 / 仅检测告警） |
 | INFRA-009  | lite 通道去蜂鸣：移除测试音外放（440Hz afplay 对断言链无判定作用，老板 10-26 反馈难受） | P3 | done ✅ | 2026-10-26 老板交付验收（merge fcd9128）：删 440Hz 蜂鸣 → 声源查找链 env→婚礼音乐→Downloads→琶音兜底；合并态回归 build 0 / SDK 89/89 / lite 6/6 |
 | REL-002    | i18n R1：基建 + TCC 权限文案（审核红线）+ CFBundleDisplayName | P0 | done ✅ | 2026-10-27 老板交付验收（merge e6b7c74）；正文迁归档；解锁 REL-003 |
-| REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | ready-for-review | 10-27 老板评审通过（ABCD 全做）；R11 轮（10-27）交付：worktree loop/REL-003 cd531fe，10 文件 +340/-358；en 字典 321 条（308 直扫+13 enum 间接 key）plutil OK；build 0 / SDK 92/92 / lite 6/6；双语实机冒烟（录音→编辑→转写→导出）并入交付验收看；qq音乐硬匹配老板 10-27 拍板**维持现状不动**（bundleID 兜底足够，勿再翻出） |
+| REL-003    | i18n R2：全量字符串迁移（en base / zh-Hans lproj） | P0 | done ✅ | 2026-10-27 老板交付验收（merge 941abaf）；正文迁归档；i18n 两期闭环，海外审核红线解除 |
 | REL-004    | 官网英文落地页 + 定价（免费/Pro $29 首发 $19）+ 三政策页 + Paddle checkout | P0 | 待需求审核 | 三政策页（条款/隐私/退款）是 Paddle 网站审核前置，**先于 REL-001 的 Paddle 提交** |
 | FEAT-006   | 本地优先隐私定位：转写全离线取证 + 「音频不出设备、不训练」承诺落地（取证+文案层） | P2 | 待需求审核 | 来源 MicroRadar 2026-10-23（reddit r/software 无 AI 转写需求，dc:reddit:1xamt7c）；与 REL-004 FAQ/隐私政策、FEAT-005 whisper 路线联动，不改转写代码 |
 | UI-018     | 编辑页整体重设计：调研+两套设计稿（只出设计，不改代码） | P2 | done ✅ | **老板已拍板方案 B（轨道主导）**；设计稿+8 状态 PNG 进 git（be73879，10-17） |

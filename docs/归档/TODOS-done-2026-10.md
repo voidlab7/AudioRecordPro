@@ -1474,3 +1474,25 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 
 **预估**：M ｜ **证据**：worktree loop/REL-002 792c085（已清）；build 0 / SDK 92/92（89 基线+3 新增）/ lite 6/6 / 守门 grep 文案逻辑全仓零残留；战报 docs/LoopBuddy/R10-2026-10-27-战报.md
 **验收注**：老板 10-27 会话内交付验收通过（merge e6b7c74）。解锁 REL-003（i18n R2 全量文案迁移）。
+---
+
+### REL-003 i18n R2：全量字符串迁移（en base / zh-Hans lproj）| P0 | [done ✅ 2026-10-27 老板交付验收 → merge 941abaf]
+
+> 09-20 排查报告 A2 + 编辑器重设计新增字符串；REL-002 解锁后开工。
+
+**执行注记（R11 轮，2026-10-27，评审「ABCD 全做」）**：
+- 基线重扫：已接线 354 / 未接线 90 → 甄别四类
+- A 漏网 UI 接线 ~30 处：「文」图标改 SF Symbol doc.text；工具栏 tooltip/AX、FadeCommand rawValue 显示点、Controller 状态文案 10 处（插值改 %@ 格式化 key）、AX「静音」×2、导出结构 8 处 + 分段标签
+- B Kit 错误文案 20 处：TranscriptionModels 5 + AudioFileEncryptor 15（errorDescription 弹窗透出全链）
+- C 导出产物结构：md/txt 全迁移（`## Full Text` / `Transcribed on-device by Loocap`），中文环境 key 原样零变化
+- D en.lproj 字典 **321 条**（308 直扫 + 13 条 enum rawValue 间接 key——静态扫描抓不到运行时 key，甄别补齐）；plutil lint OK；修复 1 处 value 裸引号；「聚合· 」尾空格按源收录
+- 不做：日志/注释（D 级）、测试断言（E 级）、qq音乐硬匹配（老板 10-27 拍板维持现状不动）
+
+**验收标准**（R11 自验勾选）：
+- [x] 重跑 `\p{Han}` 扫描：用户可见字符串清零（日志/注释/enum 定义/数字占位除外）
+- [x] en/zh 双语冒烟——结构验证：字典 321 key 全覆盖 + plutil OK + 中文直通 lite 6/6 零回归；英文实拍由老板验收认可（可选海外用户首装前实切复核）
+- [x] `build-app.sh` exit 0 零 error
+- [x] SDK 92/92；lite 6/6
+
+**预估**：L ｜ **证据**：worktree loop/REL-003 cd531fe（已清）；10 文件 +340/-358；战报 docs/LoopBuddy/R11-2026-10-27-战报.md
+**验收注**：老板 10-27 会话内交付验收通过（merge 941abaf）。i18n 两期（R1+R2）至此闭环，App Store 海外审核红线解除。
