@@ -40,6 +40,8 @@ class EditorWaveformView: NSView {
     // 选区
     private var selectionStart: TimeInterval?
     private var selectionEnd: TimeInterval?
+    // UI-029: clip 选中态标记——用户首次点击/拖拽波形后置 true（选中描边显示条件）
+    private var isClipInteracted = false
     
     // 播放游标
     private var playbackTime: TimeInterval = 0
@@ -612,9 +614,11 @@ class EditorWaveformView: NSView {
     }
 
     private func drawSelectionOverlay(in rect: NSRect) {
-        // UI-020: Clip 选中亮框（B 稿 .sel：teal 1.5px 圆角 8 + white .05 底）
-        // 编辑器 = 单 clip 检视器，clip 加载即选中（有波形就画）
-        if !allSamples.isEmpty {
+        // UI-029: clip 选中亮框改为「选中才显示」——默认（打开编辑器）无边框（老板 10-27：
+        // 「默认没有这个选中的边框」；拍板 a=选中保留细描边，剪映同款）。
+        // 单 clip 检视器无「点空白取消」语义：用户首次点击/拖拽波形即视为选中（isClipInteracted）；
+        // 每次进编辑器都是新视图实例，交互标记天然重置
+        if !allSamples.isEmpty && isClipInteracted {
             let borderRect = waveformRect.insetBy(dx: 1, dy: 8)
             let borderPath = NSBezierPath(roundedRect: borderRect, xRadius: IndustrialSpacing.editorClipSelectionRadius, yRadius: IndustrialSpacing.editorClipSelectionRadius)
             IndustrialColors.editorClipSelectionFill.setFill()
@@ -744,6 +748,8 @@ class EditorWaveformView: NSView {
     }
     
     override func mouseDown(with event: NSEvent) {
+        // UI-029: 任何点击/拖拽波形都视为「选中 clip」（选中描边自此显示；进编辑器默认无边框）
+        isClipInteracted = true
         let location = convert(event.locationInWindow, from: nil)
         dragStartX = location.x
         dragStartVisibleStart = visibleStartTime
