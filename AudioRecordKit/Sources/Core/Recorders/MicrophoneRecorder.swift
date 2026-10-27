@@ -32,7 +32,17 @@ class MicrophoneRecorder: BaseAudioRecorder {
         let targetExtension = forcePCMForDebug ? "wav" : currentFormat.fileExtension
         let url = fileManager.getTempRecordingFileURL(prefix: "mic", format: targetExtension)
         logger.info("开始录制，模式: \(recordingMode.rawValue), 格式: \(currentFormat.rawValue)")
-        
+
+        // REL-002: 麦克风权限前置预检（authorizationStatus 确定性判断，替代原先
+        // catch 内对系统错误文案 contains("权限"/"permission"/"denied") 的脆弱匹配
+        // ——用户系统语言非中/英时该匹配必然失效）
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            logger.error("麦克风权限未授权（预检拦截，status=\(AVCaptureDevice.authorizationStatus(for: .audio).rawValue)）")
+            onStateChange?(.error)
+            onStatus?("需要麦克风权限才能录制，请在系统设置中允许".localized)
+            return
+        }
+
         do {
             // 打印可用麦克风输入设备信息，帮助诊断“有缓冲但为静音”的情况
             logAvailableAudioInputDevices()
@@ -54,19 +64,18 @@ class MicrophoneRecorder: BaseAudioRecorder {
             levelMonitor.startMonitoring(source: .recording(engine: engine))
             
             isRunning = true
+            onStateChange?(.recording)  // REL-002
             onStatus?("正在录制麦克风...".localized)
-            
+
         } catch {
             let errorMsg = "录制启动失败: %@".localized(error.localizedDescription)
+            onStateChange?(.error)  // REL-002
             onStatus?(errorMsg)
             logger.error("麦克风录制启动失败: \(error.localizedDescription)")
-            
-            // Check for permission issues
-            if error.localizedDescription.contains("permission") || 
-               error.localizedDescription.contains("权限") ||
-               error.localizedDescription.contains("denied") {
-                onStatus?("需要麦克风权限才能录制，请在系统设置中允许".localized)
-            }
+
+            // REL-002: 错误分类不再依赖系统文案（原 contains("permission"/"权限"/"denied")
+            // 在非英文/中文系统下失效）——权限拦截前置到 start 前预检（authorizationStatus
+            // 确定性判断），catch 内一律走通用失败文案。
         }
     }
     

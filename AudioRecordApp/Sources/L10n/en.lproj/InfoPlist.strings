@@ -1,0 +1,4 @@
+/* English Info.plist localization (REL-002: en 为 base 语言，键值与 Info.plist 保持一致) */
+"CFBundleDisplayName" = "Loocap";
+"NSMicrophoneUsageDescription" = "Microphone access is required to record your voice.";
+"NSAudioCaptureUsageDescription" = "System audio capture permission is required to record audio from other apps or the system.";

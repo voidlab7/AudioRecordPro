@@ -55,23 +55,12 @@ final class AudioRecordInstance {
             self.levelCallback(level, self.levelUserData)
         }
         
-        api.onStatus = { [weak self] status in
+        // REL-002: 状态回读改订阅结构化 onStateChange（枚举驱动），
+        // 原实现 contains("录制中"/"准备"/"停止"...) 在非中/英系统语言下必然失效。
+        api.onStateChange = { [weak self] state in
             guard let self = self else { return }
-            // 简单的状态映射
-            var stateValue: Int32 = 0
-            if status.contains("录制中") || status.contains("Recording") {
-                stateValue = 2
-                self.isRecording = true
-            } else if status.contains("准备") || status.contains("Preparing") {
-                stateValue = 1
-            } else if status.contains("停止") || status.contains("Stopping") {
-                stateValue = 3
-                self.isRecording = false
-            } else {
-                stateValue = 0
-                self.isRecording = false
-            }
-            self.stateCallback(stateValue, self.stateUserData)
+            self.isRecording = (state == .recording)
+            self.stateCallback(state.capiStateValue, self.stateUserData)
         }
         
         api.onRecordingComplete = { [weak self] recording in

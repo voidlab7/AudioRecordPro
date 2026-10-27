@@ -173,29 +173,14 @@ class StatusBarView: NSView {
     
     // MARK: - Public Methods
     
-    /// 更新总体状态文本（兼容旧接口）
-    /// - Parameter status: 状态描述字符串，会尝试映射为精确状态
+    /// 更新总体状态文本（REL-002: 纯展示通道）
+    /// - Parameter status: 状态描述文案，仅做显示；状态机驱动走 updateRecordingState(枚举)。
+    ///   原实现的 contains("录制中"/"失败"/...) 文案猜测已删除——任何系统语言下
+    ///   逻辑不再依赖显示文案（i18n 红线），误匹配副作用（如「录制中不能播放音频」
+    ///   提示曾被猜成录制态红灯）随之消除。
     func updateStatus(_ status: String) {
         currentStatus = status
-        // 映射旧状态到新显示（兼容旧调用点）
-        // BUGFIX(2026-09-20): 原来用 contains("录") 单字匹配，导致 idle 态的
-        // 「录制目标：全部系统声音」「准备录制…」也被显示成「● 录制中」。
-        // i18n: 关键词需中英双语——status 传入的是已本地化的显示文案，
-        // 英文环境为 "Recording…" 等，必须同时匹配英文关键词。
-        let uppercased = status.uppercased()
-        if uppercased.contains("录制中") || uppercased.contains("正在录制") || uppercased.contains("RECORDING") {
-            updateRecordingState(.recording)
-        } else if uppercased.contains("停止录制") || uppercased.contains("正在停止")
-                    || uppercased.contains("STOPPING") || uppercased.contains("STOPPED") {
-            updateRecordingState(.stopping)
-        } else if uppercased.contains("播放") || uppercased.contains("PLAY") {
-            updateRecordingState(.playing)
-        } else if uppercased.contains("错误") || uppercased.contains("ERROR") || uppercased.contains("FAULT")
-                    || uppercased.contains("失败") || uppercased.contains("FAIL") {
-            updateRecordingState(.error)
-        } else {
-            updateRecordingState(.idle)
-        }
+        statusLabel.stringValue = status
     }
     
     /// 精确更新状态（新接口，REQ-2.0-02）

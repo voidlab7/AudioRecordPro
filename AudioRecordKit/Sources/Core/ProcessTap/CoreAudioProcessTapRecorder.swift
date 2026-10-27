@@ -418,6 +418,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             self.audioToolboxFileManager = audioToolboxManager
             self.outputURL = defaultURL
             
+            onStateChange?(.idle)  // REL-002
             onStatus?("文件创建成功: %@".localized(fileName))
             logger.info("✅ AudioToolbox 音频文件创建成功: \(fileName)")
             
@@ -426,6 +427,7 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
             
         } catch {
             let errorMsg = "创建文件失败: \(error.localizedDescription)"
+            onStateChange?(.error)  // REL-002
             onStatus?(errorMsg)
             logger.error("❌ \(errorMsg)")
         }

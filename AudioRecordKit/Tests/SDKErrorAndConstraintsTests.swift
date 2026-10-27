@@ -218,6 +218,7 @@ private class MockAudioRecorder: NSObject, AudioRecorderProtocol {
     var onLevel: ((Float) -> Void)?
     var onPeakLevel: ((Float) -> Void)?
     var onStatus: ((String) -> Void)?
+    var onStateChange: ((RecordingState) -> Void)?  // REL-002 协议新增
     var onRecordingStarted: (() -> Void)?
     var onRecordingComplete: ((AudioRecording) -> Void)?
     var onPlaybackComplete: (() -> Void)?

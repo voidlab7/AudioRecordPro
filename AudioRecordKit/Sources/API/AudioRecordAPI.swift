@@ -25,6 +25,8 @@ public class AudioRecordAPI {
     public var onLevel: ((Float) -> Void)?
     public var onPeakLevel: ((Float) -> Void)?
     public var onStatus: ((String) -> Void)?
+    /// REL-002: 结构化状态通道——状态机/逻辑判断订阅本通道，禁止对 onStatus 文案做 contains 判断
+    public var onStateChange: ((RecordingState) -> Void)?
     public var onRecordingComplete: ((AudioRecording) -> Void)?
     
     // MARK: - 核心 API
@@ -111,6 +113,10 @@ public class AudioRecordAPI {
         
         currentRecorder?.onStatus = { [weak self] status in
             self?.onStatus?(status)
+        }
+
+        currentRecorder?.onStateChange = { [weak self] state in
+            self?.onStateChange?(state)
         }
         
         currentRecorder?.onRecordingComplete = { [weak self] recording in
