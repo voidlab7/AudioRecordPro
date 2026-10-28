@@ -1023,35 +1023,48 @@ class WaveformView: NSView {
                                                 color: IndustrialColors.waveformBase.withAlphaComponent(0.45))
         }
 
-        // 绘制播放进度游标线（UI-030 剪映风格：白线 + 顶部小 U 形手柄）
+        // 绘制播放进度游标线（UI-030 剪映风格：白线 + 顶部小手柄；UI-033 手柄改盾牌形）
         if playbackProgress > 0 {
             let stroke: CGFloat = 2.2
-            let armX: CGFloat = 3
-            let halfHandle = armX + stroke / 2
+            let halfW: CGFloat = 3.5          // 盾牌半宽（描边中心线）
+            let sqH: CGFloat = 5.5            // 方形段高
+            let triHalf: CGFloat = 2          // 三角半底宽
+            let triH: CGFloat = 3             // 三角高
+            let halfHandle = halfW + stroke / 2
             // 末端不越界：手柄半宽内收 clamp，线与手柄一起移动
             let playheadX = min(max(timelineRect.minX + playbackProgress * pixelWidth,
                                     timelineRect.minX + halfHandle),
                                 timelineRect.maxX - halfHandle)
-            let armTopY = timelineRect.maxY - stroke / 2 - 0.6
-            let armBottomY = armTopY - 5
+            let top = timelineRect.maxY - stroke / 2 - 0.6
+            let sqBottom = top - sqH
+            let tipY = sqBottom - triH
 
             IndustrialColors.textPrimary.withAlphaComponent(0.92).setStroke()
             let playhead = NSBezierPath()
             playhead.lineWidth = 1.25
             playhead.move(to: NSPoint(x: playheadX, y: timelineRect.minY))
-            playhead.line(to: NSPoint(x: playheadX, y: armBottomY))
+            playhead.line(to: NSPoint(x: playheadX, y: tipY))
             playhead.stroke()
 
-            // 顶部小 U 形手柄（同款缩小，适配预览条高度）
+            // 顶部小盾牌手柄（同款缩小，适配预览条高度）
             IndustrialColors.textPrimary.withAlphaComponent(0.95).setStroke()
             let handle = NSBezierPath()
             handle.lineWidth = stroke
-            handle.lineCapStyle = .round
-            handle.move(to: NSPoint(x: playheadX - armX, y: armTopY))
-            handle.line(to: NSPoint(x: playheadX - armX, y: armBottomY))
-            handle.appendArc(withCenter: NSPoint(x: playheadX, y: armBottomY),
-                       radius: armX, startAngle: 180, endAngle: 360, clockwise: false)
-            handle.line(to: NSPoint(x: playheadX + armX, y: armTopY))
+            handle.lineJoinStyle = .round
+            let radius: CGFloat = 1.5
+            handle.move(to: NSPoint(x: playheadX - halfW + radius, y: top))
+            handle.line(to: NSPoint(x: playheadX + halfW - radius, y: top))
+            handle.appendArc(withCenter: NSPoint(x: playheadX + halfW - radius, y: top - radius),
+                             radius: radius, startAngle: 90, endAngle: 0, clockwise: true)
+            handle.line(to: NSPoint(x: playheadX + halfW, y: sqBottom))
+            handle.line(to: NSPoint(x: playheadX + triHalf, y: sqBottom))
+            handle.line(to: NSPoint(x: playheadX, y: tipY))
+            handle.line(to: NSPoint(x: playheadX - triHalf, y: sqBottom))
+            handle.line(to: NSPoint(x: playheadX - halfW, y: sqBottom))
+            handle.line(to: NSPoint(x: playheadX - halfW, y: top - radius))
+            handle.appendArc(withCenter: NSPoint(x: playheadX - halfW + radius, y: top - radius),
+                             radius: radius, startAngle: 180, endAngle: 90, clockwise: true)
+            handle.close()
             handle.stroke()
         }
     }
