@@ -433,10 +433,8 @@ class EditorWaveformView: NSView {
         // P0-C: Clip 标签（绘制在 clip 块上方 4px 处，标识当前 clip 名称）
         drawClipNameLabel(in: dirtyRect)
 
-        // BUG-010 fix: 无选区时显示操作引导
-        if selection == nil {
-            drawGuideText(in: dirtyRect)
-        }
+        // UI-035: 波形底部操作引导文字已移除（老板 10-27「这个字体不要」；
+        // 引导虽删，选区/工具栏交互照旧）
     }
     
     private func drawLoadingState(in rect: NSRect) {
@@ -467,19 +465,7 @@ class EditorWaveformView: NSView {
         let size = text.size(withAttributes: attrs)
         text.draw(at: NSPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2), withAttributes: attrs)
     }
-    
-    private func drawGuideText(in rect: NSRect) {
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: IndustrialTypography.monoDB,
-            .foregroundColor: IndustrialColors.textTertiary.withAlphaComponent(0.5)
-        ]
-        let text = "↔ 在波形上拖拽创建选区，然后使用工具栏操作".localized
-        let size = text.size(withAttributes: attrs)
-        // 显示在波形区底部
-        let y = waveformRect.minY + 4
-        text.draw(at: NSPoint(x: waveformRect.midX - size.width / 2, y: y), withAttributes: attrs)
-    }
-    
+
     private func drawTimeRuler(in rect: NSRect) {
         let rulerY = waveformRect.maxY + 2
         let attrs: [NSAttributedString.Key: Any] = [

@@ -7,7 +7,6 @@
 "SpeechTranscriber 在此设备不可用（需要 macOS 26+）" = "SpeechTranscriber is not available on this device (requires macOS 26+)";
 "Tap UUID未设置" = "Tap UUID not set";
 "ffmpeg 转码失败: %@" = "ffmpeg transcode failed: %@";
-"↔ 在波形上拖拽创建选区，然后使用工具栏操作" = "↔ Drag on the waveform to create a selection, then use the toolbar";
 "● 停止中" = "● Stopping";
 "● 准备中" = "● Preparing";
 "● 录制中" = "● Recording";
