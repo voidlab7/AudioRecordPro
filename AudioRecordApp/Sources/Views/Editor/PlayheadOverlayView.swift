@@ -76,17 +76,16 @@ class PlayheadOverlayView: NSView {
         return headerWidth + ratio * timeWidth
     }
 
-    // MARK: - Drawing (UI-030 剪映风格 · UI-033 盾牌形手柄)
+    // MARK: - Drawing (UI-030 剪映风格 · UI-033 圆角矩形手柄)
 
     /// 手柄描边宽
     private static let handleStroke: CGFloat = 3
-    /// 盾牌半宽（描边中心线）
+    /// 圆角矩形半宽（描边中心线）
     private static let handleHalfW: CGFloat = 5.5
-    /// 盾牌方形段描边中心线高度（顶边→底边）
-    private static let handleSqH: CGFloat = 9
-    /// 底部三角半底宽 / 三角高（尖朝下与竖线衔接）
-    private static let handleTriHalf: CGFloat = 3
-    private static let handleTriH: CGFloat = 5
+    /// 圆角矩形描边中心线高度（顶边→底边）
+    private static let handleSqH: CGFloat = 12
+    /// 圆角半径
+    private static let handleRadius: CGFloat = 4
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -103,38 +102,23 @@ class PlayheadOverlayView: NSView {
         let drawX = min(max(x, headerWidth + halfHandle), bounds.width - halfHandle)
 
         let top = topY - Self.handleStroke / 2 - 1            // 顶边描边中心线（贴容器顶内侧）
-        let sqBottom = top - Self.handleSqH                   // 方形段底边（描边中心线）
-        let tipY = sqBottom - Self.handleTriH                 // 三角尖（描边中心线，竖线衔接点）
+        let rectBottom = top - Self.handleSqH                 // 矩形底边（描边中心线）
 
-        // 1) 白色细竖线 — 从盾牌尖高度贯穿到容器底部（顶端与三角尖衔接）
+        // 1) 白色细竖线 — 从矩形底边中点贯穿到容器底部（顶端藏在底边描边内）
         let line = NSBezierPath()
         line.lineWidth = 1.25
         line.move(to: NSPoint(x: drawX, y: 0))
-        line.line(to: NSPoint(x: drawX, y: tipY))
+        line.line(to: NSPoint(x: drawX, y: rectBottom))
         IndustrialColors.textPrimary.withAlphaComponent(0.92).setStroke()
         line.stroke()
 
-        // 2) 盾牌手柄 — 骑在 ruler 行：上宽圆角方 + 底边中央下凸小三角（UI-033）
-        let halfW = Self.handleHalfW
-        let triHalf = Self.handleTriHalf
-        let radius: CGFloat = 2.5
-        let handle = NSBezierPath()
+        // 2) 手柄 — 骑在 ruler 行：圆角矩形描边轮廓（UI-033 定稿：老板发参考图，去三角）
+        let rect = NSRect(x: drawX - Self.handleHalfW,
+                          y: rectBottom,
+                          width: Self.handleHalfW * 2,
+                          height: Self.handleSqH)
+        let handle = NSBezierPath(roundedRect: rect, xRadius: Self.handleRadius, yRadius: Self.handleRadius)
         handle.lineWidth = Self.handleStroke
-        handle.lineJoinStyle = .round
-        // 顶边 → 右上圆角（y-up：90°→0° 顺时针）→ 右缘直下 → 三角底右 → 尖 → 三角底左 → 左缘 → 左上圆角（180°→90°）→ close
-        handle.move(to: NSPoint(x: drawX - halfW + radius, y: top))
-        handle.line(to: NSPoint(x: drawX + halfW - radius, y: top))
-        handle.appendArc(withCenter: NSPoint(x: drawX + halfW - radius, y: top - radius),
-                         radius: radius, startAngle: 90, endAngle: 0, clockwise: true)
-        handle.line(to: NSPoint(x: drawX + halfW, y: sqBottom))
-        handle.line(to: NSPoint(x: drawX + triHalf, y: sqBottom))
-        handle.line(to: NSPoint(x: drawX, y: tipY))
-        handle.line(to: NSPoint(x: drawX - triHalf, y: sqBottom))
-        handle.line(to: NSPoint(x: drawX - halfW, y: sqBottom))
-        handle.line(to: NSPoint(x: drawX - halfW, y: top - radius))
-        handle.appendArc(withCenter: NSPoint(x: drawX - halfW + radius, y: top - radius),
-                         radius: radius, startAngle: 180, endAngle: 90, clockwise: true)
-        handle.close()
         IndustrialColors.textPrimary.withAlphaComponent(0.95).setStroke()
         handle.stroke()
     }
