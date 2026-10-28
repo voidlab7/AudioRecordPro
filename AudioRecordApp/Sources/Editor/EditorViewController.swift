@@ -197,12 +197,33 @@ class EditorViewController {
             navigationBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
             navBarHeightConstraint!,
 
-            // UI-019 design-B 骨架：trackContainer（时间尺+轨道区）在导航栏下方，
-            // 高度 = intrinsic（ruler 22 + N×140），剩余空间留在轨道区与转写分栏之间。
-            trackContainerView.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
+            // UI-019 design-B 骨架 + UI-032 轨道带垂直居中：
+            // 轨道区 layoutGuide（navigationBar ↔ transcriptPanel），trackContainer（intrinsic：
+            // ruler 22 + N×140）在区间内垂直居中——对标剪映；多轨超高时 centerY(500)
+            // 让位于 top≥(required)，容器回退贴顶+滚动（bottom≤ 749 放行溢出）。
             trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             trackContainerView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
-            trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: transcriptPanel.topAnchor),
+        ])
+
+        let trackArea = NSLayoutGuide()
+        editorView.addLayoutGuide(trackArea)
+        NSLayoutConstraint.activate([
+            trackArea.topAnchor.constraint(equalTo: navigationBar.bottomAnchor),
+            trackArea.bottomAnchor.constraint(equalTo: transcriptPanel.topAnchor),
+            trackArea.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
+            trackArea.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
+
+            trackContainerView.topAnchor.constraint(greaterThanOrEqualTo: trackArea.topAnchor),
+        ])
+        // 优先级需建约束后设置（anchor 构造器无 priority 参数）：
+        // 多轨超高时 centerY(500) 让位于 top≥(required)，bottom≤(749) 放行溢出 → 回退贴顶+滚动
+        let bottomFits = trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: trackArea.bottomAnchor)
+        bottomFits.priority = NSLayoutConstraint.Priority(749)
+        let centered = trackContainerView.centerYAnchor.constraint(equalTo: trackArea.centerYAnchor)
+        centered.priority = NSLayoutConstraint.Priority(500)
+        NSLayoutConstraint.activate([bottomFits, centered])
+
+        NSLayoutConstraint.activate([
 
             // UI-019: 滚动条贴轨道区底部（原锚 toolbar，现动作栏移到分栏下方）
             scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
