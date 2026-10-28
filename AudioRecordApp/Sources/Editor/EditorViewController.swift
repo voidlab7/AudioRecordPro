@@ -807,7 +807,7 @@ class EditorViewController {
     
     private func updateUndoRedoState() {
         navigationBar.updateUndoRedoState(canUndo: editHistory.canUndo, canRedo: editHistory.canRedo)
-        navigationBar.updateSaveState(hasUnsavedChanges: hasUnsavedChanges)
+        // UI-026: 保存按钮已移除（编辑=命令化即时落盘）；hasUnsavedChanges 保留供退出确认等语义
     }
     
     private func updateStatusBar() {
@@ -870,11 +870,7 @@ extension EditorViewController: EditorNavigationBarDelegate {
     func editorNavigationBarDidTapRedo(_ bar: EditorNavigationBar) {
         redo()
     }
-    
-    func editorNavigationBarDidTapSave(_ bar: EditorNavigationBar) {
-        save()
-    }
-    
+
     func editorNavigationBarDidSelectTool(_ bar: EditorNavigationBar, tool: EditorToolType) {
         logger.info("选择工具: \(tool.rawValue)")
         switch tool {

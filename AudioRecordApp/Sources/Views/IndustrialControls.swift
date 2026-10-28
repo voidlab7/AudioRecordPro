@@ -154,6 +154,13 @@ final class IndustrialCompactIconButton: NSView {
     private var isHovering = false
     private var useImage = false
 
+    // UI-026: 剪映风样式开关——false 时常态无边框无底色，hover 才出底色（默认 true 保持既有 Transport 面板观感）
+    var hasRestingBackground: Bool = true
+    // UI-026: 激活着色（选中工具）——开态图标走 primary(#13BBA3)，替代旧边框选中语义
+    var isTintColorActive: Bool = false {
+        didSet { updateAppearance() }
+    }
+
     init(symbol: String) {
         super.init(frame: .zero)
         // Try SF Symbol first, fallback to text character
@@ -225,16 +232,31 @@ final class IndustrialCompactIconButton: NSView {
         guard let layer else { return }
         let active = isEnabled && isHovering
         alphaValue = isEnabled ? 1.0 : 0.42
-        // 参考 Transport 面板：微妙内凹阴影 + 柔和背景
-        // v3.1 Figma：white@0.08 底无边框，hover 0.12，去内凹阴影
-        layer.backgroundColor = (active ? NSColor.white.withAlphaComponent(0.12) : NSColor.white.withAlphaComponent(0.08)).cgColor
+        if hasRestingBackground {
+            // 参考 Transport 面板：微妙内凹阴影 + 柔和背景
+            // v3.1 Figma：white@0.08 底无边框，hover 0.12，去内凹阴影
+            layer.backgroundColor = (active ? NSColor.white.withAlphaComponent(0.12) : NSColor.white.withAlphaComponent(0.08)).cgColor
+        } else {
+            // UI-026 剪映风：常态无底色，hover 才出底色
+            layer.backgroundColor = (isEnabled && isHovering ? NSColor.white.withAlphaComponent(0.10) : NSColor.clear).cgColor
+        }
         layer.borderColor = NSColor.clear.cgColor
         layer.shadowColor = NSColor.clear.cgColor
         layer.shadowRadius = 0
         layer.shadowOpacity = 0
-        let tintColor = active ? NSColor(hex: "#E5E5E5") : NSColor(hex: "#D4D4D4")
-        iconLabel.textColor = tintColor
-        iconImageView.contentTintColor = tintColor
+        // UI-026: 激活态=primary(#13BBA3)；常态/悬停沿用既有灰阶
+        if isTintColorActive && isEnabled {
+            iconLabel.textColor = IndustrialColors.primary
+            iconImageView.contentTintColor = IndustrialColors.primary
+        } else if hasRestingBackground {
+            let tintColor = active ? NSColor(hex: "#E5E5E5") : NSColor(hex: "#D4D4D4")
+            iconLabel.textColor = tintColor
+            iconImageView.contentTintColor = tintColor
+        } else {
+            // UI-026 剪映风：图标主色 onSurface(#EDEFF2)，悬停不加亮（底色变化已足够反馈）
+            iconLabel.textColor = IndustrialColors.onSurface
+            iconImageView.contentTintColor = IndustrialColors.onSurface
+        }
     }
 
     override func mouseEntered(with event: NSEvent) {
