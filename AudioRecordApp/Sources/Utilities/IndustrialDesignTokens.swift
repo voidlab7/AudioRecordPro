@@ -148,6 +148,12 @@ struct IndustrialColors {
     /// UI-025: 波形亮部（已播放/选中经过段，参考图波峰亮部采样）
     static let waveformBright = NSColor(hex: "#84CFC7")
 
+    /// UI-034: 音量包络线常态色（老板参考图拍板剪映橙族）
+    static let volumeEnvelope = NSColor(hex: "#FFA94D")
+
+    /// UI-034: 过载警示色（gain>100% 时波形/音量线/圆点统一切此色）
+    static let waveformOverdrive = NSColor(hex: "#FF6B4A")
+
     /// UI-019 token 收编：转写进行中进度环/进度强调（原代码写死 #B387FF，规格表 §1.1）
     static let transcriptProgress = NSColor(hex: "#B387FF")
     

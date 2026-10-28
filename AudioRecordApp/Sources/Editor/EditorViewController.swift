@@ -261,10 +261,6 @@ class EditorViewController {
         toolbar.zoomControls.delegate = self
         scrollBarView.delegate = self
         transcriptPanel.delegate = self
-        // UI-019: 轨道音量滑块 → 回放增益（线性 → playerNode volume）
-        trackContainerView.onTrackVolumeChange = { [weak self] _, volume in
-            self?.previewPlayerNode?.volume = volume
-        }
         // UI-020: 读数三框可键入
         toolbar.selectionReadout.delegate = self
     }
@@ -896,6 +892,11 @@ extension EditorViewController: EditorNavigationBarDelegate {
 
 // MARK: - EditorWaveformViewDelegate
 extension EditorViewController: EditorWaveformViewDelegate {
+    /// UI-034 R2: 音量线拖拽 → 回放增益实时联动（clip 级；导出不应用，老板拍板 a）
+    func editorWaveformView(_ view: EditorWaveformView, didChangeGain gain: Float) {
+        previewPlayerNode?.volume = gain
+    }
+
     func editorWaveformView(_ view: EditorWaveformView, didChangeSelection range: ClosedRange<TimeInterval>?) {
         let hasSelection = range != nil
         navigationBar.setToolEnabled(.trim, enabled: hasSelection)
