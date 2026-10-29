@@ -41,7 +41,11 @@ class AggregateDeviceManager {
             kAudioAggregateDeviceMainSubDeviceKey as String: outputUID,
             kAudioAggregateDeviceIsPrivateKey as String: true,
             kAudioAggregateDeviceIsStackedKey as String: false,
-            kAudioAggregateDeviceTapAutoStartKey as String: true,
+            // FIX-016 (2026-10-28)：TapAutoStart=true 时聚合设备只在被 tap 进程「正在输出」时跑 IO。
+            // CLI 最小复现：静默进程（腾讯会议无人发言/微信）tap → 3s 0 回调、isRunning=0；
+            // 改 false 后同进程 86 回调/s、isRunning=1。下午能录是因为 TM 恰好在出声。
+            // 关掉后 IO 持续运转：静默段写零帧（时长正确），麦克风注入也有载体
+            kAudioAggregateDeviceTapAutoStartKey as String: false,
             kAudioAggregateDeviceSubDeviceListKey as String: [
                 [kAudioSubDeviceUIDKey as String: outputUID]
             ],
@@ -101,29 +105,8 @@ class AggregateDeviceManager {
             logger.warning("⚠️ AggregateDeviceManager: 切换系统输出设备失败: \(switchStatus)")
         }
         
-        // 尝试激活聚合设备中的Process Tap
-        logger.info("🔧 AggregateDeviceManager: 尝试激活聚合设备中的Process Tap")
-        var tapAutoStart: UInt32 = 1
-        var autoStartAddress = AudioObjectPropertyAddress(
-            mSelector: AudioUtils.kAudioAggregateDevicePropertyTapAutoStart,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        
-        let autoStartStatus = AudioObjectSetPropertyData(
-            aggID,
-            &autoStartAddress,
-            0,
-            nil,
-            UInt32(MemoryLayout<UInt32>.size),
-            &tapAutoStart
-        )
-        
-        if autoStartStatus == noErr {
-            logger.info("✅ AggregateDeviceManager: Process Tap自动启动已启用")
-        } else {
-            logger.debug("💡 AggregateDeviceManager: Process Tap自动启动不可用 (错误: 'who?'/\(autoStartStatus))，将使用手动启动")
-        }
+        // FIX-016: 原此处运行时把 TapAutoStart 设为 1（一直报 'who?' 失败未生效）；
+        // 与创建描述里的 false 冲突，已删除
         
         return true
     }

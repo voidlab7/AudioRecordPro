@@ -111,12 +111,19 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
                 self.micStateLock.lock()
                 defer { self.micStateLock.unlock() }
                 // 环惰性初始化（按 unit 实际采样率，2秒×2声道）
-                if self.micMaxRingSize == 0 {
+                // BUGFIX 2026-10-28 崩溃修复：旧条件 `micMaxRingSize == 0` 永远不成立——
+                // 声明处初始值是 192000 而 micRingBuffer 初始为 []，unit 路径首帧
+                // 直接写空数组下标 → EXC_BREAKPOINT（IO 线程）。改为按「容量与环
+                // 实际长度不一致」重建，同时覆盖采样率变化场景；sampleRate 异常为 0
+                // 时丢弃本帧（绝不让写入路径碰到空数组）
+                if buffer.format.sampleRate > 0,
+                   self.micMaxRingSize == 0 || self.micRingBuffer.count != self.micMaxRingSize {
                     self.micMaxRingSize = Int(buffer.format.sampleRate) * 2 * 2
                     self.micRingBuffer = [Float](repeating: 0, count: self.micMaxRingSize)
                     self.micWritePos = 0
                     self.micReadPos = 0
                 }
+                guard self.micRingBuffer.count > 0, self.micMaxRingSize > 0 else { return }
                 for f in 0..<frames {
                     for ch in 0..<2 {
                         let sample = chData[min(ch, channels - 1)][f]
@@ -776,7 +783,10 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
                 return false
             }
             logger.info("✅ 步骤5完成: IO回调已安装并启动, 用时 \(String(format: "%.2fms", Date().timeIntervalSince(t5)*1000))")
-            
+
+            // 2026-10-28 撤回：曾在此 retarget 保活引擎到聚合设备，实测 22:39 运行中切设备
+            // 打断聚合设备 IO（10s 仅 1 次回调）。夜间 0 帧问题另寻根治方案，见 TODOS FIX-016
+
             let totalTime = String(format: "%.2fms", Date().timeIntervalSince(tStart)*1000)
             logger.info("🎉 CoreAudioProcessTapRecorder: <<< 初始化完成! 总用时: \(totalTime)")
             logger.info("🎵 系统音频录制已成功启动，开始监听音频数据流...")

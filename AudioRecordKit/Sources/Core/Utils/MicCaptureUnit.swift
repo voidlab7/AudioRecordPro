@@ -54,9 +54,19 @@ final class MicCaptureUnit {
     func start(deviceID: AudioDeviceID) throws {
         stop()
 
-        guard let format = deviceStreamFormat(deviceID: deviceID) else {
+        // BUGFIX 2026-10-28: 刚启动/HAL 重配置窗口期 StreamFormat 读取可能瞬时失败
+        // （实测 22:31 selftest 首查失败，6 秒后同设备同查询 noErr）。有界重试 3×150ms；
+        // 若为持续性故障（设备真不可用），重试日志反而留下完整证据
+        var format: AVAudioFormat?
+        for attempt in 1...3 {
+            format = deviceStreamFormat(deviceID: deviceID)
+            if format != nil { break }
+            logger.warning("🎤 [MicCaptureUnit] 设备 id=\(deviceID) 输入格式读取失败，重试 \(attempt)/3")
+            Thread.sleep(forTimeInterval: 0.15)
+        }
+        guard let format = format else {
             throw NSError(domain: "MicCaptureUnit", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "无法读取设备输入格式"])
+                          userInfo: [NSLocalizedDescriptionKey: "无法读取设备输入格式（已重试 3 次）"])
         }
         sampleRate = format.sampleRate
         channelCount = Int(format.channelCount)

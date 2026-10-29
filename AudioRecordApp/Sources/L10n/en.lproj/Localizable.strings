@@ -122,6 +122,8 @@
 "录制已停止" = "Recording stopped";
 "录制已在进行中" = "Already recording";
 "录制时间过短或内容为空，已取消保存" = "Recording too short or empty; save canceled";
+"所选应用在录制期间没有播放任何声音，已取消保存。提示：录自己的声音请开启「同时录入麦克风」" = "The selected app played no audio during recording; save canceled. Tip: turn on \"Also record microphone\" to capture your own voice";
+"录制期间没有检测到任何声音，已取消保存" = "No audio detected during recording; save canceled";
 "录制格式:" = "Format:";
 "录制波形" = "Recording Waveform";
 "录制目标已退出" = "Recording target has quit";

@@ -340,6 +340,7 @@ class MainWindowView: NSView {
     }
     
     func updateRecordingState(_ state: RecordingState) {
+        Logger.shared.info("🖥️ UI 状态机: → \(state)")
         controlPanelView.updateRecordingState(state)
         switch state {
         case .preparing:

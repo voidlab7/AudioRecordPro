@@ -261,7 +261,11 @@ class MainViewController: NSViewController {
     }
 
     private func startRecording() {
-        guard !isRecording else { return }
+        logger.info("🎯 startRecording 请求: isRecording=\(isRecording)")
+        guard !isRecording else {
+            logger.warning("🎯 startRecording 忽略: 已在录制中（若 UI 为 Ready 态则存在状态残留）")
+            return
+        }
         
         // LOOP-05: UI 测试模式——模拟录制状态机，不启动真实管线（mock PID 无真实音频）
         if isUITesting {
@@ -453,7 +457,16 @@ class MainViewController: NSViewController {
             fileManager.markRecordingFinished()
             SecureDelete.deleteFile(at: recording.fileURL)
             mainWindowView.updateRecordingState(.idle)
-            mainWindowView.updateStatus("录制时间过短或内容为空，已取消保存".localized)
+            // 诊断提示：时长不足与「全程无声音」分开说清——后者高频原因是
+            // 进程源录会议时只开进程没开麦克风（自己说话不经本端播放，
+            // tap 抓不到），用户无从推断该开哪个开关
+            if recording.duration >= 1.0 && recording.fileName.contains("specificProcess") {
+                mainWindowView.updateStatus("所选应用在录制期间没有播放任何声音，已取消保存。提示：录自己的声音请开启「同时录入麦克风」".localized)
+            } else if recording.duration >= 1.0 {
+                mainWindowView.updateStatus("录制期间没有检测到任何声音，已取消保存".localized)
+            } else {
+                mainWindowView.updateStatus("录制时间过短或内容为空，已取消保存".localized)
+            }
 
             // FEAT-001 S1: 无效录音同时丢弃实时转写
             if #available(macOS 26.0, *) {
@@ -628,12 +641,16 @@ class MainViewController: NSViewController {
         mainWindowView.updateTimer("00:00.00")
     }
     
-    private func handleRecordingFailure() {
+    private func handleRecordingFailure(reason: String? = nil) {
+        logger.error("🎯 录制启动失败: \(reason ?? "未给出原因")")
         UXEventLog.shared.module("Recording", "fail", ok: false)
         isRecording = false; recordingStartTime = nil
         stopTimer(); stopDiskMonitor(); allowSleep()
         fileManager.markRecordingFinished()
         mainWindowView.updateRecordingState(.idle)
+        if let reason = reason {
+            mainWindowView.updateStatus(reason.localized)
+        }
 
         // FEAT-001 S1: 录制失败同时放弃实时转写
         if #available(macOS 26.0, *) {
