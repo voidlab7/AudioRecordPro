@@ -975,6 +975,7 @@ class EditorWaveformView: NSView {
     /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）
     /// UI-036 R15b: 恒「很浅」低存在感（白色半透明），过载也不变红（红色只属波形顶部溢出段）
     /// UI-036 R15c: 播放头交叉处的拖拽圆点删除（老板：这个交叉点不要）；拖拽热区在线上不变
+    /// UI-036 R15e: 拖拽中显示剪映同款 dB 气泡（黑底白字，如「-2.8dB」「5.5dB」；gain=100% 即 0dB）
     private func drawVolumeLine() {
         let lineColor = NSColor.white.withAlphaComponent(0.35)
         let y = volumeLineY
@@ -985,6 +986,30 @@ class EditorWaveformView: NSView {
         line.line(to: NSPoint(x: waveformRect.maxX - 2, y: y))
         lineColor.setStroke()
         line.stroke()
+
+        // R15e: 拖拽中的 dB 数值气泡（剪映同款：黑底圆角 + 白字，正数不带 + 号）
+        if dragMode == .gainDrag {
+            let gainDB = 20 * log10(Double(max(clipGain, 0.001)))
+            let label = String(format: "%.1fdB", gainDB)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: NSColor.white
+            ]
+            let textSize = (label as NSString).size(withAttributes: attrs)
+            let padH: CGFloat = 8, padV: CGFloat = 4
+            let boxW = textSize.width + padH * 2
+            let boxH = textSize.height + padV * 2
+            // 气泡跟随播放头 x（同旧圆点取位逻辑），贴音量线上方；越界钳回 clip 内
+            let boxX = min(max(timeToPixel(playbackTime) - boxW / 2, waveformRect.minX + 4),
+                           waveformRect.maxX - boxW - 4)
+            let boxY = min(y + 10, waveformRect.maxY - boxH - 2)
+            let box = NSRect(x: boxX, y: boxY, width: boxW, height: boxH)
+            NSColor.black.withAlphaComponent(0.82).setFill()
+            NSBezierPath(roundedRect: box, xRadius: 4, yRadius: 4).fill()
+            (label as NSString).draw(at: NSPoint(x: box.midX - textSize.width / 2,
+                                                 y: box.midY - textSize.height / 2),
+                                     withAttributes: attrs)
+        }
     }
 
     /// UI-034 R2: 音量拖拽热区——拖拽圆点 ±14pt 或音量线 ±8pt（限 clip 区内）
