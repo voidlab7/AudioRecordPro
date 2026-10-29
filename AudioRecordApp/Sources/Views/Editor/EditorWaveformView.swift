@@ -976,8 +976,11 @@ class EditorWaveformView: NSView {
     /// UI-036 R15b: 恒「很浅」低存在感（白色半透明），过载也不变红（红色只属波形顶部溢出段）
     /// UI-036 R15c: 播放头交叉处的拖拽圆点删除（老板：这个交叉点不要）；拖拽热区在线上不变
     /// UI-036 R15e: 拖拽中显示剪映同款 dB 气泡（黑底白字，如「-2.8dB」「5.5dB」；gain=100% 即 0dB）
+    /// UI-036 R15f: 拖拽中线点亮为剪映橙高亮（老板发图「这个也打开」）；常态仍浅白
     private func drawVolumeLine() {
-        let lineColor = NSColor.white.withAlphaComponent(0.35)
+        let lineColor = dragMode == .gainDrag
+            ? IndustrialColors.volumeEnvelope
+            : NSColor.white.withAlphaComponent(0.35)
         let y = volumeLineY
 
         let line = NSBezierPath()
