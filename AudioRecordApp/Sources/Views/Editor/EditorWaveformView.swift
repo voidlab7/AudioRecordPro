@@ -663,9 +663,16 @@ class EditorWaveformView: NSView {
         var points: [(x: CGFloat, amp: CGFloat)] = []
         points.reserveCapacity(pixelCount)
 
+        // UI-036 R15d 修复：列→样本按「时间比例」映射。旧实现每列固定步进 samplesPerColumn=max(1, range/pixels)
+        // 个样本，样本数 < 像素数时（如 Phase2 targetBars=250 vs 851px）波形只画 count/pixels 比例就 break——
+        // 右端截断、与 clip 边框错位（老板 10-29 实机圈红）；且 Phase1/Phase2 样本数不同导致截断位置漂移。
+        // 新实现：列 i 取样本区间 [frac0·range, frac1·range)，样本复用铺满全宽。
         for i in 0..<pixelCount {
-            let bucketStart = startSampleIndex + i * samplesPerColumn
-            let bucketEnd = min(bucketStart + samplesPerColumn, endSampleIndex)
+            let frac0 = Double(i) / Double(pixelCount)
+            let frac1 = Double(i + 1) / Double(pixelCount)
+            let bucketStart = startSampleIndex + Int(frac0 * Double(sampleRange))
+            var bucketEnd = startSampleIndex + max(Int(frac0 * Double(sampleRange)) + 1, Int(frac1 * Double(sampleRange)))
+            bucketEnd = min(max(bucketEnd, bucketStart + 1), endSampleIndex)
             guard bucketStart < allSamples.count, bucketEnd <= allSamples.count else { break }
 
             // 取桶内最大值作为包络
