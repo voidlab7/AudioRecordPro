@@ -66,7 +66,9 @@ if [ ! -f "$SDK_DIR/Package.swift" ]; then
 fi
 
 # 构建测试命令
-CMD="swift test"
+# --disable-sandbox: swiftPM 自带沙箱在无人值守/宿主沙箱会话内会 EPERM（sandbox_apply: Operation not permitted），
+#   10-13 夜跑与 10-19 LoopBuddy R1 两次实证；恒定禁用 swiftPM 内层沙箱，宿主隔离不受影响。
+CMD="swift test --disable-sandbox"
 if [ "$VERBOSE" = true ]; then
     CMD="$CMD --verbose"
 fi
