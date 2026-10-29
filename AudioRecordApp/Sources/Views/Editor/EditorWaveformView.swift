@@ -940,7 +940,7 @@ class EditorWaveformView: NSView {
     /// UI-036 R15g（老板 10-30 发剪映图定标尺）：**0dB 水位在波形中下部（≈38% 高度）**，
     /// 正区间 [0,+6dB] 从水位线性升到顶部，负区间 [-24dB,0] 压缩在水位以下，gain=0 贴底。
     /// 波形渲染标尺（fullHeight/maxAmp）不变——溢出红仍是波形超满幅段。
-    static let gainDBMax: Double = 6.0
+    static let gainDBMax: Double = 20.0
     static let gainDBMin: Double = -24.0
     private var zeroDBHeight: CGFloat { envelopeMaxAmp * 0.38 }
     /// 当前增益的 dB 值（gain=1 → 0dB）
@@ -1056,7 +1056,7 @@ class EditorWaveformView: NSView {
             let negRatio = Double(max(0, (h - 4) / max(1, zeroDBHeight - 4)))
             db = Self.gainDBMin * (1 - negRatio)
         }
-        clipGain = Float(min(max(pow(10, db / 20), 0), 2.0))
+        clipGain = Float(min(max(pow(10, db / 20), 0), pow(10, Self.gainDBMax / 20)))
         delegate?.editorWaveformView(self, didChangeGain: clipGain)
     }
 
