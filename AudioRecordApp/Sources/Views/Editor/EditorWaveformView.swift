@@ -938,7 +938,7 @@ class EditorWaveformView: NSView {
 
     /// 单边渲染入口：波形贴 clip 下缘向上生长（下半让位剪映语言）。
     /// gain≠100% 时先画暗色原始轮廓（增益不作用，对标剪映「线上方暗轮廓」），再叠当前增益波形；
-    /// 过载态（gain>100%）波形切警示色。末尾绘制音量线+拖拽圆点（R2）。
+    /// UI-036 细项 7：过载态只有顶部音量线/圆点变警示色，波形主体恒用基色不变色。末尾绘制音量线+拖拽圆点（R2）。
     /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
     private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
         guard !points.isEmpty else { return }
@@ -952,9 +952,10 @@ class EditorWaveformView: NSView {
                                                 color: IndustrialColors.waveformBase.withAlphaComponent(0.30))
         }
 
-        let waveColor = isOverdriven ? IndustrialColors.waveformOverdrive : IndustrialColors.waveformBase
+        // UI-036: 波形主体恒用基色（过载红色只给顶部音量线/圆点，见 drawVolumeLine）
         let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
-        WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY, color: waveColor)
+        WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY,
+                                            color: IndustrialColors.waveformBase)
 
         drawVolumeLine()
     }
