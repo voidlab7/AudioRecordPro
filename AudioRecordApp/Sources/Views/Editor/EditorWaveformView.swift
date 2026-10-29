@@ -933,7 +933,9 @@ class EditorWaveformView: NSView {
         (waveformRect.height - Self.volumeLaneHeight) * 0.82
     }
     /// UI-034: 波形基线 y（clip 下缘对齐）
-    private var envelopeBaselineY: CGFloat { waveformRect.minY + 2 }
+    /// UI-036 R15i（老板 10-30 实机）：对齐 clip 选中边框底线（inset dy:8）——旧值 minY+2 使波形底缘
+    /// 突出边框底 6pt（「波纹比轨道低」）；对齐后波形贴边框底线，无缝无突出。
+    private var envelopeBaselineY: CGFloat { waveformRect.minY + 8 }
     /// UI-034: 波形最大渲染高度（触顶前上限）
     private var envelopeMaxAmp: CGFloat { waveformRect.height - 4 - Self.volumeLaneHeight }
     /// UI-034: 音量线 y
