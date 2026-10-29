@@ -937,22 +937,16 @@ class EditorWaveformView: NSView {
     private var isOverdriven: Bool { clipGain > 1.001 }
 
     /// 单边渲染入口：波形贴 clip 下缘向上生长（下半让位剪映语言）。
-    /// gain≠100% 时先画暗色原始轮廓（增益不作用，对标剪映「线上方暗轮廓」），再叠当前增益波形；
-    /// UI-036 R15b 返工（老板实机 10-29）：①过载变红=**波形顶部溢出段**变红（超过 100% 满幅的部分），
+    /// UI-036 R15b（老板实机 10-29）：①过载变红=**波形顶部溢出段**变红（超过 100% 满幅的部分），
     /// 波形 0…100% 段与音量线均不变红；②音量线/圆点改「很浅」的低存在感样式（恒浅色，永不变红）。
+    /// UI-036 R15c（老板实机 10-29）：③删除暗轮廓层（调音量后波纹「重影」，原始形状不再叠加显示）；
+    /// ④删除播放头×音量线交叉处的拖拽圆点（拖拽热区保留，只去视觉）。
     /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
     private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
         guard !points.isEmpty else { return }
         let baselineY = envelopeBaselineY
         let maxAmp = envelopeMaxAmp
         let fullHeight = envelopeFullHeight
-
-        if abs(CGFloat(clipGain) - 1.0) > 0.001 {
-            // 暗轮廓层：原始包络（不乘 gain），低透明度——增益压低/抬高后原始形状仍可读
-            let ghost = points.map { (x: $0.x, amp: min($0.amp, maxAmp)) }
-            WaveformEnvelopeRenderer.fillUpward(points: ghost, baselineY: baselineY,
-                                                color: IndustrialColors.waveformBase.withAlphaComponent(0.30))
-        }
 
         // UI-036 R15b: 过载溢出层——先画增益高度整段警示色，再用基色盖住 0…100% 段，
         // 只露出超过满幅标尺的「顶部」段（老板：变红说的是波纹，且只有顶部）
@@ -971,8 +965,9 @@ class EditorWaveformView: NSView {
         drawVolumeLine()
     }
 
-    /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）+ 播放头处拖拽圆点
+    /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）
     /// UI-036 R15b: 恒「很浅」低存在感（白色半透明），过载也不变红（红色只属波形顶部溢出段）
+    /// UI-036 R15c: 播放头交叉处的拖拽圆点删除（老板：这个交叉点不要）；拖拽热区在线上不变
     private func drawVolumeLine() {
         let lineColor = NSColor.white.withAlphaComponent(0.35)
         let y = volumeLineY
@@ -983,16 +978,6 @@ class EditorWaveformView: NSView {
         line.line(to: NSPoint(x: waveformRect.maxX - 2, y: y))
         lineColor.setStroke()
         line.stroke()
-
-        // 拖拽圆点：跟随播放头（播放头不在可视范围时贴可视区右缘内侧）
-        let dotX = min(max(timeToPixel(playbackTime), waveformRect.minX + 12), waveformRect.maxX - 12)
-        let dotRect = NSRect(x: dotX - 4.5, y: y - 4.5, width: 9, height: 9)
-        lineColor.setFill()
-        NSBezierPath(ovalIn: dotRect).fill()
-        NSColor.white.withAlphaComponent(0.9).setStroke()
-        let ring = NSBezierPath(ovalIn: dotRect.insetBy(dx: -1, dy: -1))
-        ring.lineWidth = 1
-        ring.stroke()
     }
 
     /// UI-034 R2: 音量拖拽热区——拖拽圆点 ±14pt 或音量线 ±8pt（限 clip 区内）
