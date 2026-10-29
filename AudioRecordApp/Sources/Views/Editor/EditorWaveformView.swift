@@ -3,10 +3,12 @@ import AVFoundation
 
 // MARK: - EditorWaveformView Delegate
 protocol EditorWaveformViewDelegate: AnyObject {
-    func editorWaveformView(_ view: EditorWaveformView, didChangeSelection range: ClosedRange<TimeInterval>?)
-    func editorWaveformView(_ view: EditorWaveformView, didSeekTo time: TimeInterval)
-    /// Viewport 变化通知（缩放/滚动后触发，用于同步外部控件）
-    func editorWaveformViewDidChangeViewport(_ view: EditorWaveformView)
+func editorWaveformView(_ view: EditorWaveformView, didChangeSelection range: ClosedRange<TimeInterval>?)
+func editorWaveformView(_ view: EditorWaveformView, didSeekTo time: TimeInterval)
+/// UI-034: clip 增益变化（拖拽音量线触发；播放预览联动，导出不应用）
+func editorWaveformView(_ view: EditorWaveformView, didChangeGain gain: Float)
+/// Viewport 变化通知（缩放/滚动后触发，用于同步外部控件）
+func editorWaveformViewDidChangeViewport(_ view: EditorWaveformView)
 }
 
 // MARK: - EditorWaveformView
@@ -47,7 +49,7 @@ class EditorWaveformView: NSView {
     private var playbackTime: TimeInterval = 0
     
     // 交互状态
-    private enum DragMode { case none, panScroll, leftHandle, rightHandle, seeking, creating, trimLeft, trimRight }
+    private enum DragMode { case none, panScroll, leftHandle, rightHandle, seeking, creating, trimLeft, trimRight, gainDrag }
     private var dragMode: DragMode = .none
     private var dragStartX: CGFloat = 0
     private var dragStartVisibleStart: TimeInterval = 0
@@ -73,6 +75,19 @@ class EditorWaveformView: NSView {
     // P2-F: Fade 时长
     var fadeInTime: TimeInterval = 0
     var fadeOutTime: TimeInterval = 0
+
+    // UI-034: clip 级播放增益（1.0=100%）。R1 仅渲染高度映射（播放链路 R2 接线）；
+    // 老板拍板 a：音量仅播放预览+界面可视化，导出=原始音频
+    var clipGain: Float = 1.0 {
+        didSet {
+            let clamped = max(0, min(clipGain, 2.0))
+            if clamped != clipGain { clipGain = clamped; return }
+            if oldValue != clipGain { needsDisplay = true }
+        }
+    }
+
+    /// UI-034: 波形上缘到 clip 顶的音量线活动带高度（R2 音量线+拖拽点在此带内）
+    static let volumeLaneHeight: CGFloat = 18
     
     // 波形绘制参数
     private let barWidth: CGFloat = 1.2
@@ -634,10 +649,11 @@ class EditorWaveformView: NSView {
     private func drawWaveformBars(in rect: NSRect) {
         guard !allSamples.isEmpty, visibleDuration > 0 else { return }
 
-        let drawHeight = waveformRect.height * 0.82
+        // UI-034 R1: 单边语义——顶部留 volumeLaneHeight 给音量线（剪映语言）
+        let drawHeight = envelopeFullHeight
 
-        // UI-025 R2: 剪映式实心镜像剪影（老板 10-25 深夜对比图打回柱状——回改连续填充包络，
-        // 底版=原 P0-1 填充波形，加 FIX-004 静音基线与包络平滑）
+        // UI-025 R2: 剪映式实心剪影（老板 10-25 深夜对比图打回柱状——回改连续填充包络，
+        // 底版=原 P0-1 填充波形，加 FIX-004 静音基线与包络平滑）；UI-034 R1 起改单边向上
         let pixelCount = max(2, Int(waveformRect.width))
         let startSampleIndex = Int(Double(allSamples.count) * visibleStartTime / totalDuration)
         let endSampleIndex = min(allSamples.count, Int(Double(allSamples.count) * (visibleStartTime + visibleDuration) / totalDuration))
@@ -652,7 +668,7 @@ class EditorWaveformView: NSView {
             let bucketEnd = min(bucketStart + samplesPerColumn, endSampleIndex)
             guard bucketStart < allSamples.count, bucketEnd <= allSamples.count else { break }
 
-            // 取桶内最大值作为包络（镜像对称）
+            // 取桶内最大值作为包络
             var maxVal: Float = 0
             for j in bucketStart..<bucketEnd {
                 let s = allSamples[j]
@@ -660,13 +676,13 @@ class EditorWaveformView: NSView {
             }
 
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
-            // FIX-004 同款下限：静音段保留 3pt 基线带（半高 1.5）
-            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight * 0.5)
+            // FIX-004 同款下限：静音段保留 3pt 基线带；UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
+            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight)
             points.append((x: x, amp: amplitude))
         }
 
         smoothEnvelope(&points)
-        fillMirrorEnvelope(points: points, centerY: waveformRect.midY, color: IndustrialColors.waveformBase)
+        drawGainAwareEnvelope(points: points)
         // 选区外遮罩已由 drawSelectionOverlay 处理，这里不重复
     }
 
@@ -755,7 +771,14 @@ class EditorWaveformView: NSView {
                 return
             }
         }
-        
+
+        // UI-034 R2: 音量线拖拽判定（拖拽圆点 ±14pt 或音量线 ±8pt）——优先于 seek
+        if isHitVolumeGrip(location) {
+            dragMode = .gainDrag
+            applyGainDrag(to: location)
+            return
+        }
+
         // 点击 = 先移动游标（seek），拖拽超过阈值才创建选区
         let time = max(0, min(pixelToTime(location.x), totalDuration))
         dragCreateStartTime = time
@@ -769,8 +792,10 @@ class EditorWaveformView: NSView {
     override func mouseDragged(with event: NSEvent) {
         let location = convert(event.locationInWindow, from: nil)
         let time = max(0, min(pixelToTime(location.x), totalDuration))
-        
+
         switch dragMode {
+        case .gainDrag:
+            applyGainDrag(to: location)
         case .leftHandle:
             if let end = selectionEnd {
                 selectionStart = min(time, end - 0.1)
@@ -841,11 +866,12 @@ class EditorWaveformView: NSView {
             return
         }
 
-        // UI-025 R2: 剪映式实心镜像剪影——peak 序列一次包络填充（离散柱状打回，老板对比图 10-25）。
+        // UI-025 R2: 剪映式实心剪影——peak 序列一次包络填充（离散柱状打回，老板对比图 10-25）。
         // FIX-010 幅度映射保留（WaveformAmplitudeMapper.normalized，静音门限仍生效）；
         // 柱状时代的 per-bar alpha 渐变随柱状语言退役——剪影单色填充，与 bars 路径行为对齐。
+        // UI-034 R1 起改单边向上（顶部留 volumeLaneHeight 给音量线）。
         var points: [(x: CGFloat, amp: CGFloat)] = []
-        let drawHeight = waveformRect.height * 0.82
+        let drawHeight = envelopeFullHeight
 
         for tile in currentTiles {
             guard !tile.peaks.isEmpty, tile.duration > 0 else { continue }
@@ -864,7 +890,8 @@ class EditorWaveformView: NSView {
                 guard x >= waveformRect.minX - 2, x <= waveformRect.maxX + 2 else { continue }
 
                 let mapped = WaveformAmplitudeMapper.normalized(peak.amplitude, referenceMax: 1.0)
-                let amplitude = max(1.5, CGFloat(mapped) * drawHeight * 0.5)
+                // UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
+                let amplitude = max(1.5, CGFloat(mapped) * drawHeight)
                 points.append((x: x, amp: amplitude))
             }
         }
@@ -872,14 +899,14 @@ class EditorWaveformView: NSView {
         guard !points.isEmpty else { return }
         points.sort { $0.x < $1.x }
         smoothEnvelope(&points)
-        fillMirrorEnvelope(points: points, centerY: waveformRect.midY, color: IndustrialColors.waveformBase)
+        drawGainAwareEnvelope(points: points)
     }
 
     private func drawSkeletonWaveform(in rect: NSRect) {
-        let drawHeight = waveformRect.height * 0.82
+        // UI-034 R1: 占位剪影同走单边语言（低透明度 + 呼吸动画）
+        let drawHeight = envelopeFullHeight
         let pixelCount = max(2, Int(waveformRect.width))
 
-        // UI-025 R2: 占位剪影（同包络语言，低透明度 + 呼吸动画）
         var points: [(x: CGFloat, amp: CGFloat)] = []
         points.reserveCapacity(pixelCount)
         for i in 0..<pixelCount {
@@ -888,7 +915,89 @@ class EditorWaveformView: NSView {
             points.append((x: x, amp: max(1.5, phase * drawHeight * 0.2)))
         }
         smoothEnvelope(&points)
-        fillMirrorEnvelope(points: points, centerY: waveformRect.midY, color: IndustrialColors.waveformBase.withAlphaComponent(0.12))
+        WaveformEnvelopeRenderer.fillUpward(points: points, baselineY: waveformRect.minY + 2,
+                                            color: IndustrialColors.waveformBase.withAlphaComponent(0.12))
+    }
+
+    // MARK: - UI-034 R1: 剪映式单边波形 + 音量暗轮廓分层
+
+    /// UI-034: 100% 增益满幅高度（渲染与拖拽换算共用标尺）
+    private var envelopeFullHeight: CGFloat {
+        (waveformRect.height - Self.volumeLaneHeight) * 0.82
+    }
+    /// UI-034: 波形基线 y（clip 下缘对齐）
+    private var envelopeBaselineY: CGFloat { waveformRect.minY + 2 }
+    /// UI-034: 波形最大渲染高度（触顶前上限）
+    private var envelopeMaxAmp: CGFloat { waveformRect.height - 4 - Self.volumeLaneHeight }
+    /// UI-034: 音量线 y = 满幅标尺 × gain；过 100% 后钳到 maxAmp
+    private var volumeLineY: CGFloat {
+        envelopeBaselineY + min(envelopeFullHeight * CGFloat(clipGain), envelopeMaxAmp)
+    }
+    /// UI-034: 过载态（gain > 100%）
+    private var isOverdriven: Bool { clipGain > 1.001 }
+
+    /// 单边渲染入口：波形贴 clip 下缘向上生长（下半让位剪映语言）。
+    /// gain≠100% 时先画暗色原始轮廓（增益不作用，对标剪映「线上方暗轮廓」），再叠当前增益波形；
+    /// 过载态（gain>100%）波形切警示色。末尾绘制音量线+拖拽圆点（R2）。
+    /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
+    private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
+        guard !points.isEmpty else { return }
+        let baselineY = envelopeBaselineY
+        let maxAmp = envelopeMaxAmp
+
+        if abs(CGFloat(clipGain) - 1.0) > 0.001 {
+            // 暗轮廓层：原始包络（不乘 gain），低透明度——增益压低/抬高后原始形状仍可读
+            let ghost = points.map { (x: $0.x, amp: min($0.amp, maxAmp)) }
+            WaveformEnvelopeRenderer.fillUpward(points: ghost, baselineY: baselineY,
+                                                color: IndustrialColors.waveformBase.withAlphaComponent(0.30))
+        }
+
+        let waveColor = isOverdriven ? IndustrialColors.waveformOverdrive : IndustrialColors.waveformBase
+        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
+        WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY, color: waveColor)
+
+        drawVolumeLine()
+    }
+
+    /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）+ 播放头处拖拽圆点
+    private func drawVolumeLine() {
+        let lineColor = isOverdriven ? IndustrialColors.waveformOverdrive : IndustrialColors.volumeEnvelope
+        let y = volumeLineY
+
+        let line = NSBezierPath()
+        line.lineWidth = 1.5
+        line.move(to: NSPoint(x: waveformRect.minX + 2, y: y))
+        line.line(to: NSPoint(x: waveformRect.maxX - 2, y: y))
+        lineColor.setStroke()
+        line.stroke()
+
+        // 拖拽圆点：跟随播放头（播放头不在可视范围时贴可视区右缘内侧）
+        let dotX = min(max(timeToPixel(playbackTime), waveformRect.minX + 12), waveformRect.maxX - 12)
+        let dotRect = NSRect(x: dotX - 4.5, y: y - 4.5, width: 9, height: 9)
+        lineColor.setFill()
+        NSBezierPath(ovalIn: dotRect).fill()
+        NSColor.white.withAlphaComponent(0.9).setStroke()
+        let ring = NSBezierPath(ovalIn: dotRect.insetBy(dx: -1, dy: -1))
+        ring.lineWidth = 1
+        ring.stroke()
+    }
+
+    /// UI-034 R2: 音量拖拽热区——拖拽圆点 ±14pt 或音量线 ±8pt（限 clip 区内）
+    private func isHitVolumeGrip(_ location: NSPoint) -> Bool {
+        guard location.x >= waveformRect.minX, location.x <= waveformRect.maxX,
+              location.y >= waveformRect.minY, location.y <= waveformRect.maxY else { return false }
+        let y = volumeLineY
+        let dotX = min(max(timeToPixel(playbackTime), waveformRect.minX + 12), waveformRect.maxX - 12)
+        let nearDot = abs(location.x - dotX) < 14 && abs(location.y - y) < 14
+        let nearLine = location.y > y - 8 && location.y < y + 8
+        return nearDot || nearLine
+    }
+
+    /// UI-034 R2: 拖拽换算——鼠标 y 反解 gain（0...2.0），渲染与播放联动同步走
+    private func applyGainDrag(to location: NSPoint) {
+        let raw = (location.y - envelopeBaselineY) / envelopeFullHeight
+        clipGain = Float(min(max(raw, 0), 2.0))
+        delegate?.editorWaveformView(self, didChangeGain: clipGain)
     }
 
     // MARK: - UI-025 R2: 剪映式实心镜像剪影共用件（类内薄封装，实现在文件尾 WaveformEnvelopeRenderer）
@@ -1172,5 +1281,24 @@ enum WaveformEnvelopeRenderer {
             result[i].amp = (points[i - 1].amp + points[i].amp * 2 + points[i + 1].amp) / 4
         }
         points = result
+    }
+
+    /// UI-034 R1: 剪映式单边包络——由幅度点列构建「基线向上」闭合剪影，一次填充。
+    /// points 按 x 升序且无重复；amp 为自 baselineY 向上的高度（已含静音基线下限）。
+    static func fillUpward(points: [(x: CGFloat, amp: CGFloat)], baselineY: CGFloat, color: NSColor) {
+        guard let first = points.first, let last = points.last else { return }
+        color.setFill()
+        guard points.count >= 2, last.x > first.x else {
+            // 退化：单点/零宽 → FIX-004 同款 3pt 静音基线带（贴基线向上）
+            NSBezierPath(rect: NSRect(x: first.x, y: baselineY,
+                                      width: max(1, last.x - first.x), height: 3)).fill()
+            return
+        }
+        let path = NSBezierPath()
+        path.move(to: NSPoint(x: first.x, y: baselineY))
+        for p in points { path.line(to: NSPoint(x: p.x, y: baselineY + p.amp)) }
+        path.line(to: NSPoint(x: last.x, y: baselineY))
+        path.close()
+        path.fill()
     }
 }

@@ -62,8 +62,7 @@ class EditorAudioTrack {
     var clips: [AudioClip]
     var isMuted: Bool = false
     var isVisible: Bool = true
-    /// UI-019: 轨道音量（0～1，线性；回放时由 Controller 映射到 playerNode gain）
-    var volume: Float = 1.0
+    // UI-034 R3: 轨道级音量字段随轨道头滑条移除而退役——音量唯一入口=clip 波形音量线（clipGain）
     
     init(
         id: String = UUID().uuidString,
