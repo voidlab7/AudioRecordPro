@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Microlab · 研发循环 Loop</title>
+<link rel="icon" type="image/svg+xml" href="https://microv.site/favicon.svg?v=20260922">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<!--
+  研发循环 Loop（2026-10-20 重做）：与主站 / Jarvis 看板同一套「软 Swiss」token，手机优先，可视化 + 动效。
+  正本：projects/audio_record_mac/docs/LoopBuddy/LoopBuddy-框架图.html；线上副本由 sync-boss-todos.sh 脱敏后推到 /jarvis/loop。
+  状态徽标是手写的静态快照（页内 SNAP 标记由同步脚本回填时间）；实时体检见每日晨报首段。
+-->
+<style>
+:root{
+  --bg:#fafaf8; --card:#fff; --soft:#f1f0ea; --hover:#f4f3ee;
+  --border:#e4e2da; --ink:#1d1c1a; --ink-inv:#fafaf8;
+  --dim:#5c5a54; --faint:#9a978f;
+  --accent:#e5412d; --accent-soft:rgba(229,65,45,.09); --amber:#d9a21b;
+  --ok:#2f8f5b; --ok-soft:rgba(47,143,91,.11);
+  --r-s:10px; --r-m:16px; --r-l:24px; --pill:999px;
+  --sans:'Archivo','Noto Sans SC',-apple-system,BlinkMacSystemFont,'PingFang SC',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#161513; --card:#1f1e1b; --soft:#252421; --hover:#272623;
+    --border:#35332f; --ink:#f1efe8; --ink-inv:#161513;
+    --dim:#b0ada4; --faint:#7d7a72;
+    --accent:#ff6a55; --accent-soft:rgba(255,106,85,.13); --amber:#e9b052;
+    --ok:#5fc08a; --ok-soft:rgba(95,192,138,.13);
+    color-scheme:dark;
+  }
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;max-width:960px;margin:0 auto;padding:30px 20px 70px;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.mono{font-family:var(--mono)}
+
+/* ---------- 顶栏 ---------- */
+.topnav{display:flex;align-items:baseline;gap:12px;margin-bottom:34px;flex-wrap:wrap}
+.brand{font-size:19px;font-weight:800;letter-spacing:-.03em}
+.brand b{color:var(--accent)}
+.brand-sub{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--faint)}
+.links{margin-left:auto;display:flex;gap:2px;margin-top:-5px;flex-wrap:wrap}
+.links a{font-family:var(--mono);font-size:11.5px;color:var(--dim);padding:5px 11px;border-radius:var(--pill);transition:background .18s,color .18s}
+.links a:hover{background:var(--soft);color:var(--ink)}
+.links a.on{background:var(--ink);color:var(--ink-inv)}
+
+/* ---------- hero ---------- */
+.badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.badge::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--accent);animation:blink 1.8s ease-in-out infinite}
+@keyframes blink{50%{opacity:.25}}
+h1{font-size:clamp(34px,7vw,60px);font-weight:800;letter-spacing:-.035em;line-height:1.1}
+h1 .a{color:var(--accent)}
+.lead{color:var(--dim);font-size:15px;margin-top:14px;max-width:58ch}
+.lead b{color:var(--ink);font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:28px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-l)}
+.stat{padding:12px 14px;border-radius:var(--r-m)}
+.stat b{display:block;font-size:28px;font-weight:800;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat.hot b{color:var(--accent)}
+.stat span{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--faint);margin-top:6px}
+.snap{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:12px;line-height:1.7}
+
+/* ---------- section ---------- */
+.sec{margin-top:76px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:8px}
+.sec-no{font-family:var(--mono);font-weight:700;font-size:14px;color:var(--accent);letter-spacing:.1em}
+.sec-h h2{font-size:clamp(22px,4.4vw,30px);font-weight:800;letter-spacing:-.03em;line-height:1.2}
+.sec-lead{color:var(--dim);font-size:14.5px;max-width:62ch;margin-bottom:26px}
+.sec-lead b{color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r-l)}
+.tag{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;padding:2px 8px;border-radius:var(--pill);background:var(--soft);color:var(--dim);white-space:nowrap}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.no{background:var(--accent-soft);color:var(--accent)}
+.tag.td{background:transparent;border:1px dashed var(--faint);color:var(--faint)}
+.tag.inv{background:var(--ink);color:var(--ink-inv)}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- 01 七步环 ---------- */
+.ringwrap{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:26px;align-items:center}
+.ring{width:100%;max-width:420px;margin:0 auto;display:block;overflow:visible}
+.ring .track{fill:none;stroke:var(--border);stroke-width:2;stroke-dasharray:3 7;animation:flow 14s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-200}}
+.ring .nd{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.ring .nd circle{fill:var(--card);stroke:var(--border);stroke-width:2;transition:fill .35s,stroke .35s}
+.ring .nd .n{font:700 9px var(--mono);fill:var(--faint);transition:fill .35s}
+.ring .nd .l{font:800 15px var(--sans);fill:var(--ink);transition:fill .35s}
+.ring .nd.done circle{stroke:var(--ink)}
+.ring .nd.on circle{fill:var(--accent);stroke:var(--accent)}
+.ring .nd.on .n,.ring .nd.on .l{fill:#fff}
+.ring .nd circle.halo{fill:none;stroke:var(--accent);stroke-width:2;opacity:0;transform-box:fill-box;transform-origin:center}
+.ring .nd.on circle.halo{animation:halo 1.8s ease-out infinite}
+@keyframes halo{0%{opacity:.6;transform:scale(1)}100%{opacity:0;transform:scale(1.6)}}
+.ring .orb{transform-origin:200px 200px;transition:transform .9s cubic-bezier(.5,0,.2,1)}
+.ring .tok{fill:var(--accent)}
+.ring .gate circle{fill:var(--ink)}
+.ring .gate text{font:700 12px var(--sans);fill:var(--ink-inv)}
+.ring .c1{font:700 10px var(--mono);letter-spacing:.2em;fill:var(--faint);text-anchor:middle}
+.ring .c2{font:800 30px var(--sans);fill:var(--ink);text-anchor:middle;letter-spacing:-.02em}
+.ring .c3{font:700 12px var(--mono);fill:var(--accent);text-anchor:middle}
+.panel{padding:22px 22px 18px;min-height:292px;display:flex;flex-direction:column}
+.panel .who{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.panel h3{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.15}
+.panel h3 small{font:600 12px var(--mono);color:var(--faint);letter-spacing:.1em;margin-left:8px}
+.panel dl{margin-top:14px;display:grid;grid-template-columns:3.2em 1fr;gap:8px 12px;font-size:14px}
+.panel dt{font:600 11px var(--mono);color:var(--faint);letter-spacing:.06em;padding-top:3px}
+.panel dd{color:var(--ink)}
+.panel .gatebox{margin-top:12px;padding:10px 14px;border-radius:var(--r-m);background:var(--ink);color:var(--ink-inv);font-size:13px;display:none}
+.panel .gatebox.show{display:block}
+.ctl{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:16px}
+.ctl button{font:600 12px var(--mono);border:1.5px solid var(--border);background:transparent;color:var(--dim);padding:6px 14px;border-radius:var(--pill);cursor:pointer;transition:background .18s,color .18s}
+.ctl button:hover{background:var(--soft);color:var(--ink)}
+.bar{flex:1;height:3px;border-radius:2px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent)}
+.bar i.run{animation:fill var(--dur,3.6s) linear forwards}
+@keyframes fill{to{width:100%}}
+.legend{margin-top:14px;font:11.5px var(--mono);color:var(--faint);text-align:center}
+.legend b{display:inline-block;width:14px;height:14px;line-height:14px;border-radius:50%;background:var(--ink);color:var(--ink-inv);font-size:9px;text-align:center;margin-right:4px;vertical-align:-2px}
+
+/* ---------- 02 旅程 ---------- */
+.journey{display:grid;grid-template-columns:1.15fr 1fr;gap:22px;align-items:start}
+.tl{padding:22px 22px 14px;position:relative;isolation:isolate}
+.tl ol{list-style:none;position:relative}
+.tl ol::before{content:'';position:absolute;left:11px;top:12px;bottom:12px;width:2px;background:var(--border)}
+.tl .prog{position:absolute;left:34px;top:35px;width:2px;background:var(--accent);height:0;transition:height .6s ease;z-index:-1}
+.tl li{position:relative;padding:0 0 18px 40px;cursor:pointer;opacity:.55;transition:opacity .3s}
+.tl li:last-child{padding-bottom:6px}
+.tl li.on{opacity:1}.tl li.past{opacity:.85}
+.tl li .dot{position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:var(--card);border:2px solid var(--border);transition:all .3s;display:grid;place-items:center;font:700 9px var(--mono);color:var(--faint);z-index:1}
+.tl li.past .dot{border-color:var(--accent);color:var(--accent)}
+.tl li.on .dot{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 6px var(--accent-soft)}
+.tl li.gate .dot{border-radius:5px}
+.tl li.gate.on .dot{background:var(--ink);border-color:var(--ink);box-shadow:0 0 0 6px var(--soft)}
+.tl h4{font-size:15.5px;font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap;line-height:1.5}
+.tl p{font-size:13px;color:var(--dim);margin-top:2px;max-height:0;overflow:hidden;opacity:0;transition:max-height .4s,opacity .3s}
+.tl li.on p{max-height:80px;opacity:1}
+.lane{font:700 10px var(--mono);letter-spacing:.06em;padding:2px 8px;border-radius:var(--pill)}
+.lane.boss{background:var(--ink);color:var(--ink-inv)}
+.lane.pm{background:var(--accent-soft);color:var(--accent)}
+.lane.tab{background:var(--soft);color:var(--ink);border:1px solid var(--border)}
+.entries{display:grid;gap:10px}
+.ent{padding:16px 18px}
+.ent h4{font-size:14.5px;font-weight:700;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ent p{font-size:12.5px;color:var(--dim);margin-top:5px}
+.ent.td{border-style:dashed;background:transparent}
+.ent .arrow{font:700 11px var(--mono);color:var(--faint);margin-top:6px;display:block}
+.pool{padding:14px 18px;background:var(--ink);color:var(--ink-inv);border-radius:var(--r-l);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.pool b{font-size:15px}.pool span{font:11.5px var(--mono);opacity:.7}
+.chain{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 4px;align-items:center;font:600 12px var(--mono)}
+.chain span.n{padding:5px 12px;border-radius:var(--pill);border:1.5px solid var(--border);background:var(--card);color:var(--ink)}
+.chain span.n.dash{border-style:dashed;color:var(--faint)}
+.chain span.ar{color:var(--faint);display:inline-block;animation:nudge 1.6s ease-in-out infinite}
+@keyframes nudge{50%{transform:translateX(4px);color:var(--accent)}}
+.chain-cap{font:11px var(--mono);color:var(--faint);margin-top:22px;letter-spacing:.06em}
+
+/* ---------- 03 分诊 ---------- */
+.triage{padding:22px 18px 20px}
+.tsrc{display:flex;justify-content:center;gap:6px;margin-bottom:8px;font:11px var(--mono);color:var(--faint)}
+.tcols{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tcol{border-radius:var(--r-m);border:1px solid var(--border);padding:12px 10px 14px;background:var(--bg);text-align:center;position:relative}
+.tcol h4{font-size:14px;font-weight:800;line-height:1.3}
+.tcol h4 small{display:block;font:600 10.5px var(--mono);color:var(--faint);letter-spacing:.06em;margin-top:2px}
+.trk{position:relative;height:96px;margin:14px auto 8px;width:2px;background:var(--border);border-radius:2px}
+.trk i{position:absolute;left:-3px;width:8px;height:8px;border-radius:50%;top:-8px;background:var(--faint);opacity:0;animation:fall 3.2s linear infinite;animation-delay:var(--w,0s)}
+.tcol.z .trk i{animation-name:fall0}
+.tcol.a .trk i{background:var(--ok)}
+.tcol.b .trk i{background:var(--accent);animation-name:fallB}
+@keyframes fall{0%{top:-8px;opacity:0}12%{opacity:1}88%{opacity:1}100%{top:92px;opacity:0}}
+@keyframes fall0{0%{top:-8px;opacity:0}12%{opacity:1}40%{opacity:1}55%{top:42px;opacity:0}100%{top:42px;opacity:0}}
+@keyframes fallB{0%{top:-8px;opacity:0}12%{opacity:1}45%{top:34px;opacity:1}70%{top:34px;opacity:1}100%{top:92px;opacity:0}}
+.tcol.b .trk::after{content:'人';position:absolute;left:-10px;top:42px;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--ink-inv);font:700 11px var(--sans);display:grid;place-items:center}
+.tcol .end{font-size:12.5px;font-weight:700}
+.tcol .end small{display:block;font:500 11px var(--sans);color:var(--dim);margin-top:2px;line-height:1.45}
+.tcol ul{list-style:none;margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.5;text-align:left;border-top:1px dashed var(--border);padding-top:8px}
+.tcol li::before{content:'· ';color:var(--faint)}
+.brake{margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.brake div{padding:12px 14px;border-radius:var(--r-m);background:var(--soft);font-size:12.5px;color:var(--dim)}
+.brake b{display:block;color:var(--ink);font-size:13.5px;margin-bottom:2px}
+
+/* ---------- 04 隔离 ---------- */
+.iso{display:grid;grid-template-columns:1fr 54px 1fr;gap:0;align-items:stretch}
+.side{padding:18px 18px 16px}
+.side h4{font-size:16px;font-weight:800;letter-spacing:-.02em}
+.side h4 small{display:block;font:600 11px var(--mono);color:var(--faint);letter-spacing:.08em;margin-bottom:4px}
+.side .rd{margin-top:12px;display:grid;gap:6px;font-size:13px}
+.side .rd div{padding:7px 12px;border-radius:var(--r-s);background:var(--soft)}
+.side .rd div.yes{background:var(--ok-soft);color:var(--ok);font-weight:600}
+.side .rd div.nope{background:var(--accent-soft);color:var(--accent);text-decoration:line-through;text-decoration-thickness:1.5px}
+.wall{display:flex;align-items:center;justify-content:center;position:relative}
+.wall::before{content:'';width:12px;height:100%;border-radius:6px;background:repeating-linear-gradient(135deg,var(--accent) 0 6px,transparent 6px 12px);opacity:.85;animation:slide 1.2s linear infinite;background-size:17px 17px}
+@keyframes slide{to{background-position:17px 0}}
+.wall span{position:absolute;font:700 10.5px var(--mono);letter-spacing:.3em;color:var(--accent);writing-mode:vertical-rl;background:var(--bg);padding:8px 3px;border-radius:var(--pill)}
+.iso-note{margin-top:14px;padding:12px 16px;border-radius:var(--r-m);background:var(--soft);font-size:13px;color:var(--dim);text-align:center}
+.iso-note b{color:var(--ink)}
+
+/* ---------- 05 三 Agent ---------- */
+.agents{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.ag{padding:18px 18px 16px}
+.ag .av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:800 14px var(--sans);margin-bottom:12px}
+.ag.pm .av{background:var(--accent);color:#fff}
+.ag.tab .av{background:var(--ink);color:var(--ink-inv)}
+.ag.des{border-style:dashed;background:transparent}
+.ag.des .av{background:transparent;border:2px dashed var(--faint);color:var(--faint)}
+.ag h4{font-size:16px;font-weight:800;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ag p{font-size:12.5px;color:var(--dim);margin-top:6px}
+.ag ul{list-style:none;margin-top:8px;font-size:12px;color:var(--dim)}
+.ag li::before{content:'→ ';color:var(--accent);font-family:var(--mono)}
+
+/* ---------- 06 信号源 ---------- */
+.sig{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sg{padding:14px 14px 12px;position:relative}
+.sg .no{font:700 10px var(--mono);color:var(--faint);letter-spacing:.1em}
+.sg h4{font-size:14.5px;font-weight:700;margin-top:2px;padding-right:20px}
+.sg p{font-size:11.5px;color:var(--dim);margin-top:4px;line-height:1.5}
+.sg .led{position:absolute;right:14px;top:16px;width:10px;height:10px;border-radius:50%;background:var(--ok)}
+.sg .led::after{content:'';position:absolute;inset:0;border-radius:50%;background:inherit;animation:ping 2.4s ease-out infinite}
+.sg.bad{border-color:var(--accent);background:var(--accent-soft)}
+.sg.bad .led{background:var(--accent)}
+.sg.bad .led::after{animation-duration:1.2s}
+.sg.td{border-style:dashed;background:transparent}
+.sg.td .led{background:var(--faint)}.sg.td .led::after{display:none}
+@keyframes ping{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.8);opacity:0}}
+
+/* ---------- 07 监控 ---------- */
+.ecg{padding:16px 20px 12px;margin-bottom:12px}
+.ecg .wave{position:relative;height:70px}
+.ecg svg{position:absolute;inset:0;width:100%;height:70px;display:block}
+.ecg path{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.ecg svg.base{opacity:.22}
+.ecg svg.live{animation:scan 3.6s linear infinite}
+@keyframes scan{0%{clip-path:inset(0 100% 0 0)}55%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 0 100%)}}
+.ecg .cap{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font:11px var(--mono);color:var(--faint);margin-top:6px}
+.ecg .cap b{color:var(--ok)}
+.mon{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.mn{padding:14px 15px}
+.mn h4{font-size:14px;font-weight:800}
+.mn h4 small{display:block;font:600 10px var(--mono);color:var(--faint);letter-spacing:.06em;margin-bottom:2px}
+.mn p{font-size:12px;color:var(--dim);margin-top:5px;line-height:1.5}
+.mn .bad{color:var(--accent)}
+.principle{margin-top:12px;padding:14px 18px;border-radius:var(--r-m);background:var(--ink);color:var(--ink-inv);font-size:13.5px}
+.principle b{color:var(--accent)}
+
+/* ---------- 08 全景分层 ---------- */
+.layers{display:grid;gap:8px}
+.ly{display:grid;grid-template-columns:104px 1fr;gap:12px;align-items:center;padding:10px 12px;border-radius:var(--r-m);border:1px solid var(--border);background:var(--card);transition:border-color .4s,background .4s,transform .4s;cursor:pointer}
+.ly.on{border-color:var(--accent);background:var(--accent-soft);transform:translateX(4px)}
+.ly .lb{font-size:12.5px;font-weight:800;line-height:1.3}
+.ly .lb small{display:block;font:500 10.5px var(--sans);color:var(--faint);margin-top:1px}
+.ly .ch{display:flex;flex-wrap:wrap;gap:5px}
+.ly .ch span{font-size:12px;padding:3px 10px;border-radius:var(--pill);background:var(--soft);color:var(--ink)}
+.ly .ch span.td{background:transparent;border:1px dashed var(--faint);color:var(--faint)}
+.ly .ch span.bd{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.ly .ch span.hi{background:var(--ink);color:var(--ink-inv)}
+
+/* ---------- 09 现状 ---------- */
+.status{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.col{padding:18px 18px 14px}
+.col h4{font-size:14px;font-weight:800;display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.col ul{list-style:none;display:grid;gap:7px;font-size:13px}
+.col li{padding-left:18px;position:relative;color:var(--ink)}
+.col li::before{content:'';position:absolute;left:2px;top:7px;width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.col.bad li::before{background:var(--accent)}
+.col.td li::before{background:transparent;border:1.5px dashed var(--faint)}
+.col li small{display:block;font-size:11.5px;color:var(--dim)}
+.foot{margin-top:60px;padding-top:18px;border-top:1px solid var(--border);font:11.5px var(--mono);color:var(--faint);line-height:1.9;display:flex;gap:14px 24px;flex-wrap:wrap;justify-content:space-between}
+
+/* ---------- 手机 ---------- */
+@media (max-width:760px){
+  body{padding:24px 16px 56px}
+  .topnav{margin-bottom:26px}
+  .links{margin-left:0;width:100%;margin-top:6px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .sec{margin-top:60px}
+  .ringwrap,.journey{grid-template-columns:1fr}
+  .panel{min-height:0}
+  .tcols{gap:6px}
+  .tcol{padding:10px 6px 12px}
+  .tcol ul{font-size:11px}
+  .brake,.agents,.status{grid-template-columns:1fr}
+  .sig{grid-template-columns:repeat(2,1fr)}
+  .mon{grid-template-columns:repeat(2,1fr)}
+  .iso{grid-template-columns:1fr;grid-template-rows:auto 38px auto}
+  .wall::before{width:100%;height:12px;background-image:repeating-linear-gradient(45deg,var(--accent) 0 6px,transparent 6px 12px)}
+  .wall span{writing-mode:horizontal-tb;padding:2px 10px;letter-spacing:.25em}
+  .ly{grid-template-columns:1fr;gap:6px}
+  .ly .lb small{display:inline;margin-left:6px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+  .ecg svg.live{clip-path:none}
+}
+</style>
+</head>
+<body>
+
+<header class="topnav">
+  <a class="brand" href="/">Microlab<b>.</b></a>
+  <span class="brand-sub">LOOP · 研发循环</span>
+  <nav class="links">
+    <a href="/">← 主页</a>
+    <a href="/jarvis/">系统看板</a>
+    <a href="/jarvis/loop" class="on">研发循环</a>
+    <a href="/jarvis/content">内容链路</a>
+    <a href="/jarvis/weekly/">周报</a>
+  </nav>
+</header>
+
+<!-- ================= HERO ================= -->
+<section>
+  <div class="badge">Loop · 人 out of loop</div>
+  <h1>你只定方向，<br><span class="a">循环自己转。</span></h1>
+  <p class="lead">发现问题、写需求、修复、自测、总结——由 <b>PM / Tab / Designer</b> 三个 Agent 在落盘工件上自己闭环。人只出现在两个地方：<b>需求审核</b>与<b>交付验收</b>。</p>
+  <div class="stats">
+    <div class="stat hot"><b>5/6</b><span>信号源在线</span></div>
+    <div class="stat"><b>89</b><span>SDK 单测全绿</span></div>
+    <div class="stat"><b>2</b><span>道人的关卡</span></div>
+    <div class="stat"><b>3</b><span>个 Agent 角色</span></div>
+  </div>
+  <p class="snap">状态为手写快照：<!--SNAP-->本地预览<!--/SNAP--> · 实时体检见每日晨报首段 · 主线：Loocap 30 天上架</p>
+</section>
+
+<!-- ================= 01 七步环 ================= -->
+<section class="sec reveal" id="s1">
+  <div class="sec-h"><span class="sec-no">01</span><h2>七步循环体</h2></div>
+  <p class="sec-lead">循环体与“何时触发”无关——手动、定时、夜跑只是外挂开关，<b>统一入口：跑一轮 LoopBuddy</b>。每一轮必产出一份观察报告，哪怕结论是“本轮无事”。点节点可跳转。</p>
+  <div class="ringwrap">
+    <div>
+      <svg class="ring" viewBox="0 0 400 400" id="ring" role="img" aria-label="七步循环：观察、提案、分诊、执行、自测、交付、反哺"></svg>
+      <p class="legend"><b>人</b>= 人的关卡 · 红点沿环巡行 · 反哺让下一轮观察更准</p>
+    </div>
+    <div class="card panel" id="panel">
+      <div class="who" id="p-who"></div>
+      <h3 id="p-t"></h3>
+      <dl>
+        <dt>输入</dt><dd id="p-in"></dd>
+        <dt>输出</dt><dd id="p-out"></dd>
+        <dt>判据</dt><dd id="p-ok"></dd>
+      </dl>
+      <div class="gatebox" id="p-gate"></div>
+      <div class="ctl">
+        <button id="b-prev" aria-label="上一步">‹</button>
+        <button id="b-play" aria-label="暂停/播放">暂停</button>
+        <button id="b-next" aria-label="下一步">›</button>
+        <div class="bar"><i id="p-bar"></i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 02 一条需求的旅程 ================= -->
+<section class="sec reveal" id="s2">
+  <div class="sec-h"><span class="sec-no">02</span><h2>一条需求的旅程</h2></div>
+  <p class="sec-lead">三条入口，一个出口——所有需求必须<b>入池（TODOS.md）</b>才会被执行，无验收判据不入池。点任一步可跳转。</p>
+  <div class="journey">
+    <div class="card tl">
+      <ol id="tl"></ol>
+      <div class="prog" id="tl-prog"></div>
+    </div>
+    <div class="entries">
+      <div class="card ent">
+        <h4>① 老板口述 <span class="tag ok">已启用</span></h4>
+        <p>手机上任何一句产品诉求（口语、半句都行）。从“提案”步直接切入，PM 先落 intent，原话不改写。</p>
+        <span class="arrow">→ 待确认问题关闭 → 关卡① → spec 入池</span>
+      </div>
+      <div class="card ent">
+        <h4>② 循环自产 <span class="tag ok">已启用</span></h4>
+        <p>6 个信号源 → 观察报告 → PM 自己写 spec（证据＋根因＋判据），再分诊。</p>
+        <span class="arrow">→ 分诊：0 记录 · A 直通 · B 送审</span>
+      </div>
+      <div class="card ent td">
+        <h4>③ 外部信号 <span class="tag td">待启用</span></h4>
+        <p>用户反馈、商店评论、崩溃上报、竞品动态。作为第 7 个信号源接入观察步；上架后才有数据，现在不建。</p>
+      </div>
+      <div class="pool"><b>需求池 · TODOS.md</b><span>唯一状态真相 · 唯一出口</span></div>
+    </div>
+  </div>
+  <p class="chain-cap">产物链 · 命名对齐 Anthropic AI-Native SDLC，便于对外转播</p>
+  <div class="chain">
+    <span class="n">intent</span><span class="ar">→</span><span class="n">spec</span><span class="ar">→</span><span class="n dash">plan</span><span class="ar">→</span><span class="n">实现＋证据</span><span class="ar">→</span><span class="n">战报</span><span class="ar">→</span><span class="n">判据文档</span>
+  </div>
+</section>
+
+<!-- ================= 03 分诊 ================= -->
+<section class="sec reveal" id="s3">
+  <div class="sec-h"><span class="sec-no">03</span><h2>分诊：人只审“该审的”</h2></div>
+  <p class="sec-lead">这是“更少参与”的机制落点。观察到的每个信号先过分诊，<b>判据越硬，越不需要人</b>。</p>
+  <div class="card triage">
+    <div class="tsrc">▼ 每一个问题信号</div>
+    <div class="tcols">
+      <div class="tcol z">
+        <h4>0 类<small>只记录</small></h4>
+        <div class="trk"><i style="--w:0s"></i><i style="--w:1.6s"></i></div>
+        <div class="end">归档<small>不提案，防噪音</small></div>
+        <ul><li>启动不落盘这类小观察</li><li>单次轻微告警</li></ul>
+      </div>
+      <div class="tcol a">
+        <h4>A 类<small>预授权直通</small></h4>
+        <div class="trk"><i style="--w:.4s"></i><i style="--w:1.5s"></i><i style="--w:2.5s"></i></div>
+        <div class="end">Tab 直接开工<small>无需等人</small></div>
+        <ul><li>测试失败</li><li>构建修复</li><li>可硬验证的回归</li></ul>
+      </div>
+      <div class="tcol b">
+        <h4>B 类<small>送老板审核</small></h4>
+        <div class="trk"><i style="--w:.9s"></i><i style="--w:2.4s"></i></div>
+        <div class="end">审核后执行<small>手机上批量轻审</small></div>
+        <ul><li>新功能 / 方向性</li><li>有歧义的需求</li><li>L 档大单</li></ul>
+      </div>
+    </div>
+  </div>
+  <div class="brake">
+    <div><b>≤ 3 轮即停</b>同一单失败三轮停并记录，不死磕</div>
+    <div><b>worktree 隔离</b>执行全程禁动 master</div>
+    <div><b>战报带回滚</b>每份战报必含可执行回滚命令</div>
+  </div>
+</section>
+
+<!-- ================= 04 隔离 ================= -->
+<section class="sec reveal" id="s4">
+  <div class="sec-h"><span class="sec-no">04</span><h2>下发与验收：两个上下文</h2></div>
+  <p class="sec-lead">同一上下文既下发又验收，实现方的自我陈述会污染判断。所以<b>同一张单，下发与验收是两个独立会话</b>，唯一共享通道是落盘工件。</p>
+  <div class="iso">
+    <div class="card side">
+      <h4><small>下发上下文</small>PM → Tab</h4>
+      <div class="rd">
+        <div class="yes">✓ 只给 spec：要什么 / 怎么算对</div>
+        <div class="nope">不含实现偏好</div>
+        <div class="nope">不含对话过程</div>
+      </div>
+    </div>
+    <div class="wall"><span>隔离墙</span></div>
+    <div class="card side">
+      <h4><small>验收上下文</small>PM 复核</h4>
+      <div class="rd">
+        <div class="yes">✓ 只读 判据 ＋ 硬证据</div>
+        <div class="nope">禁读 Tab 的实现陈述</div>
+        <div class="nope">不共享对话记忆</div>
+      </div>
+    </div>
+  </div>
+  <p class="iso-note">发现偏差 → <b>不改话、改单</b>：回池开 FIX 单重新下发，偏差原因写进反哺。PM 自身漂移的兜底：A 类硬判据 → B 类老板审核 → 老板最终验收，三层。</p>
+</section>
+
+<!-- ================= 05 三 Agent ================= -->
+<section class="sec reveal" id="s5">
+  <div class="sec-h"><span class="sec-no">05</span><h2>三个 Agent</h2></div>
+  <p class="sec-lead">你和 PM 单线对话，只谈上层；产研团队自己落地。测试不单拆——验收标准前置，防作者盲区。</p>
+  <div class="agents">
+    <div class="card ag pm"><div class="av">PM</div>
+      <h4>PM · 意图代理 <span class="tag ok">Jarvis</span></h4>
+      <p>持有你的产品意图，让每张单长在同一个产品上。</p>
+      <ul><li>写 intent / spec，分诊</li><li>独立上下文复核验收</li><li>维护判据文档</li></ul></div>
+    <div class="card ag tab"><div class="av">Tab</div>
+      <h4>Tab · 开发＋自测 <span class="tag ok">已有</span></h4>
+      <p>在 worktree 里实现，自验硬证据。</p>
+      <ul><li>采集信号（观察步）</li><li>实现 → 自测，修 ≤ 3 轮</li><li>交付战报与证据包</li></ul></div>
+    <div class="card ag des"><div class="av">D</div>
+      <h4>Designer <span class="tag td">待启用</span></h4>
+      <p>交互稿与判据文档。</p>
+      <ul><li>单文件 HTML 可点击原型</li><li>状态锚点可程序化断言</li><li>关键状态 PNG 快照</li></ul></div>
+  </div>
+</section>
+
+<!-- ================= 06 信号源 ================= -->
+<section class="sec reveal" id="s6">
+  <div class="sec-h"><span class="sec-no">06</span><h2>观察：6 个信号源</h2></div>
+  <p class="sec-lead">观察只发生在每一轮的第一步，<b>不常驻、不空转</b>。当前只有 ③XCUITest 被卡住，其余全绿，循环已能降级运转。</p>
+  <div class="sig">
+    <div class="card sg"><i class="led"></i><span class="no">01</span><h4>构建</h4><p>build-app.sh<br>exit 0</p></div>
+    <div class="card sg"><i class="led"></i><span class="no">02</span><h4>SDK 单测</h4><p>89 / 89 通过<br>基线 77 → 89</p></div>
+    <div class="card sg bad"><i class="led"></i><span class="no">03</span><h4>XCUITest</h4><p>阻塞 · LOOP-05<br>辅助功能授权缺失</p></div>
+    <div class="card sg"><i class="led"></i><span class="no">04</span><h4>启动冒烟</h4><p>拉起存活 10s<br>无崩溃</p></div>
+    <div class="card sg"><i class="led"></i><span class="no">05</span><h4>崩溃日志</h4><p>近 3 天零新增</p></div>
+    <div class="card sg"><i class="led"></i><span class="no">06</span><h4>日常观察项</h4><p>done 单备注复验<br>无异常</p></div>
+    <div class="card sg td"><i class="led"></i><span class="no">07</span><h4>外部信号</h4><p>待启用<br>上架后接入</p></div>
+    <div class="card sg td"><i class="led"></i><span class="no">+</span><h4>录屏证据</h4><p>待建<br>≤ 60s 手机验收用</p></div>
+  </div>
+</section>
+
+<!-- ================= 07 监控 ================= -->
+<section class="sec reveal" id="s7">
+  <div class="sec-h"><span class="sec-no">07</span><h2>怎么知道它在正常转</h2></div>
+  <p class="sec-lead">循环没有常驻进程，所以不盯进程，盯<b>痕迹的新鲜与自洽</b>。最危险的是“静默停摆”——该跑的一轮没跑。体检结果每天 08:30 嵌进晨报首段。</p>
+  <div class="card ecg">
+    <div class="wave"><svg class="base" viewBox="0 0 600 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40 H120 l8 -4 l8 4 H190 l8 -4 l8 4 H250 l10 6 l12 -38 l14 52 l10 -20 H340 l8 -5 l8 5 H430 l8 -4 l8 4 H600"/></svg><svg class="live" viewBox="0 0 600 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40 H120 l8 -4 l8 4 H190 l8 -4 l8 4 H250 l10 6 l12 -38 l14 52 l10 -20 H340 l8 -5 l8 5 H430 l8 -4 l8 4 H600"/></svg></div>
+    <div class="cap"><span>loopbuddy_health.py · 只读 · exit 0 / 1 / 2</span><span>当前判定 <b>● 健康，循环在转</b></span></div>
+  </div>
+  <div class="mon">
+    <div class="card mn"><h4><small>维度 1</small>心跳</h4><p>最新战报的新鲜度。<span class="bad">&gt;48h 警告，&gt;96h 失败</span></p></div>
+    <div class="card mn"><h4><small>维度 2</small>自洽</h4><p>战报写 PASS 但证据列为空 → <span class="bad">判失败</span>，防自我合理化</p></div>
+    <div class="card mn"><h4><small>维度 3</small>证据新鲜度</h4><p>单测日志不能比战报旧，不能带失败，防拿旧绿灯冒充</p></div>
+    <div class="card mn"><h4><small>维度 4</small>完整性</h4><p>战报之后 master 源码零直达提交，防绕过 worktree</p></div>
+  </div>
+  <p class="principle"><b>监控读原始证据，不读结论。</b>战报是被检查的对象而不是证人——判据来自 git 提交链、测试日志、文件时间；监控只读、不改状态、告警必带下一步。</p>
+</section>
+
+<!-- ================= 08 全景 ================= -->
+<section class="sec reveal" id="s8">
+  <div class="sec-h"><span class="sec-no">08</span><h2>完整系统：八层全景</h2></div>
+  <p class="sec-lead">从你到产品的八层。高亮在逐层巡行，表示一条需求依次经过的层；点任一层可停住。</p>
+  <div class="layers" id="layers">
+    <div class="ly"><div class="lb">L0 方向层<small>人只在这里</small></div><div class="ch"><span class="hi">老板（手机为主）</span><span>北极星：离付钱更近</span><span>主线：Loocap 30 天上架</span><span class="td">企微推送证据包</span></div></div>
+    <div class="ly"><div class="lb">L1 入口层<small>需求从哪进</small></div><div class="ch"><span>老板口述</span><span>循环自产</span><span class="td">外部信号</span><span>触发器：手动 ✓</span><span class="td">定时 / 夜跑</span></div></div>
+    <div class="ly"><div class="lb">L2 关卡层<small>人的两道闸</small></div><div class="ch"><span class="hi">关卡① 需求审核</span><span>分诊 0 · A · B</span><span class="hi">关卡② 交付验收</span></div></div>
+    <div class="ly"><div class="lb">L3 角色层<small>三 Agent</small></div><div class="ch"><span>PM</span><span>Tab</span><span class="td">Designer</span><span class="bd">上下文隔离墙</span></div></div>
+    <div class="ly"><div class="lb">L4 内核层<small>规则是什么</small></div><div class="ch"><span>loop-engine 协议内核</span><span>状态机：待审→已审→doing→rfr→done</span><span>铁律 · 刹车</span><span>适配层</span></div></div>
+    <div class="ly"><div class="lb">L5 工件层<small>落盘即真相</small></div><div class="ch"><span>TODOS.md 需求池</span><span>intent → spec → plan</span><span>战报＋证据包</span><span class="td">判据文档</span><span>git worktree</span></div></div>
+    <div class="ly"><div class="lb">L6 验证层<small>观察的信号源</small></div><div class="ch"><span>构建</span><span>SDK 单测</span><span class="bd">XCUITest 阻塞</span><span>冒烟</span><span>崩溃日志</span><span>观察项</span><span>监控体检</span></div></div>
+    <div class="ly"><div class="lb">L7 产品层<small>被建的东西</small></div><div class="ch"><span>Loocap｜路文 App</span><span>AudioRecordKit SDK</span><span class="td">上架链 REL-001~004</span></div></div>
+  </div>
+</section>
+
+<!-- ================= 09 现状 ================= -->
+<section class="sec reveal" id="s9">
+  <div class="sec-h"><span class="sec-no">09</span><h2>现状与缺口</h2></div>
+  <p class="sec-lead">循环已经转起第一圈：R1 降级轮抓到并修复了一个真问题（单测脚本缺 <span class="mono">--disable-sandbox</span>，无人值守必挂），全程没问人一个问题。</p>
+  <div class="status">
+    <div class="card col"><h4><span class="tag ok">已跑通</span></h4><ul>
+      <li>手动触发的完整一轮（R1）</li><li>A 类预授权直通 → 修复 → 回归</li><li>监控体检脚本，已接 08:30 晨报</li><li>intent / spec 分层与模板</li><li>本页上线 Jarvis 官网</li></ul></div>
+    <div class="card col bad"><h4><span class="tag no">阻塞</span></h4><ul>
+      <li>③ XCUITest<small>LOOP-05：辅助功能授权缺失，需回到电脑前授权一次</small></li></ul></div>
+    <div class="card col td"><h4><span class="tag td">待启用 / 待建</span></h4><ul>
+      <li>Designer 角色与判据文档</li><li>plan.md（B / L 档单先计划后开工）</li><li>手机验收：录屏证据 ＋ 企微推送通道</li><li>定时 / 夜跑班次<small>旧班次待按新机制重写</small></li><li>外部信号（上架后）</li></ul></div>
+  </div>
+  <div class="foot"><span>Microlab · 研发循环 Loop</span><span>资产自持 · 通道租用</span><span><a href="/jarvis/">← 返回系统看板</a></span></div>
+</section>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var $ = function(id){return document.getElementById(id)};
+
+  /* ---- 进场淡入 ---- */
+  var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function(es){
+    es.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); } });
+  },{threshold:.05}) : null;
+  document.querySelectorAll('.reveal').forEach(function(el){ io ? io.observe(el) : el.classList.add('in'); });
+
+  /* ---- 自动播放器：只在可见时走，用户暂停则停 ---- */
+  function player(el, count, ms, onStep){
+    var cur = 0, timer = null, paused = reduce, visible = false;
+    function tick(){ clearInterval(timer); timer = null; if(paused || !visible) return; timer = setInterval(function(){ go((cur+1)%count); }, ms); }
+    function go(i, user){ cur = i; onStep(i, user ? 'user' : 'auto'); if(user) tick(); }
+    var vo = ('IntersectionObserver' in window) ? new IntersectionObserver(function(es){
+      visible = es[0].isIntersecting; tick(); onStep(cur,'vis');
+    },{threshold:.15}) : null;
+    if(vo) vo.observe(el); else visible = true;
+    return {
+      go: function(i){ go(((i%count)+count)%count, true); },
+      cur: function(){ return cur; },
+      pause: function(p){ paused = p; tick(); },
+      isPaused: function(){ return paused; },
+      init: function(){ onStep(0,'init'); tick(); }
+    };
+  }
+
+  /* ---- 01 七步环 ---- */
+  var steps = [
+    {l:'观察', who:['Tab'], t:'观察', en:'OBSERVE', i:'6 个信号源 · 上一轮更新的判据 · TODOS.md 当前状态', o:'观察报告——每轮必产，“本轮无事”也要有', k:'报告落盘；无报告 = 循环没转'},
+    {l:'提案', who:['PM'], t:'提案', en:'PROPOSE', i:'观察报告，或老板口述（先落 intent）', o:'spec：证据 ＋ 根因假设 ＋ 验收判据', k:'无判据不入池'},
+    {l:'分诊', who:['PM'], t:'分诊', en:'TRIAGE', i:'待分类的 spec', o:'0 类只记录 · A 类直通开工 · B 类送审', k:'边界有清单；执行侧禁止扩权', gate:'关卡①：B 类单在这里等老板需求审核——审核通过即开工，无二次确认。'},
+    {l:'执行', who:['Tab'], t:'执行', en:'EXECUTE', i:'已审核的 spec（B / L 档先产 plan，PM 质询后才开工）', o:'worktree 里的实现 ＋ 硬证据', k:'禁动 master；没被接受的计划不实现'},
+    {l:'自测', who:['Tab'], t:'自测', en:'VERIFY', i:'实现产物', o:'构建 / 单测 / 冒烟 / UI 测试的硬证据', k:'同一单修 ≤ 3 轮，超限即停并记录'},
+    {l:'交付', who:['PM','复核'], t:'交付', en:'DELIVER', i:'判据 ＋ 硬证据（只读这两样）', o:'rfr ＋ 战报 ＋ 证据包（视频 / 截图 / 文本）推手机', k:'战报含可执行回滚命令', gate:'关卡②：你在手机上批量验收 rfr → done；发现偏差回池开 FIX 单。'},
+    {l:'反哺', who:['PM'], t:'反哺', en:'FEEDBACK', i:'战报与偏差记录', o:'判据文档 / 观察清单更新，每个 FIX 补一条可复跑断言', k:'下一轮观察更准——环闭合'}
+  ];
+  var C = 200, R = 132, N = steps.length;
+  var ring = $('ring'), h = '';
+  h += '<circle class="track" cx="'+C+'" cy="'+C+'" r="'+R+'"/>';
+  h += '<g class="orb" id="orb"><circle class="tok" cx="'+C+'" cy="'+(C-R)+'" r="7"/></g>';
+  steps.forEach(function(s,i){
+    var a = (-90 + i*360/N) * Math.PI/180, x = C+R*Math.cos(a), y = C+R*Math.sin(a);
+    h += '<g class="nd" data-i="'+i+'" transform="translate('+x.toFixed(1)+' '+y.toFixed(1)+')">'
+       + '<circle class="halo" r="30"/><circle r="30"/>'
+       + '<text class="n" text-anchor="middle" y="-9">0'+(i+1)+'</text>'
+       + '<text class="l" text-anchor="middle" y="9">'+s.l+'</text></g>';
+    if(s.gate){
+      var gx = C+178*Math.cos(a), gy = C+178*Math.sin(a);
+      h += '<g class="gate" transform="translate('+gx.toFixed(1)+' '+gy.toFixed(1)+')"><circle r="13"/><text text-anchor="middle" y="4.5">'+(i==2?'①':'②')+'</text></g>';
+    }
+  });
+  h += '<text class="c1" x="'+C+'" y="'+(C-26)+'">LOOP</text>'
+     + '<text class="c2" id="c2" x="'+C+'" y="'+(C+10)+'"></text>'
+     + '<text class="c3" id="c3" x="'+C+'" y="'+(C+34)+'"></text>';
+  ring.innerHTML = h;
+  var nodes = ring.querySelectorAll('.nd'), orb = $('orb'), rot = 0, last = 0;
+  var bar = $('p-bar');
+  function restartBar(){ bar.style.width=''; bar.classList.remove('run'); void bar.offsetWidth; if(!rp.isPaused()) bar.classList.add('run'); }
+  var rp = player($('s1'), N, 3600, function(i, why){
+    if(why === 'vis'){ restartBar(); return; }
+    var d = (i - last) * 360/N; while(d > 180) d -= 360; while(d <= -180) d += 360;
+    rot += d; last = i; orb.style.transform = 'rotate('+rot+'deg)';
+    nodes.forEach(function(n,k){ n.classList.toggle('on', k===i); n.classList.toggle('done', k<i); });
+    var s = steps[i];
+    $('c2').textContent = s.t; $('c3').textContent = (i+1)+' / '+N;
+    $('p-who').innerHTML = '<span class="tag mono">'+s.en+'</span>' + s.who.map(function(w,k){ return k==0 ? '<span class="lane '+(w=='PM'?'pm':'tab')+'">'+w+'</span>' : '<span class="tag">'+w+'</span>'; }).join('');
+    $('p-t').innerHTML = s.t + '<small>STEP 0'+(i+1)+'</small>';
+    $('p-in').textContent = s.i; $('p-out').textContent = s.o; $('p-ok').textContent = s.k;
+    var g = $('p-gate'); g.textContent = s.gate || ''; g.classList.toggle('show', !!s.gate);
+    restartBar();
+  });
+  nodes.forEach(function(n){ n.addEventListener('click', function(){ rp.go(+n.getAttribute('data-i')); }); });
+  $('b-prev').onclick = function(){ rp.go(rp.cur()-1); };
+  $('b-next').onclick = function(){ rp.go(rp.cur()+1); };
+  $('b-play').onclick = function(){ var p = !rp.isPaused(); rp.pause(p); this.textContent = p ? '播放' : '暂停'; if(p){ bar.classList.remove('run'); bar.style.width='100%'; } else { restartBar(); } };
+  if(reduce) $('b-play').textContent = '播放';
+  rp.init();
+
+  /* ---- 02 旅程 ---- */
+  var jr = [
+    {ln:'boss',lt:'老板',t:'口述诉求',n:'手机上一句话，口语半句都行。'},
+    {ln:'pm',lt:'PM',t:'落 intent',n:'原话原样落盘，待确认问题逐条关闭。',a:'intent'},
+    {ln:'boss',lt:'老板',t:'需求审核',gate:1,n:'关卡①：批“做什么＋怎么做＋标准”。A 类预授权直通。'},
+    {ln:'pm',lt:'PM',t:'编译 spec 入池',n:'带验收判据，入 TODOS.md，状态“已审核”。',a:'spec'},
+    {ln:'tab',lt:'Tab',t:'执行',n:'worktree 隔离、禁动 master；B / L 档先产 plan。',a:'plan'},
+    {ln:'tab',lt:'Tab',t:'自测',n:'构建 / 单测 / 冒烟 / UI 测试，硬证据落盘；修 ≤ 3 轮。',a:'证据'},
+    {ln:'pm',lt:'PM',t:'独立上下文复核',n:'只读判据 ＋ 硬证据；置 rfr，战报推手机。',a:'战报'},
+    {ln:'boss',lt:'老板',t:'交付验收',gate:1,n:'关卡②：手机批量验收 rfr → done；偏差回池开 FIX。'},
+    {ln:'pm',lt:'PM',t:'反哺',n:'沉淀到判据文档 / 观察清单，环闭合。',a:'判据'}
+  ];
+  var tl = $('tl'), th = '';
+  jr.forEach(function(s,i){
+    th += '<li class="'+(s.gate?'gate':'')+'" data-i="'+i+'"><span class="dot">'+(i+1)+'</span><h4>'+s.t+' <span class="lane '+s.ln+'">'+s.lt+'</span>'+(s.a?' <span class="tag">'+s.a+'</span>':'')+(s.gate?' <span class="tag inv">人</span>':'')+'</h4><p>'+s.n+'</p></li>';
+  });
+  tl.innerHTML = th;
+  var lis = tl.querySelectorAll('li'), prog = $('tl-prog');
+  function paintProg(i){
+    /* 进度线：从第一个圆点中心拉到当前圆点中心；等 CSS 过渡完成后再量一次 */
+    var base = lis[0].offsetTop + 12;
+    prog.style.top = (tl.offsetTop + base) + 'px';
+    prog.style.height = Math.max(0, lis[i].offsetTop - lis[0].offsetTop) + 'px';
+  }
+  var jp = player($('s2'), jr.length, 2800, function(i){
+    lis.forEach(function(li,k){ li.classList.toggle('on',k===i); li.classList.toggle('past',k<i); });
+    paintProg(i); setTimeout(function(){ paintProg(i); }, 450);
+  });
+  lis.forEach(function(li){ li.addEventListener('click', function(){ jp.go(+li.getAttribute('data-i')); }); });
+  jp.init();
+
+  /* ---- 08 全景巡行 ---- */
+  var ls = document.querySelectorAll('#layers .ly');
+  var lp = player($('s8'), ls.length, 1500, function(i){ ls.forEach(function(el,k){ el.classList.toggle('on',k===i); }); });
+  ls.forEach(function(el,k){ el.addEventListener('click', function(){ lp.go(k); lp.pause(true); }); });
+  lp.init();
+})();
+</script>
+</body>
+</html>

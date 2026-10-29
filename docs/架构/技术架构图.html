@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Loocap 技术架构图 · 2026-10-29</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#2a2f3a;--tx:#e6e8ee;--dim:#8b93a5;
+--kit:#2dd4bf;--app:#f59e0b;--sys:#64748b;--bad:#f87171;--ok:#4ade80;--sdk:#60a5fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.55 -apple-system,"PingFang SC",sans-serif;padding:28px 36px 60px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:16px;margin:36px 0 12px;padding-left:10px;border-left:3px solid var(--app)}
+h3{font-size:13px;margin:0 0 6px;color:var(--dim);font-weight:600}
+.meta{color:var(--dim);font-size:12px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin:14px 0 6px;font-size:12px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.l-kit::before{background:var(--kit)}.l-app::before{background:var(--app)}.l-sys::before{background:var(--sys)}.l-bad::before{background:var(--bad)}.l-sdk::before{background:var(--sdk)}
+
+/* 分层 */
+.stack{display:flex;flex-direction:column;gap:0}
+.layer{display:flex;border:1px solid var(--line);border-radius:8px;background:var(--card);overflow:hidden}
+.layer>.lab{width:128px;flex:none;padding:10px 12px;font-weight:700;font-size:12px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line)}
+.layer>.lab small{font-weight:400;color:var(--dim);margin-top:4px;line-height:1.4}
+.layer>.body{flex:1;display:flex;gap:10px;padding:10px;flex-wrap:wrap;align-items:stretch}
+.layer.app>.lab{background:rgba(245,158,11,.12);color:var(--app)}
+.layer.kit>.lab{background:rgba(45,212,191,.12);color:var(--kit)}
+.layer.sdk>.lab{background:rgba(96,165,250,.14);color:var(--sdk)}
+.layer.sys>.lab{background:rgba(100,116,139,.18);color:#b6c0d2}
+.gap{height:18px;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:11px}
+.gap b{color:var(--tx)}
+.wall{margin:6px 0;border:2px dashed var(--bad);border-radius:8px;padding:8px 14px;color:var(--bad);font-size:12px;text-align:center;background:rgba(248,113,113,.06)}
+.grp{flex:1 1 220px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;background:#12151b}
+.grp>h3{margin:0 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line);border-radius:4px;padding:2px 7px;font-size:11.5px;background:#1c2029;white-space:nowrap}
+.app .chip{border-color:rgba(245,158,11,.45)}
+.kit .chip{border-color:rgba(45,212,191,.45)}
+.sdk .chip{border-color:rgba(96,165,250,.55)}
+.sys .chip{border-color:rgba(100,116,139,.6);color:#b6c0d2}
+.chip.big{background:rgba(245,158,11,.12);font-weight:600}
+.chip.warn{border-color:var(--bad)!important;background:rgba(248,113,113,.10)}
+.chip.dead{border-style:dashed;color:var(--dim);text-decoration:line-through}
+.chip em{font-style:normal;color:var(--dim);font-size:10.5px;margin-left:4px}
+.tag{display:inline-block;background:var(--bad);color:#111;border-radius:3px;font-size:9.5px;font-weight:700;padding:0 4px;margin-left:5px;vertical-align:1px}
+
+/* 流程 */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px;margin:6px 0 4px}
+.step{border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--card);min-width:120px;max-width:210px}
+.step b{display:block;font-size:12px}
+.step span{color:var(--dim);font-size:11px}
+.step.k{border-color:rgba(45,212,191,.55)}.step.a{border-color:rgba(245,158,11,.55)}.step.s{border-color:rgba(100,116,139,.7)}.step.x{border-color:var(--bad)}
+.arr{align-self:center;color:var(--dim)}
+.note{color:var(--dim);font-size:12px;margin:2px 0 14px}
+.note b{color:var(--tx)}
+
+/* 表格 */
+table{border-collapse:collapse;width:100%;margin:6px 0}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top;font-size:12px}
+th{background:#1c2029;color:var(--dim);font-weight:600}
+code{background:#1c2029;padding:0 4px;border-radius:3px;font-size:11.5px}
+.sev-p0{color:var(--bad);font-weight:700}.sev-p1{color:var(--app);font-weight:700}.sev-p2{color:var(--sdk);font-weight:700}
+.good{color:var(--ok)}
+
+/* 柱状 */
+.bar{display:flex;align-items:center;gap:8px;margin:3px 0;font-size:12px}
+.bar .n{width:240px;text-align:right;color:var(--dim)}
+.bar .b{height:12px;border-radius:2px;background:var(--app)}
+.bar .b.k{background:var(--kit)}
+.bar .v{color:var(--dim)}
+
+/* 对比 */
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cmp>div{border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--card)}
+.cmp h3{color:var(--tx)}
+.mini{display:flex;flex-direction:column;gap:5px;margin-top:8px}
+.mini .r{border:1px solid var(--line);border-radius:5px;padding:5px 9px;font-size:12px;background:#12151b}
+.mini .r.a{border-color:rgba(245,158,11,.5)}.mini .r.k{border-color:rgba(45,212,191,.5)}.mini .r.s{border-color:rgba(96,165,250,.6)}.mini .r.x{border-color:var(--bad)}
+.mini .d{text-align:center;color:var(--dim);font-size:11px}
+</style>
+</head>
+<body>
+
+<h1>Loocap(路文)技术架构图</h1>
+<div class="meta">audio_record_mac · 产品名 Loocap / bundle com.microlab.loocap · 版本 0.1.0 · macOS 13+(进程 Tap 14.4+,转写 26+) · 基线 commit 2264770 · 2026-10-29 · 事实源 = 代码(App 19.9k 行 / Kit 8.6k 行 / Kit 单测 1.1k 行)</div>
+<div class="legend">
+  <span class="l-app">App 层(AudioRecordApp)</span>
+  <span class="l-sdk">SDK 公开面(public)</span>
+  <span class="l-kit">SDK 内部实现(AudioRecordKit internal)</span>
+  <span class="l-sys">系统框架 / 外部进程</span>
+  <span class="l-bad">问题点(编号对应第五节)</span>
+</div>
+
+<h2>一、总体分层图</h2>
+<div class="stack">
+
+  <div class="layer app">
+    <div class="lab">L5 表现层<small>AppKit 视图<br>Views/ · Views/Editor/</small></div>
+    <div class="body">
+      <div class="grp"><h3>窗口骨架</h3><div class="chips">
+        <span class="chip big">MainWindowView<em>885行 · 3 态 ViewMode</em></span>
+        <span class="chip">TitleBarView</span><span class="chip">SidebarView</span>
+        <span class="chip">TabContainerView</span><span class="chip">RecordedFilesView</span>
+        <span class="chip">StatusBarView</span><span class="chip">SettingsWindowController</span>
+        <span class="chip">PropertiesPanelView</span>
+      </div></div>
+      <div class="grp"><h3>录制区</h3><div class="chips">
+        <span class="chip">ControlPanelView</span><span class="chip">WaveformView(实时)</span>
+        <span class="chip">LevelMeterView / CardView / Overlay</span><span class="chip">LiveTranscriptPanel</span>
+        <span class="chip">IndustrialControls</span><span class="chip">TimerLabel</span>
+        <span class="chip warn">TracksView<em>538行·始终隐藏</em><i class="tag">A8</i></span>
+        <span class="chip dead">RecordingTracksView</span><span class="chip dead">MultiProcessLevelView</span>
+      </div></div>
+      <div class="grp"><h3>编辑区(剪映式)</h3><div class="chips">
+        <span class="chip big">EditorWaveformView<em>1176行</em></span>
+        <span class="chip">TrackContainerView</span><span class="chip">TrackRowView</span>
+        <span class="chip">TimeRulerView</span><span class="chip">PlayheadOverlayView</span>
+        <span class="chip">ZoomControlsView</span><span class="chip">HorizontalScrollBarView</span>
+        <span class="chip">SelectionReadoutView</span><span class="chip">EditorNavigationBar</span>
+        <span class="chip">EditorStatusBar</span>
+        <span class="chip warn">EditorToolbar + EditToolbarView<em>两套工具栏</em><i class="tag">A8</i></span>
+        <span class="chip warn">TranscriptPanelView<em>658行·含 Markdown 格式化</em><i class="tag">A8</i></span>
+        <span class="chip">TrackPanelView</span>
+      </div></div>
+    </div>
+  </div>
+  <div class="gap">▼ delegate 协议 / 闭包回调(MVC 风格,无 ViewModel / Store)</div>
+
+  <div class="layer app">
+    <div class="lab">L4 控制层<small>Controllers/ · Editor/<br>协调 UI 与服务</small></div>
+    <div class="body">
+      <div class="grp"><h3>应用入口</h3><div class="chips">
+        <span class="chip">main.swift</span><span class="chip">AppDelegate<em>权限请求·日志清理·暗色外观</em></span>
+      </div></div>
+      <div class="grp"><h3>录制编排</h3><div class="chips">
+        <span class="chip big warn">MainViewController<em>1561行·20+ 职责</em><i class="tag">A2</i></span>
+        <span class="chip big">AudioRecorderController<em>574行·多源/多进程录制器编排</em></span>
+      </div>
+      <div class="note" style="margin:6px 0 0">MainViewController 含:录制生命周期 / <b>加密落盘管线</b> / 播放 / 计时 / 进程刷新与退出监控 / 防休眠 / 磁盘监控 / 崩溃恢复 / 编辑器进出</div></div>
+      <div class="grp"><h3>编辑编排</h3><div class="chips">
+        <span class="chip big warn">EditorViewController<em>1548行·加载/命令/预览播放/转写面板/键盘</em><i class="tag">A3</i></span>
+      </div></div>
+    </div>
+  </div>
+  <div class="gap">▼ 直接调用(单例 shared + 具体类,<b>不经 SDK 公开 API</b>)</div>
+
+  <div class="layer app">
+    <div class="lab">L3 应用服务 / 编辑域<small>Editor/ · Services/<br>纯逻辑 + 少量 AppKit</small></div>
+    <div class="body">
+      <div class="grp"><h3>编辑域模型(音频 DSP)</h3><div class="chips">
+        <span class="chip big">EditorSessionManager<em>LRU 3 会话 / 450MB</em></span>
+        <span class="chip">EditorSession<em>整文件 AVAudioPCMBuffer</em></span>
+        <span class="chip">EditHistory<em>撤销 20 步</em></span>
+        <span class="chip">EditCommand 协议</span>
+        <span class="chip">TrimCommand</span><span class="chip">SilenceTrimCommand</span>
+        <span class="chip">NormalizeCommand</span><span class="chip">FadeCommand</span>
+        <span class="chip warn">SplitAudioClipCommand<em>放在 Views/</em><i class="tag">A8</i></span>
+        <span class="chip warn">DeleteSelectionCommand<em>放在 Views/</em><i class="tag">A8</i></span>
+        <span class="chip warn">AudioClip / EditorAudioTrack<em>仅视图层的片段模型</em><i class="tag">A3</i></span>
+        <span class="chip">TimelineViewport</span>
+      </div></div>
+      <div class="grp"><h3>波形引擎(LOD 分块)</h3><div class="chips">
+        <span class="chip big">WaveformTileProvider</span><span class="chip">WaveformTile / AudioAsset</span>
+        <span class="chip">WaveformDiskCache<em>Caches/AudioRecord/Waveforms</em></span><span class="chip">NSCache 内存层</span>
+      </div></div>
+      <div class="grp"><h3>服务</h3><div class="chips">
+        <span class="chip big">ExportService<em>m4a/wav/aiff/mp3/flac/ogg</em></span>
+        <span class="chip">ExportCardWindowController</span>
+        <span class="chip big">TranscriptionService<em>文件转写 + sidecar 持久化</em></span>
+        <span class="chip">LiveTranscriptionCoordinator<em>实时转写协调 + FIX-012 握手</em></span>
+      </div></div>
+      <div class="grp"><h3>应用级工具</h3><div class="chips">
+        <span class="chip">UXEventLog<em>结构化事件流(E2E 断言源)</em></span>
+        <span class="chip warn">IndustrialDesignTokens<em>483行</em><i class="tag">A8</i></span>
+        <span class="chip">String.localized<em>en / zh-Hans</em></span>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="wall">⚠ A1:SDK 边界名存实亡——<code>build-app.sh</code> 与 <code>project.yml</code> 都把 <code>AudioRecordKit/Sources</code> 与 <code>AudioRecordApp/Sources</code> 平铺进同一个 module 编译,App 直接使用 Kit 的 internal 类(PermissionManager / MixedAudioRecorder / FileManagerUtils / AudioFileEncryptor / SecureDelete …);公开入口 <code>AudioRecordAPI</code> 在 App 内引用数 = 0</div>
+
+  <div class="layer sdk">
+    <div class="lab">L2 SDK 公开面<small>AudioRecordKit<br>API / CAPI / Transcription</small></div>
+    <div class="body">
+      <div class="grp"><h3>Swift API(MediaStream 风格,@MainActor,14.4+)</h3><div class="chips">
+        <span class="chip big warn">AudioRecordAPI<em>仅 mic / 系统混音两种</em><i class="tag">A1</i></span>
+        <span class="chip">MediaStream</span><span class="chip">MediaStreamTrack</span>
+        <span class="chip">AudioConstraints</span><span class="chip">AudioRecordError</span>
+        <span class="chip">Types<em>RecordingMode/State · AudioFormat · AudioProcessInfo · RecordedFileInfo</em></span>
+      </div></div>
+      <div class="grp"><h3>C API(句柄式,@_cdecl)</h3><div class="chips">
+        <span class="chip big">AudioRecordSDK.h<em>392行</em></span>
+        <span class="chip">AudioRecord_Create / Destroy</span><span class="chip">Start / StartWithProcess / Stop / Pause / Resume</span>
+        <span class="chip">Set*Callback(Level/State/Complete/Error)</span><span class="chip">权限 / 进程枚举</span>
+        <span class="chip">AudioRecordInstance</span>
+      </div>
+      <div class="note" style="margin:6px 0 0">状态回调数值契约 0–3 对外稳定(REL-002)</div></div>
+      <div class="grp"><h3>转写 API</h3><div class="chips">
+        <span class="chip big warn">TranscriptionEngine 协议<em>未被注入</em><i class="tag">A6</i></span>
+        <span class="chip">Transcript / TranscriptSegment</span><span class="chip">LiveTranscriptUpdate</span><span class="chip">TranscriptionError</span>
+      </div></div>
+    </div>
+  </div>
+  <div class="gap">▼ 工厂 createRecorder / 直连</div>
+
+  <div class="layer kit">
+    <div class="lab">L1 SDK 内部实现<small>Core/ · Transcription/ · Utils/<br>8.6k 行</small></div>
+    <div class="body">
+      <div class="grp"><h3>录制器(策略 + 模板基类)</h3><div class="chips">
+        <span class="chip big">AudioRecorderProtocol</span><span class="chip big">BaseAudioRecorder</span>
+        <span class="chip">MicrophoneRecorder<em>289</em></span><span class="chip">MixedAudioRecorder<em>610</em></span>
+        <span class="chip">CoreAudioProcessTapRecorder<em>902</em></span>
+        <span class="chip dead">ScreenCaptureAudioRecorder<em>空桩</em></span>
+      </div>
+      <div class="note" style="margin:6px 0 0">回调:onLevel / onPeakLevel / onStatus(仅显示) / <b>onStateChange(结构化)</b> / onRecordingComplete / <b>onAudioBuffer(音频线程,供实时转写)</b></div></div>
+
+      <div class="grp"><h3>ProcessTap 子系统(系统 / 指定进程音频)</h3><div class="chips">
+        <span class="chip">AudioProcessEnumerator</span>
+        <span class="chip">ProcessTapManager<em>C API</em></span>
+        <span class="chip warn">SwiftProcessTapManager<em>Swift API,双实现</em><i class="tag">A8</i></span>
+        <span class="chip">AggregateDeviceManager</span><span class="chip">AudioCallbackHandler<em>IOProc</em></span>
+        <span class="chip">AudioToolboxFileManager<em>落盘 M4A</em></span>
+        <span class="chip">SilentOutputKeepAlive<em>FIX-004</em></span>
+      </div></div>
+
+      <div class="grp"><h3>麦克风</h3><div class="chips">
+        <span class="chip">MicCaptureUnit<em>AUHAL,FEAT-004R2</em></span><span class="chip">MicDeviceManager<em>设备枚举 / 聚合设备命名</em></span>
+        <span class="chip">环形缓冲 → IO 回调混入<em>FIX-007</em></span>
+      </div></div>
+
+      <div class="grp"><h3>转写引擎</h3><div class="chips">
+        <span class="chip big">AppleSpeechEngine<em>SpeechAnalyzer · macOS 26+</em></span>
+        <span class="chip">LiveTranscriptionSession</span>
+        <span class="chip dead">WhisperCppEngine<em>S4 未实现</em></span>
+      </div></div>
+
+      <div class="grp"><h3>存储与安全</h3><div class="chips">
+        <span class="chip big">AudioFileEncryptor<em>AES-256-GCM · .arlock</em></span>
+        <span class="chip">AudioCryptoConfig<em>magic / 版本 / 主密钥</em></span>
+        <span class="chip">DeviceFingerprint<em>IOPlatformUUID</em></span><span class="chip">SecureDelete</span>
+        <span class="chip">FileManagerUtils<em>prepareForEditing / finalizeEdit / 路径</em></span>
+      </div></div>
+
+      <div class="grp"><h3>基础设施</h3><div class="chips">
+        <span class="chip">Logger<em>文件 + os_log</em></span><span class="chip">PermissionManager<em>TCC</em></span>
+        <span class="chip">LevelMonitor</span><span class="chip">AudioUtils</span><span class="chip">WaveformAmplitudeMapper</span>
+        <span class="chip">AudioRecording / RecordingSettings</span>
+        <span class="chip warn">import AppKit:Types · Logger · FileManagerUtils · PermissionManager<i class="tag">A5</i></span>
+        <span class="chip warn dead">LoocapTheme<em>78行,仅自身引用</em></span>
+      </div></div>
+    </div>
+  </div>
+  <div class="gap">▼ 系统调用</div>
+
+  <div class="layer sys">
+    <div class="lab">L0 系统 / 外部<small>macOS · 沙盒 · TCC</small></div>
+    <div class="body">
+      <div class="grp"><h3>音频</h3><div class="chips"><span class="chip">CoreAudio<em>ProcessTap 14.4+ · AggregateDevice · AUHAL</em></span><span class="chip">AudioToolbox</span><span class="chip">AVFoundation<em>AVAudioFile/Engine/Player</em></span></div></div>
+      <div class="grp"><h3>智能 / 安全</h3><div class="chips"><span class="chip">Speech<em>SpeechAnalyzer 26+</em></span><span class="chip">CryptoKit</span><span class="chip">IOKit</span></div></div>
+      <div class="grp"><h3>外部进程</h3><div class="chips"><span class="chip">ffmpeg<em>Bundle 内置 · mp3/flac/ogg · sandbox temporary-exception.processes</em></span></div></div>
+      <div class="grp"><h3>权限 / 沙盒</h3><div class="chips"><span class="chip">App Sandbox</span><span class="chip">Hardened Runtime</span><span class="chip">麦克风 TCC</span><span class="chip">系统音频捕获 TCC</span><span class="chip">user-selected / downloads / network.client</span></div></div>
+    </div>
+  </div>
+</div>
+
+<h2>二、五条核心链路</h2>
+
+<h3>① 录制(多源 / 多进程)</h3>
+<div class="flow">
+  <div class="step a"><b>SidebarView / ControlPanelView</b><span>选源:麦克风 / 系统 / 指定进程(可多选)· 开始</span></div><div class="arr">→</div>
+  <div class="step a"><b>MainViewController</b><span>权限检查 · 防休眠 · 计时</span></div><div class="arr">→</div>
+  <div class="step a"><b>AudioRecorderController</b><span>startMultiSource / MultiProcessIndependent / Mixed</span></div><div class="arr">→</div>
+  <div class="step k"><b>XxxRecorder</b><span>Mic / Mixed / ProcessTap(per source)</span></div><div class="arr">→</div>
+  <div class="step k"><b>Enumerator → Tap → Aggregate → IOProc</b><span>+ SilentKeepAlive + 麦克风环形缓冲混入</span></div><div class="arr">→</div>
+  <div class="step s"><b>CoreAudio</b><span>PCM 回调</span></div><div class="arr">→</div>
+  <div class="step k"><b>AudioToolboxFileManager</b><span>写临时 M4A</span></div>
+</div>
+<div class="note">旁路:IOProc 回调同时分出 <b>onLevel/onPeakLevel</b>(电平表)与 <b>onAudioBuffer</b>(实时转写)——二者均在音频线程,消费方自行保证线程安全。</div>
+
+<h3>② 保存(录完 → 加密落盘)——目前整段写在 MainViewController</h3>
+<div class="flow">
+  <div class="step k"><b>onRecordingComplete</b><span>AudioRecording(临时 M4A)</span></div><div class="arr">→</div>
+  <div class="step x"><b>handleRecordingComplete</b><span>0 秒 / 静音拦截(BUG-1)<br>无效则丢弃实时转写</span></div><div class="arr">→</div>
+  <div class="step x"><b>encryptAndFinalizeRecording</b><span>生成 UUID · 读 M4A · 拼 sourceApp/显示名 · 构造 ArlockMetadata</span></div><div class="arr">→</div>
+  <div class="step k"><b>AudioFileEncryptor</b><span>AES-256-GCM → <code>&lt;uuid&gt;.arlock</code></span></div><div class="arr">→</div>
+  <div class="step k"><b>SecureDelete</b><span>覆写删除临时 M4A</span></div><div class="arr">→</div>
+  <div class="step a"><b>更新列表 → 进入编辑器</b><span>失败则保留 M4A 兜底</span></div>
+</div>
+<div class="note">.arlock 容器:Header 40B(magic <code>ARLK</code> · version · flags · key_id · audio_nonce · metadata_len)→ 元数据块(GCM) → 音频块(GCM)。密钥 = 固定主密钥 + 设备指纹派生(定位:版权保护层,非 DRM)。</div>
+
+<h3>③ 编辑(解密 → 内存 PCM → 命令栈 → 重编码回写)</h3>
+<div class="flow">
+  <div class="step a"><b>enterEditor(file)</b><span>MainViewController</span></div><div class="arr">→</div>
+  <div class="step a"><b>EditorSessionManager</b><span>LRU 3 会话 / 450MB / 内存告警淘汰</span></div><div class="arr">→</div>
+  <div class="step k"><b>prepareForEditing</b><span>.arlock 解密 → 临时 m4a</span></div><div class="arr">→</div>
+  <div class="step x"><b>AVAudioFile.read(into:)</b><span>整文件解码为 Float32 PCM 常驻内存</span></div><div class="arr">→</div>
+  <div class="step a"><b>EditorViewController</b><span>EditHistory.execute(Trim / Fade / Normalize / SilenceTrim / Split / Delete)</span></div><div class="arr">→</div>
+  <div class="step a"><b>save()</b><span>后台线程</span></div><div class="arr">→</div>
+  <div class="step k"><b>finalizeEdit</b><span>AAC 重编码 → 重新加密 .arlock</span></div>
+</div>
+<div class="flow">
+  <div class="step a"><b>显示通路</b><span>EditorWaveformView ← WaveformTileProvider(LOD 分块 · 内存 NSCache + 磁盘缓存 · 视口优先级调度 · 请求代际取消)</span></div>
+  <div class="step a"><b>预览播放</b><span>EditorViewController.previewEngine(AVAudioEngine)——与列表播放(MainViewController 的 AVAudioPlayer)是两套播放器</span></div>
+</div>
+
+<h3>④ 转写(文件 + 实时)</h3>
+<div class="flow">
+  <div class="step k"><b>实时:onAudioBuffer</b><span>录音线程 PCM</span></div><div class="arr">→</div>
+  <div class="step a"><b>LiveTranscriptionCoordinator</b><span>bind(recorder) · 主线程回调</span></div><div class="arr">→</div>
+  <div class="step k"><b>LiveTranscriptionSession</b><span>AsyncStream&lt;AnalyzerInput&gt; + AVAudioConverter</span></div><div class="arr">→</div>
+  <div class="step a"><b>LiveTranscriptPanel</b><span>录制中出字</span></div><div class="arr">→</div>
+  <div class="step a"><b>FIX-012 握手</b><span>.arlock 落点登记 ⇄ finish 完成 才落盘</span></div>
+</div>
+<div class="flow">
+  <div class="step a"><b>文件:TranscriptionService.transcribeRecording</b><span>.arlock → 解密临时 m4a</span></div><div class="arr">→</div>
+  <div class="step x"><b>AppleSpeechEngine()</b><span>硬编码实例化 · #available(macOS 26)</span></div><div class="arr">→</div>
+  <div class="step k"><b>SpeechAnalyzer</b><span>reserve locale → 资产安装 → start(inputAudioFile)</span></div><div class="arr">→</div>
+  <div class="step x"><b>&lt;uuid&gt;.atranscript.json</b><span>明文 JSON,紧邻加密的 .arlock</span></div><div class="arr">→</div>
+  <div class="step a"><b>TranscriptPanelView</b><span>点击跳转 · 导出 MD / TXT</span></div>
+</div>
+
+<h3>⑤ 导出</h3>
+<div class="flow">
+  <div class="step a"><b>ExportCardWindowController</b><span>选格式 + 路径(单次 NSSavePanel)</span></div><div class="arr">→</div>
+  <div class="step a"><b>ExportService.exportToFile</b><span>后台队列</span></div><div class="arr">→</div>
+  <div class="step k"><b>解密 → 临时 .m4a</b><span>AudioFileEncryptor</span></div><div class="arr">→</div>
+  <div class="step a"><b>分流</b><span>m4a 直拷 · wav/aiff 用 AVAudioFile 转码 · mp3/flac/ogg 走 ffmpeg 子进程</span></div><div class="arr">→</div>
+  <div class="step k"><b>SecureDelete 临时文件</b><span>→ Finder 定位</span></div>
+</div>
+
+<h2>三、磁盘资产(沙盒 <code>~/Library/Containers/com.microlab.loocap/Data/…</code>)</h2>
+<table>
+<tr><th>资产</th><th>位置</th><th>格式</th><th>加密</th><th>生产者 / 消费者</th></tr>
+<tr><td>录音正本</td><td>Documents/AudioRecordings/</td><td><code>&lt;uuid&gt;.arlock</code>(AAC in GCM 容器)</td><td class="good">AES-256-GCM</td><td>MainViewController → Encryptor / 播放·编辑·导出·转写</td></tr>
+<tr><td>录制中临时文件</td><td>同上</td><td><code>.arlock.tmp</code> / 临时 M4A</td><td>否(明文)</td><td>Recorder / 崩溃恢复扫描(MainViewController)</td></tr>
+<tr><td>转写文稿</td><td>与 .arlock 同目录</td><td><code>&lt;uuid&gt;.atranscript.json</code></td><td class="sev-p0">否(明文)<i class="tag">A4</i></td><td>TranscriptionService / TranscriptPanelView</td></tr>
+<tr><td>解密中转</td><td>NSTemporaryDirectory</td><td><code>transcribe-*.m4a</code> / <code>export-*.m4a</code> / 编辑·播放临时 m4a</td><td class="sev-p0">否(明文)<i class="tag">A4</i></td><td>四条链路各自实现 decrypt→temp→cleanup</td></tr>
+<tr><td>波形缓存</td><td>Caches/AudioRecord/Waveforms</td><td>波形 Tile(缓存 key 含文件大小 / mtime / 算法版本)</td><td>否(仅波形包络)</td><td>WaveformDiskCache</td></tr>
+<tr><td>日志</td><td>Documents/AudioRecordings/Logs/audiorecord_&lt;日期&gt;.log</td><td>文本 + os_log(subsystem com.audiorecordmac)</td><td>否</td><td>Logger(启动时清空旧日志) / UXEventLog</td></tr>
+</table>
+
+<h2>四、边界现状 vs 目标</h2>
+<div class="cmp">
+  <div>
+    <h3>现状:一个 module,方向靠自觉</h3>
+    <div class="mini">
+      <div class="r a">AudioRecordApp(表现 + 控制 + 编辑域 + 服务)</div>
+      <div class="d">▼ 直接引用 Kit internal 类</div>
+      <div class="r x">build-app.sh:swiftc 平铺 Kit + App 所有 .swift → 同一 module</div>
+      <div class="d">▼</div>
+      <div class="r k">AudioRecordKit(录制 + 加密 + 转写 + 工具 + AppKit 杂质)</div>
+      <div class="d">另:SwiftPM 单独编译 Kit 仅为跑单测;API / CAPI 对外无真实消费者</div>
+    </div>
+  </div>
+  <div>
+    <h3>建议目标:SwiftPM 多 target,编译器守边界</h3>
+    <div class="mini">
+      <div class="r a">AudioRecordApp(UI + 控制,只依赖下列 public API)</div>
+      <div class="d">▼</div>
+      <div class="r a">LoocapEditorCore(EditCommand / History / 片段模型 / 波形引擎,无 AppKit,可单测)</div>
+      <div class="r s">LoocapTranscribe(Engine 协议 + Apple 实现,可注入)</div>
+      <div class="r s">LoocapVault(.arlock / 密钥 / SecureDelete / 解密作用域 API)</div>
+      <div class="r s">AudioRecordKit(Capture:录制器 + ProcessTap + 权限 + 日志 + C API,<b>零 AppKit</b>)</div>
+      <div class="d">Kit 对外 API 补齐 App 真实用到的能力(多源 / 进程 / mic 混入 / onAudioBuffer),App 自己吃自己的狗粮</div>
+    </div>
+  </div>
+</div>
+
+<h2>五、评审摘要(详见《架构评审-2026-10-29.md》)</h2>
+<table>
+<tr><th>#</th><th>级别</th><th>问题</th><th>证据</th></tr>
+<tr><td>A1</td><td class="sev-p0">P0</td><td>SDK 边界被构建方式抹平;公开 API 与真实产品能力脱节</td><td><code>build-app.sh</code> SDK_SOURCES+APP_SOURCES 同一 swiftc;App 内 <code>AudioRecordAPI</code> 引用 0;API 仅 mic / systemMixdown</td></tr>
+<tr><td>A2</td><td class="sev-p0">P0</td><td>MainViewController 上帝类,加密落盘管线在控制器里</td><td>1561 行,MARK 段 25+;L445–590 保存管线</td></tr>
+<tr><td>A3</td><td class="sev-p1">P1</td><td>编辑器整文件 PCM 驻留内存 + 保存重编码;片段模型与 buffer 命令模型并存</td><td>1 小时立体声 48k Float32 ≈ 1.38GB vs 池上限 450MB;<code>AudioClip</code> 只被视图层使用</td></tr>
+<tr><td>A4</td><td class="sev-p1">P1</td><td>加密一致性:转写 sidecar 明文;解密中转逻辑四处各写一份</td><td><code>TranscriptionService.save</code> 明文 JSON;transcribe 用 <code>removeItem</code>、export 用 <code>SecureDelete</code></td></tr>
+<tr><td>A5</td><td class="sev-p1">P1</td><td>SDK 混入 UI 依赖(AppKit / 主题),不可无头使用</td><td>7 个 Kit 文件 import AppKit/Cocoa;<code>LoocapTheme</code> 仅自身引用</td></tr>
+<tr><td>A6</td><td class="sev-p1">P1</td><td>转写引擎抽象未落地:硬编码 Apple 引擎,部署目标 13 但仅 26+ 可转写</td><td><code>TranscriptionService</code> 内 <code>AppleSpeechEngine()</code></td></tr>
+<tr><td>A7</td><td class="sev-p1">P1</td><td>测试金字塔倒挂:最该单测的 DSP / 加密 / 录制器零覆盖</td><td>Kit 单测不引用 Encryptor / *Command / Recorder</td></tr>
+<tr><td>A8</td><td class="sev-p2">P2</td><td>死代码与重复实现</td><td>空桩、双 Tap 管理器、隐藏的 TracksView、<code>.bak</code>、两套 token、两套工具栏、命令类放 Views/</td></tr>
+<tr><td>A9</td><td class="sev-p2">P2</td><td>构建入口四套(swiftc 平铺 / xcodegen / SwiftPM / 旧 build.sh)</td><td>LOOP-02 的 <code>localized</code> 分层断裂即此类</td></tr>
+<tr><td>A10</td><td class="sev-p2">P2</td><td>并发靠闭包 + 锁 + 15 个单例;音频热路径里有 static var 调试计数器</td><td>12 处 <code>static var</code>(CallCounter / FirstShot)</td></tr>
+</table>
+
+<h2>六、体量热力(行数,Top 12)</h2>
+<div id="bars"></div>
+<script>
+const rows=[
+["App · MainViewController",1561,0],["App · EditorViewController",1548,0],["App · EditorWaveformView",1176,0],
+["Kit · CoreAudioProcessTapRecorder",902,1],["App · MainWindowView",885,0],["App · IndustrialControls",668,0],
+["App · TranscriptPanelView",658,0],["Kit · MixedAudioRecorder",610,1],["App · ControlPanelView",589,0],
+["App · AudioRecorderController",574,0],["Kit · AudioRecordSDK_C",543,1],["App · TracksView(始终隐藏)",538,0]];
+const el=document.getElementById('bars');
+rows.forEach(([n,v,k])=>{el.insertAdjacentHTML('beforeend',`<div class="bar"><div class="n">${n}</div><div class="b ${k?'k':''}" style="width:${v/4}px"></div><div class="v">${v}</div></div>`)});
+el.insertAdjacentHTML('beforeend','<div class="note">App 前 4 个大文件(MainVC / EditorVC / EditorWaveformView / MainWindowView)合计 5170 行 ≈ App 总量 26%。</div>');
+</script>
+
+</body>
+</html>
