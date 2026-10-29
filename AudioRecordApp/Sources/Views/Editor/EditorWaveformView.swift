@@ -1053,7 +1053,8 @@ class EditorWaveformView: NSView {
         if h >= zeroDBHeight {
             db = Double((h - zeroDBHeight) / max(1, envelopeMaxAmp - zeroDBHeight)) * Self.gainDBMax
         } else {
-            db = Self.gainDBMin * (1 - max(0, (h - 4) / max(1, zeroDBHeight - 4)))
+            let negRatio = Double(max(0, (h - 4) / max(1, zeroDBHeight - 4)))
+            db = Self.gainDBMin * (1 - negRatio)
         }
         clipGain = Float(min(max(pow(10, db / 20), 0), 2.0))
         delegate?.editorWaveformView(self, didChangeGain: clipGain)
