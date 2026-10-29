@@ -938,12 +938,14 @@ class EditorWaveformView: NSView {
 
     /// 单边渲染入口：波形贴 clip 下缘向上生长（下半让位剪映语言）。
     /// gain≠100% 时先画暗色原始轮廓（增益不作用，对标剪映「线上方暗轮廓」），再叠当前增益波形；
-    /// UI-036 细项 7：过载态只有顶部音量线/圆点变警示色，波形主体恒用基色不变色。末尾绘制音量线+拖拽圆点（R2）。
+    /// UI-036 R15b 返工（老板实机 10-29）：①过载变红=**波形顶部溢出段**变红（超过 100% 满幅的部分），
+    /// 波形 0…100% 段与音量线均不变红；②音量线/圆点改「很浅」的低存在感样式（恒浅色，永不变红）。
     /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
     private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
         guard !points.isEmpty else { return }
         let baselineY = envelopeBaselineY
         let maxAmp = envelopeMaxAmp
+        let fullHeight = envelopeFullHeight
 
         if abs(CGFloat(clipGain) - 1.0) > 0.001 {
             // 暗轮廓层：原始包络（不乘 gain），低透明度——增益压低/抬高后原始形状仍可读
@@ -952,8 +954,17 @@ class EditorWaveformView: NSView {
                                                 color: IndustrialColors.waveformBase.withAlphaComponent(0.30))
         }
 
-        // UI-036: 波形主体恒用基色（过载红色只给顶部音量线/圆点，见 drawVolumeLine）
-        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
+        // UI-036 R15b: 过载溢出层——先画增益高度整段警示色，再用基色盖住 0…100% 段，
+        // 只露出超过满幅标尺的「顶部」段（老板：变红说的是波纹，且只有顶部）
+        if isOverdriven {
+            let driven = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
+            WaveformEnvelopeRenderer.fillUpward(points: driven, baselineY: baselineY,
+                                                color: IndustrialColors.waveformOverdrive)
+        }
+
+        // 波形主体（基色）：gain≤100% 时=amp×gain；过载时钳到 100% 满幅（溢出段已由红色层画出）
+        let cap = isOverdriven ? fullHeight : maxAmp
+        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), cap))) }
         WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY,
                                             color: IndustrialColors.waveformBase)
 
@@ -961,8 +972,9 @@ class EditorWaveformView: NSView {
     }
 
     /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）+ 播放头处拖拽圆点
+    /// UI-036 R15b: 恒「很浅」低存在感（白色半透明），过载也不变红（红色只属波形顶部溢出段）
     private func drawVolumeLine() {
-        let lineColor = isOverdriven ? IndustrialColors.waveformOverdrive : IndustrialColors.volumeEnvelope
+        let lineColor = NSColor.white.withAlphaComponent(0.35)
         let y = volumeLineY
 
         let line = NSBezierPath()
