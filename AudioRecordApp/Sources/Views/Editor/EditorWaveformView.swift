@@ -936,9 +936,27 @@ class EditorWaveformView: NSView {
     private var envelopeBaselineY: CGFloat { waveformRect.minY + 2 }
     /// UI-034: 波形最大渲染高度（触顶前上限）
     private var envelopeMaxAmp: CGFloat { waveformRect.height - 4 - Self.volumeLaneHeight }
-    /// UI-034: 音量线 y = 满幅标尺 × gain；过 100% 后钳到 maxAmp
+    /// UI-034: 音量线 y
+    /// UI-036 R15g（老板 10-30 发剪映图定标尺）：**0dB 水位在波形中下部（≈38% 高度）**，
+    /// 正区间 [0,+6dB] 从水位线性升到顶部，负区间 [-24dB,0] 压缩在水位以下，gain=0 贴底。
+    /// 波形渲染标尺（fullHeight/maxAmp）不变——溢出红仍是波形超满幅段。
+    static let gainDBMax: Double = 6.0
+    static let gainDBMin: Double = -24.0
+    private var zeroDBHeight: CGFloat { envelopeMaxAmp * 0.38 }
+    /// 当前增益的 dB 值（gain=1 → 0dB）
+    var gainDB: Double { 20 * log10(Double(max(clipGain, 0.001))) }
+
+    /// dB → 线高度（自 baseline 向上，分段线性：正区间水位→顶，负区间底→水位）
+    private func lineHeight(forDB db: Double) -> CGFloat {
+        if db >= 0 {
+            return zeroDBHeight + CGFloat(min(db, Self.gainDBMax) / Self.gainDBMax) * (envelopeMaxAmp - zeroDBHeight)
+        }
+        let negT = max(0, 1 + db / (-Self.gainDBMin))   // -24dB → 0，0dB → 1
+        return 4 + CGFloat(negT) * (zeroDBHeight - 4)
+    }
+
     private var volumeLineY: CGFloat {
-        envelopeBaselineY + min(envelopeFullHeight * CGFloat(clipGain), envelopeMaxAmp)
+        envelopeBaselineY + lineHeight(forDB: gainDB)
     }
     /// UI-034: 过载态（gain > 100%）
     private var isOverdriven: Bool { clipGain > 1.001 }
@@ -991,9 +1009,10 @@ class EditorWaveformView: NSView {
         line.stroke()
 
         // R15e: 拖拽中的 dB 数值气泡（剪映同款：黑底圆角 + 白字，正数不带 + 号）
+        // R15g: 数值钳在标尺量程 [-24, +6] 内显示
         if dragMode == .gainDrag {
-            let gainDB = 20 * log10(Double(max(clipGain, 0.001)))
-            let label = String(format: "%.1fdB", gainDB)
+            let displayDB = min(max(gainDB, Self.gainDBMin), Self.gainDBMax)
+            let label = String(format: "%.1fdB", displayDB)
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 11, weight: .medium),
                 .foregroundColor: NSColor.white
@@ -1027,9 +1046,16 @@ class EditorWaveformView: NSView {
     }
 
     /// UI-034 R2: 拖拽换算——鼠标 y 反解 gain（0...2.0），渲染与播放联动同步走
+    /// UI-036 R15g: 改按 dB 标尺反解（0dB 水位之上=正区间升到 +6dB，之下=负区间压到 -24dB/贴底）
     private func applyGainDrag(to location: NSPoint) {
-        let raw = (location.y - envelopeBaselineY) / envelopeFullHeight
-        clipGain = Float(min(max(raw, 0), 2.0))
+        let h = location.y - envelopeBaselineY
+        let db: Double
+        if h >= zeroDBHeight {
+            db = Double((h - zeroDBHeight) / max(1, envelopeMaxAmp - zeroDBHeight)) * Self.gainDBMax
+        } else {
+            db = Self.gainDBMin * (1 - max(0, (h - 4) / max(1, zeroDBHeight - 4)))
+        }
+        clipGain = Float(min(max(pow(10, db / 20), 0), 2.0))
         delegate?.editorWaveformView(self, didChangeGain: clipGain)
     }
 
