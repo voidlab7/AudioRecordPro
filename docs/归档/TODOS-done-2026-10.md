@@ -1025,6 +1025,8 @@
 - 副作用留证（单子须知）：running max 只增不减——突发大声后正常段变矮不恢复，B 方案固有特性，验收不算缺陷
 - 实拍方法：selftest 触发器（容器路径 `~/Library/Containers/com.microlab.loocap/Data/Documents/AudioRecordings/selftest-record.txt`，内容「14 mix」）+ python 编排 `say` 语音 afplay 播放期间/静音期分段截图（screencapture -x -o -l，每拍前 caffeinate 唤醒）
 
+> **FIX-018 修订注记（2026-10-30 执行侧，本注记不改历史正文）**：上文「副作用提示」与「交付记录」所述录音态 running max 口径（突发大声后正常段整体变矮且不恢复）已被 **FIX-018** 废除（老板 2026-10-29 拍板方案 A：固定满刻度）。录音态 / 编辑态 legacy Phase1/2 / tile 三处参考值统一为满刻度 1.0——条落即定稿、标尺不再随录音漂移、同电平永远同高。FIX-010 保留的有效部分：全局线性、−60 dBFS 静音门限（不放大底噪）、唯一映射函数（三处同走 `WaveformAmplitudeMapper.normalized`）。
+
 
 ---
 
