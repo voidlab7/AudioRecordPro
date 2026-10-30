@@ -3,6 +3,8 @@ import XCTest
 
 /// FIX-010: 两态波形幅度映射唯一函数测试
 /// 覆盖验收标准「抽出的共用映射函数有单测（峰值 / 参考最大值 / 静音边界）」
+/// FIX-018 修订：录音态/编辑态参考值统一固定满刻度 1.0（老板 2026-10-29 拍板方案 A），
+/// 原 running max 语义断言退役，改为「尖峰前后同峰值映射恒等」。
 final class WaveformAmplitudeMapperTests: XCTestCase {
 
     // MARK: - 峰值映射
@@ -60,28 +62,32 @@ final class WaveformAmplitudeMapperTests: XCTestCase {
         XCTAssertEqual(WaveformAmplitudeMapper.normalized(0.5, referenceMax: 0.0005), 0)
     }
 
-    // MARK: - 与录音态/编辑态口径一致性（B 方案核心断言）
+    // MARK: - 与录音态/编辑态口径一致性（FIX-018 方案 A 核心断言：固定满刻度）
 
     func testRecordingFinalWindowMatchesEditorRule() {
-        // 单子口径「录音态末屏与编辑态同时间段高度映射一致」：
-        // 录音结束后 running max = 整段 max，可见窗按新参考重映射后与编辑态逐位一致。
-        // 注意：录音**进行中**逐点值（旧 running max）与编辑态不同是 B 方案固有特性，不算不一致。
+        // FIX-018: 录音态/编辑态参考值统一固定满刻度 1.0——同一段峰值两侧逐位一致，且等于线性期望。
         let peaks: [Float] = [0.01, 0.08, 0.05, 0.12, 0.03]
-        let segmentMax = peaks.max() ?? 1.0
-        var runningMax: Float = 0
-        for p in peaks { runningMax = max(runningMax, p) }
-        XCTAssertGreaterThan(runningMax, 0)
-        let recordingFinal = peaks.map { WaveformAmplitudeMapper.normalized($0, referenceMax: runningMax) }
-        let editorMapped = peaks.map { WaveformAmplitudeMapper.normalized($0, referenceMax: segmentMax) }
-        XCTAssertEqual(recordingFinal, editorMapped)
+        let recordingMapped = peaks.map { WaveformAmplitudeMapper.normalized($0, referenceMax: 1.0) }
+        let editorMapped = peaks.map { WaveformAmplitudeMapper.normalized($0, referenceMax: 1.0) }
+        XCTAssertEqual(recordingMapped, editorMapped)
+        for (i, p) in peaks.enumerated() {
+            XCTAssertEqual(recordingMapped[i], p, accuracy: 1e-6)
+        }
     }
 
-    func testRunningMaxOnlyIncreases() {
-        // running max 语义：只增不减（突发大声后不回落）
-        var runningMax: Float = 0
-        for p: Float in [0.01, 0.5, 0.2, 0.1, 0.05] {
-            runningMax = max(runningMax, p)
-        }
-        XCTAssertEqual(runningMax, 0.5, accuracy: 1e-6)
+    func testSamePeakMapsIdenticallyBeforeAndAfterSpike() {
+        // FIX-018 验收「同一次录音内相同峰值的两根条，无论在尖峰前或后，渲染高度一致」：
+        // 映射只依赖峰值本身（参考值恒 1.0），尖峰不改变任何其他条的映射值。
+        let quiet: Float = 0.08
+        let sequence: [Float] = [quiet, 0.03, 0.95, quiet, 0.02]  // 尖峰 0.95 前后各一根同电平条
+        let mapped = sequence.map { WaveformAmplitudeMapper.normalized($0, referenceMax: 1.0) }
+        XCTAssertEqual(mapped[0], mapped[3], accuracy: 1e-6)
+        XCTAssertEqual(mapped[0], quiet, accuracy: 1e-6)
+    }
+
+    func testSpikeClampedToFullHeight() {
+        // FIX-018 边缘情况：削波/过载（≥1.0）clamp 满高，且不影响同参考下其他条的线性映射
+        XCTAssertEqual(WaveformAmplitudeMapper.normalized(1.4, referenceMax: 1.0), 1.0, accuracy: 1e-6)
+        XCTAssertEqual(WaveformAmplitudeMapper.normalized(0.5, referenceMax: 1.0), 0.5, accuracy: 1e-6)
     }
 }

@@ -212,10 +212,11 @@ class EditorWaveformView: NSView {
             idx += quickStep
         }
 
-        let quickMax = quickPeaks.max() ?? 1.0
-        // FIX-010: 与录音态共用同一映射函数（整段 max 线性归一化 + 静音门限）
+        // FIX-018: 统一固定满刻度（referenceMax: 1.0，老板 2026-10-29 拍板方案 A）。
+        // 原「整段 max」口径与录音态/tile 路径漂移：split/delete/undo/redo 走本 legacy 路径时条形相对初次
+        // 加载的 tile 视图（1.0）跳高。统一后编辑前后高度不再跳变，且与录音态末屏同口径。
         for i in 0..<quickPeaks.count {
-            quickPeaks[i] = WaveformAmplitudeMapper.normalized(quickPeaks[i], referenceMax: quickMax)
+            quickPeaks[i] = WaveformAmplitudeMapper.normalized(quickPeaks[i], referenceMax: 1.0)
         }
 
         // 立即显示（主线程，< 5ms）
@@ -252,10 +253,9 @@ class EditorWaveformView: NSView {
                 }
             }
 
-            let maxPeak = peaks.max() ?? 1.0
-            // FIX-010: 与录音态共用同一映射函数（Phase 1/2 同口径，无先后跳变）
+            // FIX-018: Phase 1/2 同口径，均固定满刻度 1.0（原整段 max 已随方案 A 统一，先后无跳变）
             for i in 0..<peaks.count {
-                peaks[i] = WaveformAmplitudeMapper.normalized(peaks[i], referenceMax: maxPeak)
+                peaks[i] = WaveformAmplitudeMapper.normalized(peaks[i], referenceMax: 1.0)
             }
 
             DispatchQueue.main.async { [weak self] in
