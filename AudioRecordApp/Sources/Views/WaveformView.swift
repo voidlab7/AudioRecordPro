@@ -771,7 +771,7 @@ class WaveformView: NSView {
             .font: NSFont.systemFont(ofSize: 11, weight: .medium),
             .foregroundColor: IndustrialColors.onSurfaceVariant
         ]
-        ("Ready" as NSString).draw(at: NSPoint(x: 28, y: rect.maxY - 26), withAttributes: readyAttrs)
+        ("就绪".localized as NSString).draw(at: NSPoint(x: 28, y: rect.maxY - 26), withAttributes: readyAttrs)
 
         // 图标卡片（设计实测：#2E3336→#272D2E 灰卡轻渐变，无明显光晕；微弱环境光）
         let cardSize: CGFloat = 76
@@ -793,7 +793,7 @@ class WaveformView: NSView {
         updateEqualizerGeometry(cardRect: cardRect)
 
         // 标题（亮白）
-        let title = "Ready to Record"
+        let title = "准备录制".localized
         let titleAttrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 16, weight: .semibold),
             .foregroundColor: IndustrialColors.onSurface
@@ -805,8 +805,8 @@ class WaveformView: NSView {
         // 一行副标题：Press record or hit [Space] to start（Space 键帽）
         let subFont = NSFont.systemFont(ofSize: 11)
         let subColor = IndustrialColors.onSurfaceVariant
-        let prefix = "Press record or hit "
-        let suffix = " to start"
+        let prefix = "点击录制或按".localized
+        let suffix = "开始录音".localized
         let keyText = "Space"
         let prefixSize = (prefix as NSString).size(withAttributes: [.font: subFont, .foregroundColor: subColor])
         let keyCapWidth: CGFloat = 42

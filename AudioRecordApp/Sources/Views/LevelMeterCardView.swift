@@ -189,7 +189,7 @@ class LevelMeterCardView: NSView {
             .foregroundColor: NSColor(hex: "#C2C2C2"),
             .kern: kern
         ]
-        let text = "DB METER"
+        let text = "电平表".localized
         // kern 会在末尾多出一个字距宽度，视觉居中需扣掉
         let size = (text as NSString).size(withAttributes: attrs)
         (text as NSString).draw(at: NSPoint(x: (bounds.width - (size.width - kern)) / 2,
