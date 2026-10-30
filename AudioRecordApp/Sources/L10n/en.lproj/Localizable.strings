@@ -104,6 +104,7 @@
 "应用声音" = "App Audio";
 "应用声音_%@" = "App Audio_%@";
 "应用设置" = "App Settings";
+"开始录音" = " to start";
 "开始/停止录制" = "Start/Stop Recording";
 "开机自动启动" = "Launch at Login";
 "当前可用空间仅 %@，可能无法完成录制。建议清理磁盘后再试。" = "Only %@ of free space left; recording may fail. Free up disk space and try again.";
@@ -202,6 +203,7 @@
 "正在保存…" = "Saving…";
 "正在停止录制…" = "Stopping recording…";
 "正在加载…" = "Loading…";
+"正在捕获所选应用" = "Focused App Capture";
 "正在录制 (系统音频 + 麦克风混音)..." = "Recording (system audio + mic mix)...";
 "正在录制: %@" = "Recording: %@";
 "正在录制当前目标 + 麦克风" = "Recording current target + mic";
@@ -212,6 +214,7 @@
 "正在解密并转码…" = "Decrypting and transcoding…";
 "正在请求麦克风权限..." = "Requesting microphone permission...";
 "此录音文件不属于本设备，或文件已损坏。" = "This recording is not from this device, or the file is corrupted.";
+"点击录制或按" = "Press record or hit ";
 "没有可导出的录音文件" = "No recordings to export";
 "淡入" = "Fade In";
 "淡入 %@s" = "Fade In %@s";
@@ -226,6 +229,7 @@
 "特定进程录制：开始录制时会提示授权" = "Per-app recording: you'll be asked to authorize when starting";
 "生成转写" = "Transcribe";
 "由 Loocap 本机转写生成" = "Transcribed on-device by Loocap";
+"电平表" = "DB METER";
 "目标进程已退出，录制已停止并保存" = "Target process quit; recording stopped and saved";
 "确定" = "OK";
 "磁盘空间不足" = "Low disk space";
@@ -308,6 +312,7 @@
 "麦克风权限被拒绝" = "Microphone permission denied";
 "麦克风权限被拒绝，将仅录制系统/应用声音" = "Microphone permission denied; only system/app audio will be recorded";
 "麦克风输入" = "Microphone Input";
+"默认输出主设备" = "Default Output Master";
 "📤 混合输出为单文件" = "📤 Mixed output as a single file";
 "线性" = "Linear";
 "对数" = "Logarithmic";

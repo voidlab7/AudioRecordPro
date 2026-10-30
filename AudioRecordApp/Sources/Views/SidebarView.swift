@@ -36,7 +36,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     private let appsHeader = NSTextField()
     private let systemTargetRow = IndustrialAudioTargetRowView(
         title: "录制全部系统声音".localized,
-        subtitle: "Default Output Master",
+        subtitle: "默认输出主设备".localized,
         systemSymbolName: "speaker.wave.3.fill"
     )
     private let micHeader = NSTextField()
@@ -171,9 +171,9 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             textField.translatesAutoresizingMaskIntoConstraints = false
         }
         
-        styleHeader(targetHeader, "SYSTEM AUDIO")
-        styleHeader(appsHeader, "APP AUDIO")
-        styleHeader(micHeader, "MICROPHONE")
+        styleHeader(targetHeader, "系统声音".localized.uppercased())
+        styleHeader(appsHeader, "应用声音".localized.uppercased())
+        styleHeader(micHeader, "麦克风".localized.uppercased())
     }
     
     private func setupTargetControls() {
@@ -874,7 +874,7 @@ final class IndustrialAudioTargetRowView: NSView {
             checkBadge.isHidden = false
             radioEmptyBadge.isHidden = true
             // Figma §2 选中行副题：Focused App Capture #CCFBF1@0.90
-            metaLabel.stringValue = "Focused App Capture"
+            metaLabel.stringValue = "正在捕获所选应用".localized
             metaLabel.textColor = NSColor(hex: "#CCFBF1").withAlphaComponent(0.90)
             metaLabel.font = NSFont.systemFont(ofSize: 10, weight: .medium)
         } else {
@@ -882,7 +882,7 @@ final class IndustrialAudioTargetRowView: NSView {
             checkBadge.isHidden = true
             radioEmptyBadge.isHidden = false
             // Figma §2 系统卡副题：Default Output Master #A3A3A3 10px w400
-            metaLabel.stringValue = "Default Output Master"
+            metaLabel.stringValue = "默认输出主设备".localized
             metaLabel.textColor = NSColor(hex: "#A3A3A3")
             metaLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
             if isHovering {
