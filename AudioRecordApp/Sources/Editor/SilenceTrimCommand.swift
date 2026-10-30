@@ -16,7 +16,10 @@ struct SilenceSegment {
 class SilenceTrimCommand: EditCommand {
     
     let description: String
-    
+
+    /// FEAT-007: 草稿规格（重放所需 init 参数；只存已选中段）
+    let draftSpec: DraftCommandSpec
+
     private let segments: [SilenceSegment]  // 要删除的静音段（已选中的）
     private let sampleRate: Double
     private let crossFadeDuration: TimeInterval = 0.05  // 50ms 交叉淡化
@@ -38,6 +41,9 @@ class SilenceTrimCommand: EditCommand {
         let selected = segments.filter { $0.isSelected }
         self.segments = selected
         self.sampleRate = sampleRate
+        self.draftSpec = .silenceTrim(segments: selected.map {
+            DraftSilenceSegment(start: $0.startTime, end: $0.endTime)
+        })
         self.description = "静音裁剪: 删除 %@ 个静音段".localized(String(selected.count))
     }
     

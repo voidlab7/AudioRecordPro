@@ -28,7 +28,10 @@ enum FadeCurveType: String, CaseIterable {
 class FadeCommand: EditCommand {
     
     let description: String
-    
+
+    /// FEAT-007: 草稿规格（重放所需 init 参数）
+    let draftSpec: DraftCommandSpec
+
     private let fadeInDuration: TimeInterval   // 淡入时长（秒），0 表示不淡入
     private let fadeOutDuration: TimeInterval  // 淡出时长（秒），0 表示不淡出
     private let curveType: FadeCurveType
@@ -45,6 +48,7 @@ class FadeCommand: EditCommand {
         self.fadeOutDuration = fadeOut
         self.curveType = curve
         self.sampleRate = sampleRate
+        self.draftSpec = .fade(fadeIn: fadeIn, fadeOut: fadeOut, curve: curve.rawValue)
         self.fadeInFrames = AVAudioFrameCount(fadeIn * sampleRate)
         self.fadeOutFrames = AVAudioFrameCount(fadeOut * sampleRate)
         

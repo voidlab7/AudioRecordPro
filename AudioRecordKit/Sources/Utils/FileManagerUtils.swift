@@ -285,33 +285,10 @@ class FileManagerUtils {
     }
     
     /// 提交编辑：如果是 .arlock 源，重新加密
-    /// - Parameters:
-    ///   - session: 编辑器会话
-    ///   - buffer: 编辑后的 PCM buffer
-    ///   - format: 音频格式
-    /// - Throws: 加密失败
-    func finalizeEdit(session: EditSession, buffer: AVAudioPCMBuffer, format: AVAudioFormat) throws {
-        // 1. 把编辑后的 buffer 写到 playableURL
-        let audioFile = try AVAudioFile(forWriting: session.playableURL, settings: format.settings)
-        try audioFile.write(from: buffer)
-        
-        // 2. 如果是 .arlock 源，重新加密
-        if session.isArlock {
-            let audioData = try Data(contentsOf: session.playableURL)
-            
-            // 重新读原 .arlock 的元数据（保持元数据，title 等不变）
-            let (_, originalMetadata) = try AudioFileEncryptor.shared.decrypt(from: session.originalURL)
-            
-            // 用原 UUID 重新加密
-            let uuid = session.recordingUUID ?? generateRecordingUUID()
-            try AudioFileEncryptor.shared.encryptAndWrite(
-                audioData: audioData,
-                metadata: originalMetadata,
-                recordingUUID: uuid,
-                outputURL: session.originalURL
-            )
-        }
-    }
+    /// ⚠️ FEAT-007 (2026-10-30)：此函数已删除——它会以原 UUID 重加密覆盖原始 .arlock，
+    /// 与「原始录音永不覆盖」直接冲突。编辑结果只进草稿（EditDraftStore），
+    /// 导出由 ExportService 从「原始文件+草稿」渲染（DraftRenderEngine）。
+    /// EditSession 保留 playableURL/cleanup（透明解密播放），加密相关字段仅作来源标记。
     
     // MARK: - 旧文件迁移 (V2.0)
     

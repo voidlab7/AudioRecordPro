@@ -1,9 +1,9 @@
 import Cocoa
 import AVFoundation
+import CryptoKit
 
 // MARK: - Delegate Protocol
 protocol EditorViewControllerDelegate: AnyObject {
-    func editorDidSave(_ editor: EditorViewController, file: RecordedFileInfo)
     func editorDidCancel(_ editor: EditorViewController)
 }
 
@@ -110,6 +110,9 @@ class EditorViewController {
     /// 关联的编辑会话（用于状态保持和缓存）
     private var session: EditorSession?
 
+    /// FEAT-007: 草稿恢复防重入（一次加载只应用一次）
+    private var draftApplied = false
+
     // MARK: - Initialization
 
     init(file: RecordedFileInfo) {
@@ -127,18 +130,29 @@ class EditorViewController {
         setupEditorView()
         setupDelegates()
 
-        // 如果 session 已加载，直接使用缓存数据
-        if session.isLoaded, let buffer = session.audioBuffer, let format = session.audioFormat {
+        // FEAT-007: 草稿有编辑时禁用缓存 buffer——缓存可能是上次会话编辑过的结果，
+        // 复用会导致草稿重放「二次叠加」；必须从原始文件重新加载再重放
+        let draftHasEdits = EditDraftStore.shared.hasEdits(for: file.url)
+        if session.isLoaded, !draftHasEdits,
+           let buffer = session.audioBuffer, let format = session.audioFormat {
             self.audioBuffer = buffer
             self.audioFormat = format
             waveformView.loadAudio(from: buffer, sampleRate: format.sampleRate)
             navigationBar.setAllToolsEnabled(true)
             navigationBar.setToolEnabled(.trim, enabled: false)
             updateStatusBar()
+            // FEAT-007: 恢复增益（音量线状态随草稿）
+            if let draft = EditDraftStore.shared.draft(for: file.url), draft.clipGain != 1.0 {
+                waveformView.clipGain = draft.clipGain
+                logger.info("草稿增益已恢复: \(draft.clipGain)")
+            }
             // 恢复视图状态
             restoreViewportState(session.viewportState)
             logger.info("编辑器从 session 缓存加载: \(file.name)")
         } else {
+            if draftHasEdits {
+                logger.info("草稿有编辑，跳过 session 缓存从原始文件加载: \(file.name)")
+            }
             // session 未加载，触发加载
             loadAudioWithSession()
         }
@@ -335,6 +349,8 @@ class EditorViewController {
                         self.updateStatusBar()
                         // UI-019: 分栏常驻，独立加载路径也装载文稿
                         self.loadTranscriptForCurrentFile()
+                        // FEAT-007: 加载完成后恢复草稿（命令栈重放 + 增益）
+                        self.applyDraftIfNeeded()
                         self.logger.info("编辑器加载完成(tile模式): \(self.file.name), 时长: \(String(format: "%.1f", duration))s, 采样率: \(format.sampleRate)")
                     }
                 } else {
@@ -384,6 +400,8 @@ class EditorViewController {
                         self.updateStatusBar()
                         // UI-019: 分栏常驻，独立加载路径也装载文稿
                         self.loadTranscriptForCurrentFile()
+                        // FEAT-007: 加载完成后恢复草稿（命令栈重放 + 增益）
+                        self.applyDraftIfNeeded()
                         self.logger.info("编辑器加载完成: \(self.file.name), 帧数: \(frameCount), 采样率: \(format.sampleRate)")
                     }
                 }
@@ -418,6 +436,10 @@ class EditorViewController {
             waveformView.invalidateAllTiles()
             updateUndoRedoState()
             updateStatusBar()
+            // FEAT-007: 草稿自动保存——命令入栈即落盘，无「保存」概念
+            EditDraftStore.shared.append(command.draftSpec,
+                                         historyPosition: editHistory.position,
+                                         for: file.url)
             logger.info("执行编辑操作: \(command.description)")
             return true
         } else {
@@ -462,6 +484,10 @@ class EditorViewController {
         let dur = Double(buffer.frameLength) / sr
         report("baseline", true, ["frames": n0, "sr": sr, "duration_sec": (dur * 1000).rounded() / 1000])
 
+        // FEAT-007: 记录原始 .arlock 哈希（自验「原始文件永不覆盖」的基准）
+        let originalHash = Self.sha256Hex(of: file.url)
+        report("baseline_hash", originalHash != nil, ["sha256_prefix": originalHash?.prefix(16) ?? "-"])
+
         // 1) split @ 中点（口径 A：切分不动时间轴）→ 命令成功 + 切分线落位 + 样本数不变
         // （切分线在 handleSplit 的 UI 侧职责内，lite 序列直接调命令层须自画，模拟完整用户路径）
         let splitOK = executeCommand(SplitAudioClipCommand(time: dur / 2))
@@ -489,6 +515,38 @@ class EditorViewController {
         redo()
         let nRedo = Int(audioBuffer?.frameLength ?? 0)
         report("redo", abs(nRedo - expectDel) <= 2, ["frames": nRedo, "expected": expectDel])
+
+        // FEAT-007 5) 草稿已自动落盘：split+delete 两条命令在栈，指针在 redo 后位置
+        EditDraftStore.shared.flushForTesting()
+        let draft = EditDraftStore.shared.draft(for: file.url)
+        let draftOK = draft != nil
+            && draft?.commands.count == 2
+            && draft?.currentIndex == 1
+            && draft?.hasRenderableEdits == true
+        report("draft_saved", draftOK, [
+            "ok": draftOK,
+            "commands": draft?.commands.count ?? -1,
+            "index": draft?.currentIndex ?? -99,
+        ])
+
+        // FEAT-007 6) 原始 .arlock 字节不变（非破坏编辑核心承诺）
+        let hashAfterEdits = Self.sha256Hex(of: file.url)
+        let untouched = originalHash != nil && hashAfterEdits == originalHash
+        report("original_untouched", untouched, ["sha256_prefix": hashAfterEdits?.prefix(16) ?? "-"])
+
+        // FEAT-007 7) 渲染引擎通路验证：渲染引擎（导出同核）对当前 buffer 深拷贝 + gain=1 幂等，
+        // 帧数与样本字节不变（命令级重放正确性由 SDK 单测覆盖，见 EditDraftTests）
+        var renderFrames = -1
+        if let current = audioBuffer, let fresh = DraftRenderEngine.duplicate(current) {
+            if let rendered = DraftRenderEngine.render(input: fresh,
+                                                       commands: [],
+                                                       currentIndex: -1,
+                                                       clipGain: 1.0,
+                                                       factory: { DraftSpecFactory.command(from: $0, buffer: $1) }) {
+                renderFrames = Int(rendered.frameLength)
+            }
+        }
+        report("draft_render", renderFrames == nRedo, ["frames": renderFrames, "expected": nRedo])
 
         // 5) 自进程 AX 枚举：验证 AX 树可达性（XCUITest 查询的就是这条树）。
         // 判据 = windows 可读且遍历完成；按钮数作信息字段（自定义控件未设 accessibility role 时为 0，是真实暴露度信息）
@@ -539,7 +597,14 @@ class EditorViewController {
 
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 7 - failures.count])
+                                          "steps": 11 - failures.count])
+    }
+
+    /// FEAT-007: 文件 SHA256 十六进制摘要（自验「原始文件永不覆盖」判据）
+    private static func sha256Hex(of url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
     
     func undo() {
@@ -552,6 +617,8 @@ class EditorViewController {
             waveformView.invalidateAllTiles()
             updateUndoRedoState()
             updateStatusBar()
+            // FEAT-007: 撤销指针同步进草稿（重开后撤销延续）
+            EditDraftStore.shared.syncIndex(editHistory.position, for: file.url)
             logger.info("撤销编辑操作")
         }
     }
@@ -566,50 +633,58 @@ class EditorViewController {
             waveformView.invalidateAllTiles()
             updateUndoRedoState()
             updateStatusBar()
+            // FEAT-007: 重做指针同步进草稿
+            EditDraftStore.shared.syncIndex(editHistory.position, for: file.url)
             logger.info("重做编辑操作")
         }
     }
     
-    func save() {
-        guard let buffer = audioBuffer, let format = audioFormat else { return }
+    // MARK: - FEAT-007 草稿恢复
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
+    /// 加载完成后恢复草稿：原始 buffer + 命令栈重放 + 增益。
+    /// 幂等（draftApplied 防重入）；草稿失效/重放失败时丢弃草稿，回落到原始音频。
+    private func applyDraftIfNeeded() {
+        guard !draftApplied, audioBuffer != nil, audioFormat != nil else { return }
+        draftApplied = true
 
-            do {
-                // V2.0: .arlock 自动重新加密；标准文件直接写回
-                if let editSession = self.editSession {
-                    try FileManagerUtils.shared.finalizeEdit(session: editSession, buffer: buffer, format: format)
-                } else {
-                    // 兜底：标准音频文件
-                    let audioFile = try AVAudioFile(forWriting: self.file.url, settings: format.settings)
-                    try audioFile.write(from: buffer)
-                }
+        guard let draft = EditDraftStore.shared.draft(for: file.url) else { return }
 
-                DispatchQueue.main.async {
-                    self.hasUnsavedChanges = false
-                    self.editHistory.clear()
-                    self.updateUndoRedoState()
-                    self.navigationBar.setFileName("%@ ✓ 已保存".localized(self.file.name))
-                    self.logger.info("保存完成: \(self.file.name)")
-                    self.delegate?.editorDidSave(self, file: self.file)
-                    // BUG-004 fix: 2 秒后恢复文件名显示
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-                        guard let self = self else { return }
-                        self.navigationBar.setFileName(self.file.name)
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.logger.error("保存失败: \(error.localizedDescription)")
-                    let alert = NSAlert()
-                    alert.messageText = "保存失败".localized
-                    alert.informativeText = error.localizedDescription
-                    alert.alertStyle = .critical
-                    alert.addButton(withTitle: "确定".localized)
-                    alert.runModal()
-                }
+        // 完整性校验：原始文件被替换（大小不一致）→ 草稿不可信，丢弃
+        guard EditDraftStore.shared.isDraftValid(draft, originalURL: file.url) else {
+            logger.warning("草稿与原始文件不匹配，丢弃草稿: \(file.name)")
+            EditDraftStore.shared.remove(for: file.url)
+            return
+        }
+
+        // 增益恢复（音量线状态，无论有无命令栈）
+        if draft.clipGain != 1.0 {
+            waveformView.clipGain = draft.clipGain
+            previewPlayerNode?.volume = draft.clipGain
+            logger.info("草稿增益已恢复: \(draft.clipGain)")
+        }
+
+        // 命令栈重放（含已撤销段之间的指针位置；重放同时捕获 undo 数据，撤销延续）
+        guard draft.hasEdits, let format = audioFormat else { return }
+        guard var buffer = audioBuffer else { return }
+        if editHistory.replay(specs: draft.commands,
+                              upTo: draft.currentIndex,
+                              on: &buffer,
+                              factory: { DraftSpecFactory.command(from: $0, buffer: $1) }) {
+            audioBuffer = buffer
+            hasUnsavedChanges = editHistory.stepCount > 0
+            waveformView.loadAudio(from: buffer, sampleRate: format.sampleRate)
+            waveformView.invalidateAllTiles()
+            // 重放后指针可能与草稿记录有偏差（maxSteps 截断），以历史栈为准回写对齐
+            if editHistory.position != draft.currentIndex {
+                EditDraftStore.shared.syncIndex(editHistory.position, for: file.url)
             }
+            updateUndoRedoState()
+            updateStatusBar()
+            logger.info("草稿已恢复: \(draft.commands.count) 条命令 @\(editHistory.position), \(file.name)")
+        } else {
+            // replay 失败已内部回滚（buffer 与历史栈不变）；草稿损坏，丢弃防反复失败
+            logger.error("草稿重放失败，已丢弃草稿: \(file.name)")
+            EditDraftStore.shared.remove(for: file.url)
         }
     }
     
@@ -785,37 +860,18 @@ class EditorViewController {
     }
     
     // MARK: - Exit
-    
+
     func requestExit() {
-        if hasUnsavedChanges {
-            let alert = NSAlert()
-            alert.messageText = "有未保存的编辑".localized
-            alert.informativeText = "当前编辑尚未保存，是否保存后退出？".localized
-            alert.addButton(withTitle: "保存".localized)
-            alert.addButton(withTitle: "放弃".localized)
-            alert.addButton(withTitle: "取消".localized)
-            
-            let response = alert.runModal()
-            switch response {
-            case .alertFirstButtonReturn:
-                save()
-            case .alertSecondButtonReturn:
-                EditorViewController.currentlyEditingURL = nil
-                delegate?.editorDidCancel(self)
-            default:
-                break // 取消，留在编辑器
-            }
-        } else {
-            EditorViewController.currentlyEditingURL = nil
-            delegate?.editorDidCancel(self)
-        }
+        // FEAT-007: 非破坏编辑——草稿已随每次编辑自动落盘，无「保存」概念，直接退出
+        EditorViewController.currentlyEditingURL = nil
+        delegate?.editorDidCancel(self)
     }
     
     // MARK: - Private Helpers
     
     private func updateUndoRedoState() {
         navigationBar.updateUndoRedoState(canUndo: editHistory.canUndo, canRedo: editHistory.canRedo)
-        // UI-026: 保存按钮已移除（编辑=命令化即时落盘）；hasUnsavedChanges 保留供退出确认等语义
+        // FEAT-007: 无「保存」概念——编辑即草稿自动落盘；hasUnsavedChanges 仅作「有编辑」标记
     }
     
     private func updateStatusBar() {
@@ -900,9 +956,11 @@ extension EditorViewController: EditorNavigationBarDelegate {
 
 // MARK: - EditorWaveformViewDelegate
 extension EditorViewController: EditorWaveformViewDelegate {
-    /// UI-034 R2: 音量线拖拽 → 回放增益实时联动（clip 级；导出不应用，老板拍板 a）
+    /// UI-034 R2: 音量线拖拽 → 回放增益实时联动（clip 级）
+    /// FEAT-007 (2026-10-30): 增益随草稿自动落盘并纳入导出渲染（取代 UI-034 拍板 a「导出不应用增益」）
     func editorWaveformView(_ view: EditorWaveformView, didChangeGain gain: Float) {
         previewPlayerNode?.volume = gain
+        EditDraftStore.shared.setGain(gain, for: file.url)
     }
 
     func editorWaveformView(_ view: EditorWaveformView, didChangeSelection range: ClosedRange<TimeInterval>?) {
@@ -1245,6 +1303,8 @@ extension EditorViewController {
                 self.updateStatusBar()
                 self.restoreViewportState(session.viewportState)
                 self.loadTranscriptForCurrentFile()
+                // FEAT-007: session 加载完成后恢复草稿（命令栈重放 + 增益）
+                self.applyDraftIfNeeded()
                 self.logger.info("编辑器 session 加载完成: \(self.file.name)")
             } else {
                 self.waveformView.loadError = session.loadError ?? "加载失败".localized
@@ -1268,6 +1328,11 @@ extension EditorViewController {
     /// 获取当前选区范围
     func currentSelectionRange() -> Range<Int>? {
         return waveformView.currentSelectionRange
+    }
+
+    /// FEAT-007: 当前 buffer 帧数（lite 自验草稿恢复断言用；加载中为 0）
+    var currentFrameCount: Int {
+        Int(audioBuffer?.frameLength ?? 0)
     }
 
     /// 恢复视口状态

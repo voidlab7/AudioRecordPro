@@ -976,6 +976,8 @@ class MainViewController: NSViewController {
         guard let file = selectedPlaybackFile else { return }
         UXEventLog.shared.action("delete_file", detail: ["file": file.name])
         if playbackPlayer != nil { stopPlayback() }
+        // FEAT-007: 原文件删除时联动清草稿（防孤儿草稿）
+        EditDraftStore.shared.remove(for: file.url)
         // V2.0: 安全删除 .arlock
         SecureDelete.deleteFile(at: file.url)
         UXEventLog.shared.artifact("file_deleted", path: file.url.path, detail: ["name": file.name])
@@ -1518,6 +1520,9 @@ extension MainViewController {
                 guard let editor = editor else { return }
                 self?.logger.info("🔬 [INFRA006] lite selftest: 开始脚本化序列")
                 editor.runLiteSelftest()
+                // FEAT-007 第二段：退出编辑器→重进同一文件→断言草稿恢复（抓「双放」——
+                // 守卫失效时 delete 会被二次应用，帧数≈一半，断言即抓住）
+                self?.runDraftRestoreVerification(editor: editor)
             }
         }
     }
@@ -1535,15 +1540,60 @@ extension MainViewController {
             session.selectionRange = editor.currentSelectionRange()
         }
     }
+
+    // MARK: - FEAT-007 lite 第二段：草稿恢复端到端验证
+
+    /// 退出编辑器 → 重进同一文件 → 轮询加载完成后断言帧数与退出前一致。
+    /// 判据：applyDraftIfNeeded 重放结果 == 退出前 buffer（双放/未恢复/失效误判都会偏移帧数）。
+    private func runDraftRestoreVerification(editor: EditorViewController) {
+        let fileInfo = editor.file
+        let framesBeforeExit = editor.currentFrameCount
+        guard framesBeforeExit > 0 else {
+            UXEventLog.shared.module("UITest2", "done", ok: false, detail: ["reason": "no buffer before exit"])
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self else { return }
+            self.exitEditor()
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self else { return }
+                self.enterEditor(file: fileInfo)
+                self.pollDraftRestored(fileURL: fileInfo.url, expected: framesBeforeExit, poll: 0)
+            }
+        }
+    }
+
+    private func pollDraftRestored(fileURL: URL, expected: Int, poll: Int) {
+        guard poll < 40 else {  // 10s 超时
+            UXEventLog.shared.module("UITest2", "done", ok: false, detail: ["reason": "load timeout"])
+            return
+        }
+        guard let editor = currentEditor, editor.file.url == fileURL else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.pollDraftRestored(fileURL: fileURL, expected: expected, poll: poll + 1)
+            }
+            return
+        }
+        let frames = editor.currentFrameCount
+        if frames == 0 {
+            // 仍在加载（原始文件解密+重放），继续等
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.pollDraftRestored(fileURL: fileURL, expected: expected, poll: poll + 1)
+            }
+            return
+        }
+        UXEventLog.shared.module("UITest2", "draft_restored", ok: frames == expected,
+                                 detail: ["frames": frames, "expected": expected])
+        UXEventLog.shared.module("UITest2", "done", ok: frames == expected,
+                                 detail: ["failures": frames == expected ? "" : "draft_restored"])
+    }
 }
 
 // MARK: - EditorViewControllerDelegate
 extension MainViewController: EditorViewControllerDelegate {
-    func editorDidSave(_ editor: EditorViewController, file: RecordedFileInfo) {
-        UXEventLog.shared.module("Editor", "save", ok: true, detail: ["file": file.name])
-        mainWindowView.updateStatus("保存完成: %@".localized(file.name))
-        loadRecordedFilesOnStartup()
-    }
+    // FEAT-007: editorDidSave 已废止（无「保存」概念，草稿随编辑自动落盘）
     func editorDidCancel(_ editor: EditorViewController) { exitEditor() }
 }
 

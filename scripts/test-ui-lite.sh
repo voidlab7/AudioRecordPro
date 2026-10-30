@@ -5,7 +5,9 @@
 #       绕开 XCUITest Runner 的系统拉起链路（LOOP-05 卡点），无人值守可用。
 #
 # 用法: bash scripts/test-ui-lite.sh [app 路径，默认仓库 build/Loocap.app]
-# 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（6 步全过）
+# 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（11 步全过：
+#   baseline/baseline_hash/split/delete/undo/redo/draft_saved/original_untouched/draft_render/ax_enumerate/seek_align，
+#   FEAT-007 草稿三断言 + UI-037 seek_align 合并态合计）
 # 依赖: python3 / afplay
 # INFRA-009: 声源改版——原 440Hz 正弦蜂鸣（刺耳）核对断言链后确认无判定作用：
 #   baseline 仅断言 frameLength>0，split/delete/undo/redo 全命令级帧断言，
@@ -124,6 +126,32 @@ for e in events:
     detail = json.dumps(d, ensure_ascii=False)
     print(f'  {"PASS" if d.get("ok") else "FAIL"}  {e.get("event"):20s} {detail[:140]}')
 print(f'== done: detail={json.dumps(done[-1].get("detail", {}), ensure_ascii=False)} ==')
+
+# FEAT-007 第二段：草稿恢复端到端（退出编辑器→重进→帧数一致），等 UITest2.done（最长 45s）
+deadline2 = time.time() + 45
+events2 = []
+while time.time() < deadline2:
+    scan()
+    events2 = [e for e in events if str(e.get("event", "")).startswith("UITest2")]
+    if [e for e in events2 if e.get("event") == "UITest2.done"]:
+        break
+    time.sleep(2)
+
+print("== UITest2 草稿恢复段 ==")
+done2 = [e for e in events2 if e.get("event") == "UITest2.done"]
+if not done2:
+    print("FAIL: 45s 内未等到 UITest2/done（草稿恢复段未跑或超时）")
+    ok = False
+else:
+    for e in events2:
+        if e.get("event") == "UITest2.done":
+            continue
+        d = e.get("detail") or {}
+        print(f'  {"PASS" if d.get("ok") else "FAIL"}  {e.get("event"):20s} {json.dumps(d, ensure_ascii=False)[:140]}')
+    ok2 = (done2[-1].get("detail") or {}).get("ok") is True
+    print(f'== UITest2 done: detail={json.dumps(done2[-1].get("detail", {}), ensure_ascii=False)} ==')
+    ok = ok and ok2
+
 print("RESULT:", "PASS" if ok else "FAIL")
 sys.exit(0 if ok else 1)
 EOF
