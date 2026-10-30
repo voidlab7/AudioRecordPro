@@ -169,6 +169,26 @@ final class EditDraftTests: XCTestCase {
         XCTAssertFalse(store.isDraftValid(draft, originalURL: other))
     }
 
+    func testDraftStoreSequentialAppendsCoherentWithoutFlush() throws {
+        // 回归（FEAT-007 自审发现）：同步读+异步写下，连续两次 append 第二次
+        // 曾读到未落盘旧草稿丢命令——内存权威缓存修复后必须连续可见
+        let dir = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = EditDraftStore(directory: dir)
+
+        let original = URL(fileURLWithPath: "/tmp/draft-coherent-test-\(UUID().uuidString).arlock")
+        try Data([0x01]).write(to: original)
+        defer { try? FileManager.default.removeItem(at: original) }
+
+        store.append(.trim(start: 0.1, end: 0.9), historyPosition: 0, for: original)
+        store.append(.split(time: 0.5), historyPosition: 1, for: original)  // 不 flush 直接读
+
+        let draft = store.draft(for: original)
+        XCTAssertEqual(draft?.commands.count, 2, "背靠背 append 不得丢命令")
+        XCTAssertEqual(draft?.currentIndex, 1)
+        XCTAssertTrue(store.hasEdits(for: original))
+    }
+
     func testDraftStoreCorruptFileReturnsNilAndCleans() throws {
         let dir = makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }

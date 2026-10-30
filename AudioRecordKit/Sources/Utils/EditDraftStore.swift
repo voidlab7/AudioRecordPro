@@ -13,6 +13,11 @@ public final class EditDraftStore {
     private let directory: URL
     private let logger = Logger.shared
 
+    /// 内存权威缓存（FEAT-007 并发修正）：写操作先更缓存再异步落盘，读操作缓存优先。
+    /// 否则「同步读+异步写」下连续两次编辑，第二次会读到未落盘的旧草稿而丢命令
+    /// （lite 自验的 split→delete 背靠背序列即可复现）。草稿 KB 级，缓存无淘汰必要。
+    private var cache: [URL: EditDraft] = [:]
+
     /// 增益防抖：拖拽连续触发时合并写盘
     private var pendingGainWorkItem: DispatchWorkItem?
     private let gainDebounceInterval: TimeInterval = 0.3
@@ -38,8 +43,9 @@ public final class EditDraftStore {
 
     // MARK: - 读写
 
-    /// 读取草稿；损坏/不存在返回 nil（损坏时顺带清掉坏文件）
+    /// 读取草稿；损坏/不存在返回 nil（损坏时顺带清掉坏文件）。缓存优先，磁盘兜底。
     public func draft(for originalURL: URL) -> EditDraft? {
+        if let cached = cache[originalURL] { return cached }
         let url = draftURL(for: originalURL)
         guard let data = try? Data(contentsOf: url) else { return nil }
         do {
@@ -57,8 +63,9 @@ public final class EditDraftStore {
         }
     }
 
-    /// 异步落盘草稿
+    /// 异步落盘草稿（先更内存权威缓存，保证同线程后续同步读可见）
     public func save(_ draft: EditDraft) {
+        cache[URL(fileURLWithPath: draft.originalPath)] = draft
         queue.async { [weak self] in
             guard let self else { return }
             do {
@@ -75,6 +82,7 @@ public final class EditDraftStore {
 
     /// 删除草稿（文件删除联动）
     public func remove(for originalURL: URL) {
+        cache[originalURL] = nil
         queue.async { [weak self] in
             guard let self else { return }
             let url = self.draftURL(for: originalURL)
