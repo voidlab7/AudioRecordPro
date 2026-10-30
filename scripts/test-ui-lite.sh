@@ -5,7 +5,9 @@
 #       绕开 XCUITest Runner 的系统拉起链路（LOOP-05 卡点），无人值守可用。
 #
 # 用法: bash scripts/test-ui-lite.sh [app 路径，默认仓库 build/Loocap.app]
-# 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（6 步全过）
+# 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（10 步全过：
+#   baseline/baseline_hash/split/delete/undo/redo/draft_saved/original_untouched/draft_render/ax_enumerate，
+#   FEAT-007 起新增草稿三断言）
 # 依赖: python3 / afplay
 # INFRA-009: 声源改版——原 440Hz 正弦蜂鸣（刺耳）核对断言链后确认无判定作用：
 #   baseline 仅断言 frameLength>0，split/delete/undo/redo 全命令级帧断言，

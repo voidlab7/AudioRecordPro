@@ -4,8 +4,10 @@ import AudioToolbox
 import AppKit
 import UniformTypeIdentifiers
 
-/// 导出服务 (V2.0)
+/// 导出服务 (V2.0 → FEAT-007)
 /// 导出 = 解密 .arlock → 临时 .m4a → 转码为目标格式 → NSSavePanel 写入
+/// FEAT-007: 草稿存在时，导出 = 「原始文件 + 草稿」渲染编辑结果（剪映模型）——
+/// 裁剪后导出的就是裁剪后的时长，增益默认计入产物；无草稿走原快速链路。
 class ExportService {
     
     static let shared = ExportService()
@@ -31,19 +33,32 @@ class ExportService {
                 // 1. 解密 .arlock → AAC Data
                 self.logger.info("导出: 解密 \(arlockURL.lastPathComponent)")
                 let (audioData, _) = try AudioFileEncryptor.shared.decrypt(from: arlockURL)
-                
+
                 // 2. 写临时 .m4a（AAC 数据）
                 let tempDir = FileManager.default.temporaryDirectory
                 let tempUUID = UUID().uuidString
                 let tempM4A = tempDir.appendingPathComponent("\(AudioCryptoConfig.TempFilePattern.exportPrefix)\(tempUUID).\(AudioCryptoConfig.TempFilePattern.m4aExtension)")
                 try audioData.write(to: tempM4A, options: .atomic)
-                
+
                 // 3. 转码/复制到目标路径
                 do {
                     let finalOutputURL = self.normalizeOutputURL(selected: outputURL, format: targetFormat)
-                    
-                    if targetFormat == .m4a {
-                        // AAC → M4A 直接复制（已编码）
+
+                    // FEAT-007: 草稿渲染——有编辑结果时导出「原始+草稿」的渲染产物
+                    let draft = EditDraftStore.shared.draft(for: arlockURL)
+                    let draftValid = draft.map { self.fileManagerEditDraftValid($0, originalURL: arlockURL) } ?? false
+
+                    if let draft, draftValid, draft.hasRenderableEdits {
+                        self.logger.info("导出: 应用草稿渲染 (\(draft.commands.count) 条命令 @\(draft.currentIndex), gain=\(draft.clipGain))")
+                        UXEventLog.shared.module("Export", "draft_applied", ok: true,
+                                                 detail: ["commands": draft.commands.count,
+                                                          "index": draft.currentIndex])
+                        // 渲染产物是 PCM WAV；渲染后 M4A 不能再走「已编码直接复制」，统一转码
+                        let renderedWav = try Self.renderDraftedAudio(tempM4A: tempM4A, draft: draft)
+                        defer { SecureDelete.deleteFile(at: renderedWav) }
+                        try self.transcode(inputURL: renderedWav, outputURL: finalOutputURL, format: targetFormat)
+                    } else if targetFormat == .m4a {
+                        // AAC → M4A 直接复制（已编码，无草稿快速链路）
                         try self.fileManager.copyFile(from: tempM4A, to: finalOutputURL)
                     } else {
                         // 转码
@@ -76,8 +91,54 @@ class ExportService {
         }
     }
     
+    // MARK: - FEAT-007 草稿渲染
+
+    /// 原始文件 + 草稿 → 渲染后临时 WAV。
+    /// 解密出的临时 m4a → 全量 PCM → 命令栈重放 → 增益限幅 → float32 WAV 落盘。
+    static func renderDraftedAudio(tempM4A: URL, draft: EditDraft) throws -> URL {
+        let inputFile = try AVAudioFile(forReading: tempM4A)
+        let format = inputFile.processingFormat
+        let frameCount = AVAudioFrameCount(inputFile.length)
+        guard frameCount > 0,
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else {
+            throw ExportError.transcodeFailed("无法读取音频数据（草稿渲染）".localized)
+        }
+        try inputFile.read(into: buffer)
+
+        guard let rendered = DraftRenderEngine.render(
+            input: buffer,
+            commands: draft.commands,
+            currentIndex: draft.currentIndex,
+            clipGain: draft.clipGain,
+            factory: { DraftSpecFactory.command(from: $0, buffer: $1) }
+        ) else {
+            throw ExportError.transcodeFailed("草稿渲染失败（编辑命令无法重放）".localized)
+        }
+
+        let wavURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("render_\(UUID().uuidString).wav")
+        // float32 WAV 保精度（后续转码再按目标格式压）
+        let wavSettings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM,
+            AVSampleRateKey: rendered.format.sampleRate,
+            AVNumberOfChannelsKey: rendered.format.channelCount,
+            AVLinearPCMBitDepthKey: 32,
+            AVLinearPCMIsFloatKey: true,
+            AVLinearPCMIsBigEndianKey: false
+        ]
+        let wavFile = try AVAudioFile(forWriting: wavURL, settings: wavSettings,
+                                      commonFormat: rendered.format.commonFormat,
+                                      interleaved: rendered.format.isInterleaved)
+        try wavFile.write(from: rendered)
+        return wavURL
+    }
+
+    private func fileManagerEditDraftValid(_ draft: EditDraft, originalURL: URL) -> Bool {
+        EditDraftStore.shared.isDraftValid(draft, originalURL: originalURL)
+    }
+
     // MARK: - Private
-    
+
     private func normalizeOutputURL(selected url: URL, format: AudioExportFormat) -> URL {
         if url.pathExtension.lowercased() == format.fileExtension {
             return url
