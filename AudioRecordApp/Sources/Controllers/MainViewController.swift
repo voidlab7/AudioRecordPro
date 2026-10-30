@@ -976,6 +976,8 @@ class MainViewController: NSViewController {
         guard let file = selectedPlaybackFile else { return }
         UXEventLog.shared.action("delete_file", detail: ["file": file.name])
         if playbackPlayer != nil { stopPlayback() }
+        // FEAT-007: 原文件删除时联动清草稿（防孤儿草稿）
+        EditDraftStore.shared.remove(for: file.url)
         // V2.0: 安全删除 .arlock
         SecureDelete.deleteFile(at: file.url)
         UXEventLog.shared.artifact("file_deleted", path: file.url.path, detail: ["name": file.name])
@@ -1539,11 +1541,7 @@ extension MainViewController {
 
 // MARK: - EditorViewControllerDelegate
 extension MainViewController: EditorViewControllerDelegate {
-    func editorDidSave(_ editor: EditorViewController, file: RecordedFileInfo) {
-        UXEventLog.shared.module("Editor", "save", ok: true, detail: ["file": file.name])
-        mainWindowView.updateStatus("保存完成: %@".localized(file.name))
-        loadRecordedFilesOnStartup()
-    }
+    // FEAT-007: editorDidSave 已废止（无「保存」概念，草稿随编辑自动落盘）
     func editorDidCancel(_ editor: EditorViewController) { exitEditor() }
 }
 

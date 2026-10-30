@@ -24,7 +24,10 @@ enum NormalizePreset: String, CaseIterable {
 class NormalizeCommand: EditCommand {
     
     let description: String
-    
+
+    /// FEAT-007: 草稿规格（重放所需 init 参数）
+    let draftSpec: DraftCommandSpec
+
     private let targetLUFS: Double
     private let truePeakLimit: Double  // dBTP
     private let sampleRate: Double
@@ -37,6 +40,7 @@ class NormalizeCommand: EditCommand {
         self.targetLUFS = customLUFS ?? preset.targetLUFS
         self.truePeakLimit = -1.0  // -1 dBTP
         self.sampleRate = sampleRate
+        self.draftSpec = .normalize(preset: preset.rawValue, customLUFS: customLUFS)
         self.description = "标准化: %@ (%@ LUFS)".localized(preset.rawValue.localized, String(format: "%.0f", customLUFS ?? preset.targetLUFS))
     }
     

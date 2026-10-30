@@ -10,6 +10,8 @@ import AVFoundation
 /// 迁移注记：clip 级渲染/独立裁剪需区间视图模型（B 迁移），见 TODOS 回池单。
 class SplitAudioClipCommand: EditCommand {
     let description: String
+    /// FEAT-007: 草稿规格（重放所需 init 参数）
+    let draftSpec: DraftCommandSpec
     private let time: TimeInterval
 
     /// 切分产物 [前段, 后段]（execute 成功后非空；undo 清空，redo 重建）
@@ -19,6 +21,7 @@ class SplitAudioClipCommand: EditCommand {
 
     init(time: TimeInterval) {
         self.time = time
+        self.draftSpec = .split(time: time)
         self.description = "切分 @ %@s".localized(String(format: "%.2f", time))
     }
 

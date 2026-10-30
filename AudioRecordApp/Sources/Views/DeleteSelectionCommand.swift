@@ -9,6 +9,9 @@ class DeleteSelectionCommand: EditCommand {
 
     let description: String
 
+    /// FEAT-007: 草稿规格（重放所需 init 参数）
+    let draftSpec: DraftCommandSpec
+
     /// 待删除帧区间
     private let deleteRange: Range<AVAudioFramePosition>
 
@@ -27,6 +30,7 @@ class DeleteSelectionCommand: EditCommand {
                       AVAudioFramePosition(totalFrames))
         // 逆向/零长统一归零长区间（Range 不允许 lower > upper，直接构造会崩），execute 拒切
         self.deleteRange = (end > start) ? start..<end : start..<start
+        self.draftSpec = .deleteSelection(start: startTime, end: endTime)
         self.description = "删除 @ %@s - %@s".localized(
             String(format: "%.1f", startTime), String(format: "%.1f", endTime))
     }

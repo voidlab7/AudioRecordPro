@@ -7,7 +7,10 @@ import AVFoundation
 class TrimCommand: EditCommand {
     
     let description: String
-    
+
+    /// FEAT-007: 草稿规格（重放所需 init 参数）
+    let draftSpec: DraftCommandSpec
+
     /// 保留区间（帧范围）
     private let keepRange: Range<AVAudioFramePosition>
     
@@ -27,6 +30,7 @@ class TrimCommand: EditCommand {
         let endFrame = min(AVAudioFramePosition(endTime * sampleRate), AVAudioFramePosition(totalFrames))
         self.keepRange = startFrame..<endFrame
         self.originalFrameLength = totalFrames
+        self.draftSpec = .trim(start: startTime, end: endTime)
         
         let trimmedStart = String(format: "%.1f", startTime)
         let trimmedEnd = String(format: "%.1f", endTime)
