@@ -543,7 +543,8 @@ class WaveformView: NSView {
             width: max(1, rect.width - timelineInsetX * 2),
             height: max(1, rect.height - 88)
         )
-        let centerY = rect.midY
+        // UI-038: 与条带层同基准（centerlineY），停止后兜底与录制中无中线跳变
+        let centerY = centerlineY(in: rect)
         let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
         let step = vbBarWidth + vbBarGap
         let maxVisibleBars = Int(floor(timelineRect.width / step))
@@ -631,6 +632,8 @@ class WaveformView: NSView {
 
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: cg, flipped: true)
+        // UI-038: strip 内 centerY = stripH/2，叠加 clip 层 position.y=42 后
+        // 恒等于 centerlineY(in: bounds)（roundedBars 分支）——条带与灰线/兜底同基准
         let centerY = stripH / 2
         let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
         let startIndex = max(0, waveformData.count - maxVisibleBars)
@@ -838,8 +841,24 @@ class WaveformView: NSView {
                                   withAttributes: [.font: subFont, .foregroundColor: subColor])
     }
     
+    // MARK: UI-038: 录制页中线唯一基准
+    /// 灰虚线必须与「同屏正在渲染的波形」同基准：
+    /// - 录制/停止兜底（roundedBars）：条带层 position.y=42、条带图内 centerY=stripH/2，合成视觉中心 = 42+(h−88)/2
+    ///   （即 timelineRect 垂直中心）——原虚线画在 rect.midY，与条带恒差 2pt（本单根因）；
+    /// - 静态预览：剪影基准维持 rect.midY 不动（UI-037 已验收形态），虚线跟随之避免制造新的两条线；
+    /// - envelope 备用风格：全链 rect.midY，维持原状。
+    private func centerlineY(in rect: NSRect) -> CGFloat {
+        if isShowingStaticWaveform { return rect.midY }
+        switch Self.renderStyle {
+        case .roundedBars:
+            return 42 + max(1, rect.height - 88) / 2
+        case .envelope:
+            return rect.midY
+        }
+    }
+
     private func drawNativeTimeline(in rect: NSRect) {
-        let centerY = rect.midY
+        let centerY = centerlineY(in: rect)
         let timelineInsetX: CGFloat = 28
         let timelineRect = NSRect(
             x: timelineInsetX,
@@ -847,15 +866,21 @@ class WaveformView: NSView {
             width: max(1, rect.width - timelineInsetX * 2),
             height: max(1, rect.height - 88)
         )
-        
+
         // 只有实际录制/预览才会调用本方法；静音零位线保持中性灰，不模拟录制进度。
-        IndustrialColors.gridMedium.withAlphaComponent(0.5).setStroke()
-        let centerLine = NSBezierPath()
-        centerLine.lineWidth = 1
-        centerLine.setLineDash([3, 3], count: 2, phase: 0)
-        centerLine.move(to: NSPoint(x: timelineRect.minX, y: centerY))
-        centerLine.line(to: NSPoint(x: timelineRect.maxX, y: centerY))
-        centerLine.stroke()
+        // UI-038 方案②（需求审核拍板「推荐②」）：录制中条带已出现（绿点行/条形）时整根灰虚线让位，
+        // 由绿点行本身充当中线（「灰→变绿→起波纹」是同一条线换色，不再是两条线叠加）；
+        // 录制开始瞬间（尚无数据）与预览/停止态灰虚线照常显示，不闪烁不跳位。
+        let stripOwnsCenterline = isRecording && Self.renderStyle == .roundedBars && !waveformData.isEmpty
+        if !stripOwnsCenterline {
+            IndustrialColors.gridMedium.withAlphaComponent(0.5).setStroke()
+            let centerLine = NSBezierPath()
+            centerLine.lineWidth = 1
+            centerLine.setLineDash([3, 3], count: 2, phase: 0)
+            centerLine.move(to: NSPoint(x: timelineRect.minX, y: centerY))
+            centerLine.line(to: NSPoint(x: timelineRect.maxX, y: centerY))
+            centerLine.stroke()
+        }
         
         guard isRecording || recordingDuration > 0 || (isShowingStaticWaveform && staticFileDuration > 0) else {
             return
