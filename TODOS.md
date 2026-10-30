@@ -56,7 +56,7 @@
 | FIX-019    | 单轨场景移除 clip 选中态青绿边框（选中描边整体退役）：点击/拖拽不再出青绿框 | P3 | todo（待需求审核） | 老板 2026-10-30 发截图：「现在只有一个轨道，就不要选中态了吧。去掉这个边框绿色的。加入需求 fix」；演进自 UI-029 拍板 a（选中保留细描边）与 UI-036 细项 6；时间选区高亮不动；正文见节 |
 | UI-037     | 编辑页时间标尺贴轨道区顶部 + 播放头从标尺顶贯穿到轨道区底部（轨道带仍居中） | P2 | done ✅ | 2026-10-30 老板交付验收（merge 712d952，worktree loop/UI-037 7d0387a）；R1 轮一次过：标尺贴顶/播放头贯穿全高/轨道带居中/空白区 seek 实机全过；build 0 / SDK 93/93 / lite 7/7（含 seek_align 往返零误差）；正文迁归档 |
 | FEAT-007   | 非破坏编辑模型（剪映式）：原始录音永不覆盖+草稿自动保存+撤销全程+导出=渲染编辑结果 | P1 | done ✅ | 2026-10-30 老板交付验收（「不太好验，直接就验收通过」；merge c00aa5f，worktree loop/FEAT-007 9c7ea82）；R16 轮交付：finalizeEdit/save 覆盖链路物理删除、草稿=命令栈 JSON 随编辑自动落盘+重开重放恢复（防双放）、导出=原始+草稿渲染（增益默认进导出）；合并态回归 build 0 / SDK 105/105 / lite 11 步全 PASS（草稿三断言+UI-037 seek_align 合并态合计）+ UITest2 draft_restored 219648==219648；⚠️ 验收期两肉眼项（重开 App 恢复/真机导出时长）老板免验，逻辑由 EditDraftTests 单测+lite 硬断言承载；正文迁归档 |
-| FIX-020    | 编辑器拖音量线后播放声音大小无变化：新一轮播放不应用当前增益（playerNode 重建回默认 1.0）+ 升益 >0dB 被 playerNode.volume 钳 1.0 + clipGain 内部上限 2.0 与 UI +20dB 标尺不一致 | P1 | todo（待需求审核） | 老板 2026-10-30 反馈；代码核实三因（EditorViewController.swift:1116-1140 / :892-894；EditorWaveformView.swift:83）；注意与 FEAT-007「增益默认进导出」同源——预览与导出须同一增益口径；正文见节 |
+| FIX-020    | 编辑器拖音量线后播放声音大小无变化：新一轮播放不应用当前增益（playerNode 重建回默认 1.0）+ 升益 >0dB 被 playerNode.volume 钳 1.0 + clipGain 内部上限 2.0 与 UI +20dB 标尺不一致 | P1 | ready-for-review（已审核 2026-10-31） | 老板 2026-10-30 反馈、10-31「开始修复」=需求审核通过；三因修复交付（回放链 EQ globalGain 化+建链即应用+GainScale 单一来源，playerNode.volume 双路径全删）；build 0/SDK 119/119/lite 12/12；⚠️ macOS 26 SDK 移除 AVAudioUnitDynamicsProcessor，过载走需求单备选「接受削波」与导出 ±1 同口径（限幅器组件仍在、async 预热可做后续单）；worktree loop/FIX-020 fe085be；证据 docs/证据/2026-10-31-FIX020-回放增益三因修复-硬验证.md；正文见节 |
 | FIX-021    | 麦克风混录三连缺：①mic 混入在峰值回调之后——波形/DB表/无效守卫永远只看到系统侧峰值，mic 声音进文件但不进任何 UI/守卫 ②录音中切麦克风设备不生效（AUHAL 拒换设备，UI 无提示） ③失效聚合设备（历史会话残留 #376234/#60274）可被选中且静默降级 | P1 | todo（待需求审核） | 老板 2026-10-30 20:21 实录（「录制没有声音」）：开录 2.7s 后才开混录开关 → 注入引擎起（MacBook mic 首帧 peak=0.016）→ 录音中连切 6 次麦设备（unit 不换、只改 UI）→ 停止后守卫按回调峰值 0.0 判无效删除；代码证据 AudioCallbackHandler.swift:68（calculateAndReportLevel 在原始 buffer 上）早于 :71（writeAudioData 内部才混 mic）；日志证据 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」；正文见节 |
 | REL-005    | i18n R3：主界面漏网站点收尾（中英混排修复，语言全量跟随系统） | P1 | done ✅ | 2026-10-30 老板实机交付验收（merge 03d44e6）；11 处接线+en 字典 5 条，实机全中文；i18n 三期（R1+R2+R3）闭环；正文迁归档 |
 | FIX-018    | 录音态波纹电平高度不稳定：突发大声后 running max 抬高并回溯重映射，前面已画出的条整体变矮，用户看到的整体电平标尺中途改变 | P2 | done ✅ | 2026-10-30 老板交付验收（merge 030b229，方案A固定满刻度）；SDK 93/93 / lite 6/6 / build 0；实拍对照留老板实机（截屏 TCC 缺）；正文迁归档 |
@@ -532,10 +532,11 @@
 
 
 
-### FIX-020 编辑器拖音量线后播放声音大小无变化 | P1 | S–M | [todo · 待需求审核]
+### FIX-020 编辑器拖音量线后播放声音大小无变化 | P1 | S–M | [ready-for-review 2026-10-31 · 已审核（老板 10-31「开始修复」）]
 
 > 来源：老板 2026-10-30 反馈：「调整音量高低的线条，播放声音大小没有变化。加入 Fix bug 修复」。
 > 背景：UI-034 R2 交付「音量线拖拽→回放增益联动」，UI-036 把标尺扩成 −24dB～+20dB（0dB 水位 38%）；验收时音量线形态过了，但**听感联动从未被硬验证**（lite 通道无音频输出断言，验收看的是形态）。
+> **R1 轮交付（2026-10-31，worktree loop/FIX-020 fe085be）**：三因全修——①回放链 `playerNode → AVAudioUnitEQ(globalGain) → mainMixer`，建链即读当前 clipGain（停止/重播/seek/播完再播统一入口恒保持）；②升降益单一路径 dB 直设（playerNode.volume 三处写入全删，含属性面板死代码）；③Kit 新增 GainScale 单一来源，didSet/草稿 setGain/拖拽反解三口径统一（上限 +20dB=10.0）。硬验证：build 0 / SDK 119/119（基线 105+新增 14：GainScaleTests 9 + PreviewGainChainTests 离线渲染 5，+6/−12/+12/+20dB RMS 比值全精确）/ lite 12/12（新步 playback_gain：0→−96dB 静音起播、播放中三档实时映射、停止回收干净）。⚠️ macOS 26 SDK 移除 AVAudioUnitDynamicsProcessor（组件仍在但仅剩 async instantiate）→ 过载处理走需求单备选「接受削波」，与导出 ±1 限幅同口径+红色溢出层警示；后续要软限幅走 async 预热另立单。证据 docs/证据/2026-10-31-FIX020-回放增益三因修复-硬验证.md；形态对照（拖线听感/削波特征）留老板实机。
 
 **需求台分析（代码取证，三个独立缺陷叠加）**：
 1. **主因——新一轮播放不应用当前增益**：`startPreview()` 每次都 `AVAudioEngine()` + 新建 `AVAudioPlayerNode`（EditorViewController.swift:1116-1137），新节点 `volume` 默认 1.0，**全程没有读取 `waveformView.clipGain`**。增益只在拖拽的那一刻写到「当时存在的」`previewPlayerNode`（:892-894）。典型使用流程「先拖线调好 → 再按播放」时 playerNode 还不存在（或随后被重建），拖拽结果被丢弃；播放结束/停止/seek 重播后同理回到 1.0。界面上线条和波形高度保留了增益，声音却是原音量——正是老板描述的现象。
