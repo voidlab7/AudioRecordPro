@@ -32,6 +32,8 @@ class EditorViewController {
     // 预览播放
     private var previewEngine: AVAudioEngine?
     private var previewPlayerNode: AVAudioPlayerNode?
+    /// FIX-020: 回放增益节点（EQ globalGain，dB 直设；每轮 startPreview 重建，stopPreview 回收）
+    private var previewGainNode: AVAudioUnitEQ?
     private var isPreviewPlaying: Bool = false
     private var previewTimer: Timer?
     private var previewStartHostTime: UInt64 = 0
@@ -462,6 +464,7 @@ class EditorViewController {
 
     /// 触发器 "N uitest" → 录音停止自动进编辑器后由 MainViewController 调用本方法。
     /// App 内脚本化执行 split/delete/undo/redo + 自进程 AX 按钮枚举 + seek 对齐往返断言（UI-037）
+    /// + 回放增益设值断言（FIX-020）
     /// （XCUITest 同源视角，自身进程免 TCC），
     /// 每步结果吐 UXEventLog("UITest", step)；外部 `scripts/test-ui-lite.sh` 读日志断言。
     /// 无人值守闭环的关键：不依赖 XCUITest Runner，绕开 LOOP-05 卡死的系统拉起链路。
@@ -595,9 +598,45 @@ class EditorViewController {
                 "x": (seekX * 10).rounded() / 10,
                 "roundtrip_sec": (seekRoundTrip * 1000).rounded() / 1000])
 
+        // 7) FIX-020: 回放增益设值断言——EQ globalGain 与 clipGain 对应。
+        // 真实链路验证三件事：①建链（startPreview）即应用当前增益（旧 bug 主因=重建节点后从不读取）；
+        // ②播放中改增益实时映射（走拖线同款 delegate 路径）；③停止后节点回收。
+        // 起始 gain=0 → EQ −96dB，全程静音，lite 无噪音输出。
+        waveformView.clipGain = 0
+        startPreview()
+        var gainOK = true
+        var nodeAlive = false
+        if let eq = previewGainNode {
+            nodeAlive = true
+            gainOK = gainOK && abs(Double(eq.globalGain) - GainScale.playbackDB(for: 0)) < 0.01
+            waveformView.clipGain = 1.0
+            editorWaveformView(waveformView, didChangeGain: waveformView.clipGain)  // 拖线同款 delegate 路径
+            gainOK = gainOK && abs(Double(eq.globalGain) - GainScale.playbackDB(for: 1.0)) < 0.01
+            waveformView.clipGain = 4.0
+            editorWaveformView(waveformView, didChangeGain: waveformView.clipGain)
+            gainOK = gainOK && abs(Double(eq.globalGain) - GainScale.playbackDB(for: 4.0)) < 0.01
+        } else {
+            gainOK = false
+        }
+        stopPreview()
+        let gainStoppedClean = previewGainNode == nil && previewPlayerNode == nil
+        // 增益映射纯函数断言：1.0→0dB / 上限 10.0→+20dB / 0→−96dB 静音（钳制与标尺同源）
+        let gainMapOK = abs(GainScale.playbackDB(for: 1.0)) < 0.001
+            && abs(GainScale.playbackDB(for: GainScale.maxLinear) - 20.0) < 0.001
+            && GainScale.playbackDB(for: 0) == GainScale.muteDB
+        waveformView.clipGain = 1.0  // 复位视图与草稿
+        EditDraftStore.shared.setGain(1.0, for: file.url)
+        report("playback_gain", gainOK && gainStoppedClean && gainMapOK,
+               ["ok": gainOK && gainStoppedClean && gainMapOK,
+                "node_alive": nodeAlive,
+                "gain0_db": GainScale.playbackDB(for: 0),
+                "gain1_db": GainScale.playbackDB(for: 1.0),
+                "gain4_db": (GainScale.playbackDB(for: 4.0) * 1000).rounded() / 1000,
+                "stopped_clean": gainStoppedClean])
+
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 11 - failures.count])
+                                          "steps": 12 - failures.count])
     }
 
     /// FEAT-007: 文件 SHA256 十六进制摘要（自验「原始文件永不覆盖」判据）
@@ -659,7 +698,8 @@ class EditorViewController {
         // 增益恢复（音量线状态，无论有无命令栈）
         if draft.clipGain != 1.0 {
             waveformView.clipGain = draft.clipGain
-            previewPlayerNode?.volume = draft.clipGain
+            // FIX-020: 正在预览则同步到 EQ；未播放时由 startPreview 建链时应用
+            previewGainNode?.globalGain = Float(GainScale.playbackDB(for: draft.clipGain))
             logger.info("草稿增益已恢复: \(draft.clipGain)")
         }
 
@@ -959,7 +999,9 @@ extension EditorViewController: EditorWaveformViewDelegate {
     /// UI-034 R2: 音量线拖拽 → 回放增益实时联动（clip 级）
     /// FEAT-007 (2026-10-30): 增益随草稿自动落盘并纳入导出渲染（取代 UI-034 拍板 a「导出不应用增益」）
     func editorWaveformView(_ view: EditorWaveformView, didChangeGain gain: Float) {
-        previewPlayerNode?.volume = gain
+        // FIX-020: 播放中实时拖线 → EQ globalGain（dB 直设，−24～+20 全标尺）；
+        // 未在播放时节点为 nil，仅落草稿，下次 startPreview 建链即应用
+        previewGainNode?.globalGain = Float(GainScale.playbackDB(for: gain))
         EditDraftStore.shared.setGain(gain, for: file.url)
     }
 
@@ -1195,8 +1237,25 @@ extension EditorViewController {
 
         let engine = AVAudioEngine()
         let playerNode = AVAudioPlayerNode()
+        // FIX-020: 回放增益链 playerNode → EQ(globalGain) → mainMixer。
+        // 旧实现的缺陷：增益只写在「当时存在的」playerNode.volume（0...1，升益被钳），
+        // 且每轮播放重建节点后从不读取 clipGain——先拖线再点播放等于白调。
+        // 现改为：①建链即按当前 clipGain 设 EQ globalGain（dB 直设，−24～+20 全标尺可放大）；
+        // ②升降益同走单一 EQ 路径（不再用 playerNode.volume 双路径）。
+        // 过载处理：+dB 放大超满刻度时在输出设备处硬削波，与导出链（DraftRenderEngine.applyGain
+        // 的 ±1 限幅）同口径，过载段波形红色溢出层（UI-036 R15b）即视觉警示。
+        // 注：Apple 峰值限幅器 AU 组件在 macOS 26 仍存在（AudioComponentFindNext 实证 'lmtr'），
+        // 但 SDK 已移除 AVAudioUnitDynamicsProcessor 同步包装类与 AVAudioUnit(componentDescription:)
+        // 便捷 init，仅剩 async instantiate——给建链引入时序不确定性，本单不做；后续若要防爆音软限幅，
+        // 走「编辑器加载时 async 预热限幅器节点」路线（见 docs/证据/2026-10-31-FIX020-*.md）。
+        let gainNode = AVAudioUnitEQ(numberOfBands: 1)
+        gainNode.bands[0].filterType = .parametric
+        gainNode.bands[0].bypass = true  // 频段旁路——EQ 只承担 globalGain 全带增益
         engine.attach(playerNode)
-        engine.connect(playerNode, to: engine.mainMixerNode, format: format)
+        engine.attach(gainNode)
+        engine.connect(playerNode, to: gainNode, format: format)
+        engine.connect(gainNode, to: engine.mainMixerNode, format: format)
+        gainNode.globalGain = Float(GainScale.playbackDB(for: waveformView.clipGain))
 
         do {
             try engine.start()
@@ -1218,6 +1277,7 @@ extension EditorViewController {
 
             previewEngine = engine
             previewPlayerNode = playerNode
+            previewGainNode = gainNode
             isPreviewPlaying = true
             toolbar.updatePreviewState(isPlaying: true)
 
@@ -1251,6 +1311,7 @@ extension EditorViewController {
         previewEngine?.stop()
         previewPlayerNode = nil
         previewEngine = nil
+        previewGainNode = nil
         isPreviewPlaying = false
         toolbar.updatePreviewState(isPlaying: false)
         // FIX-003(编辑器): 停止不再强制把 playhead 归零——保留选点位置，点播放从该处开始。
@@ -1596,9 +1657,10 @@ extension EditorViewController: EditorKeyboardHandler {
 extension EditorViewController: PropertiesPanelViewDelegate {
     
     func propertiesPanel(_ panel: PropertiesPanelView, didChangeVolume volume: Float) {
-        // TODO: 实时调整预览音量（不修改 buffer，只改 playerNode gain）
-        previewPlayerNode?.volume = powf(10.0, volume / 20.0)  // dB → linear
-        logger.info("音量调整: \(String(format: "%.1f", volume))dB")
+        // FIX-020: 属性面板音量路径退役（UI-034 R3 起面板无音量入口=死代码）——
+        // 删 playerNode.volume 写入防误用旧双路径；增益唯一入口=音量线（clipGain→EQ globalGain）。
+        // delegate 签名保留（协议稳定）。
+        logger.info("属性面板音量调整已忽略(无 UI 入口): \(String(format: "%.1f", volume))dB")
     }
     
     func propertiesPanel(_ panel: PropertiesPanelView, didChangeFadeIn duration: TimeInterval) {

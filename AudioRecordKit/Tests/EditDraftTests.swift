@@ -112,11 +112,15 @@ final class EditDraftTests: XCTestCase {
         XCTAssertEqual(draft.currentIndex, 1)
         XCTAssertEqual(draft.commands.first, .trim(start: 0, end: 1), "redo 段（split）应被截断")
 
-        // 增益
+        // 增益（FIX-020：上限走 GainScale=+20dB→10.0，旧 2.0 与拖拽标尺不一致已废）
         draft.setGain(2.0)
         XCTAssertEqual(draft.clipGain, 2.0)
-        draft.setGain(5.0)  // 上限夹取
-        XCTAssertEqual(draft.clipGain, 2.0)
+        draft.setGain(5.0)
+        XCTAssertEqual(draft.clipGain, 5.0, "+14dB 内不再被 2.0 旧上限截断")
+        draft.setGain(50.0)  // 上限夹取（+20dB = 10.0）
+        XCTAssertEqual(draft.clipGain, 10.0, accuracy: 1e-4)
+        draft.setGain(-1.0)  // 下限钳 0（静音）
+        XCTAssertEqual(draft.clipGain, 0.0)
     }
 
     // MARK: 2) 草稿仓库

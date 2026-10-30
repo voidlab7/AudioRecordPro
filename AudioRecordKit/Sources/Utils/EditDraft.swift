@@ -47,7 +47,7 @@ public struct EditDraft: Codable, Equatable {
     public var commands: [DraftCommandSpec]
     /// 撤销指针（0...commands.count-1；-1 = 全部已撤销）
     public var currentIndex: Int
-    /// 音量增益（线性倍率，0...2.0；UI-034 音量线，FEAT-007 起随草稿进导出）
+    /// 音量增益（线性倍率，GainScale 标尺 [0, +20dB]=0...10.0；UI-034 音量线，FEAT-007 起随草稿进导出）
     public var clipGain: Float
     public var updatedAt: Date
 
@@ -84,9 +84,10 @@ public struct EditDraft: Codable, Equatable {
         updatedAt = Date()
     }
 
-    /// 增益变化
+    /// 增益变化（FIX-020：钳制上限统一走 GainScale——旧上限 2.0 与 +20dB 标尺（10.0）不一致，
+    /// 超过 +6dB 的拖拽在草稿层被静默截断）
     public mutating func setGain(_ gain: Float) {
-        clipGain = max(0, min(gain, 2.0))
+        clipGain = GainScale.clampLinear(gain)
         updatedAt = Date()
     }
 }
