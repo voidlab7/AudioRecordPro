@@ -1308,6 +1308,11 @@ extension EditorViewController {
         return waveformView.currentSelectionRange
     }
 
+    /// FEAT-007: 当前 buffer 帧数（lite 自验草稿恢复断言用；加载中为 0）
+    var currentFrameCount: Int {
+        Int(audioBuffer?.frameLength ?? 0)
+    }
+
     /// 恢复视口状态
     private func restoreViewportState(_ state: ViewportState) {
         isUpdatingFromExternalSource = true

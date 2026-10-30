@@ -126,6 +126,32 @@ for e in events:
     detail = json.dumps(d, ensure_ascii=False)
     print(f'  {"PASS" if d.get("ok") else "FAIL"}  {e.get("event"):20s} {detail[:140]}')
 print(f'== done: detail={json.dumps(done[-1].get("detail", {}), ensure_ascii=False)} ==')
+
+# FEAT-007 第二段：草稿恢复端到端（退出编辑器→重进→帧数一致），等 UITest2.done（最长 45s）
+deadline2 = time.time() + 45
+events2 = []
+while time.time() < deadline2:
+    scan()
+    events2 = [e for e in events if str(e.get("event", "")).startswith("UITest2")]
+    if [e for e in events2 if e.get("event") == "UITest2.done"]:
+        break
+    time.sleep(2)
+
+print("== UITest2 草稿恢复段 ==")
+done2 = [e for e in events2 if e.get("event") == "UITest2.done"]
+if not done2:
+    print("FAIL: 45s 内未等到 UITest2/done（草稿恢复段未跑或超时）")
+    ok = False
+else:
+    for e in events2:
+        if e.get("event") == "UITest2.done":
+            continue
+        d = e.get("detail") or {}
+        print(f'  {"PASS" if d.get("ok") else "FAIL"}  {e.get("event"):20s} {json.dumps(d, ensure_ascii=False)[:140]}')
+    ok2 = (done2[-1].get("detail") or {}).get("ok") is True
+    print(f'== UITest2 done: detail={json.dumps(done2[-1].get("detail", {}), ensure_ascii=False)} ==')
+    ok = ok and ok2
+
 print("RESULT:", "PASS" if ok else "FAIL")
 sys.exit(0 if ok else 1)
 EOF
