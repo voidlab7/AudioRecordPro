@@ -1,9 +1,23 @@
 import Cocoa
  import Cocoa
 
+// MARK: - TrackContainerSeekDelegate（UI-037）
+/// 空白区（标尺 / 轨道带上下留白）点击/拖拽 seek 回调。
+/// 波形行内部的交互（seek/选区/裁剪/音量线）由 EditorWaveformView 自行处理，不走此协议。
+protocol TrackContainerViewSeekDelegate: AnyObject {
+    /// time 为按可见区换算的原始时间（可能超出音频时长），由实现方 clamp。
+    func trackContainerView(_ view: TrackContainerView, didSeekTo time: TimeInterval)
+}
+
 // MARK: - TrackContainerView（P0-B：多轨道容器）
 /// 垂直排列 N 条音频轨道的容器视图
-/// 每条轨道 = 轨道头（M/S按钮+名称） + 波形区域
+/// 每条轨道 = 轨道头（静音喇叭） + 波形区域
+///
+/// UI-037 布局分层（对标设计稿「标尺贴顶 + 播放头顶到底」）：
+/// - 容器自身铺满轨道区（EditorViewController 钉 top/bottom 于 trackArea，不再整体居中）
+/// - ruler 贴容器顶部（工具栏正下方，高 22 不变）
+/// - 轨道行 stack 在「ruler 下沿 ↔ 容器底部」区间垂直居中；多轨超高回退贴 ruler 下沿 + 溢出
+/// - playhead overlay 铺满容器 = 竖线从标尺顶贯穿到轨道区底
 class TrackContainerView: NSView {
 
     // MARK: - Properties
@@ -11,26 +25,28 @@ class TrackContainerView: NSView {
     private let stackView = NSStackView()
 
     /// 横向贯通的时间刻度尺 — 跳过左侧轨道头列（headerWidth）
-    /// P0-B: ruler 在工具栏正下方、横跨所有轨道行；
-    ///       左侧 80px 轨道头不绘制刻度（M/S 按钮所在列保持纯净）
+    /// UI-037: ruler 固定贴轨道区顶部（navigationBar 正下方），不再随轨道带居中；
+    ///       左侧 88px 轨道头不绘制刻度（喇叭按钮所在列保持纯净）
     private let rulerView = TimeRulerView()
     private let rulerHeight: CGFloat = 22
 
-    /// 播放头/游标线 overlay — 覆盖 ruler + 所有 track 行，
+    /// 播放头/游标线 overlay — 覆盖整个轨道区（ruler 顶 → 容器底），
     /// x 坐标与 ruler 共享同一公式（精准卡住时间刻度）
     private let playheadOverlay = PlayheadOverlayView()
+
+    /// UI-037: 轨道带的可用区间（ruler 下沿 ↔ 容器底部），stack 在其间垂直居中
+    private let trackBandArea = NSLayoutGuide()
 
     /// 轨道行
     private(set) var trackRows: [EditorTrackRowView] = []
 
-    /// 动态计算自身 intrinsic 高度（ruler + 行数 * rowHeight），
-    /// 供父视图（EditorViewController）的 centerY 约束配合使用。
-    /// 调用 `invalidateIntrinsicContentSize()` 必须在 tracks 变更后触发。
-    override var intrinsicContentSize: NSSize {
-        let rowsHeight = CGFloat(trackRows.count) * EditorTrackRowView.rowHeight
-        return NSSize(width: NSView.noIntrinsicMetric, height: rulerHeight + rowsHeight)
-    }
-    
+    /// UI-037: 空白区 seek 回调
+    weak var seekDelegate: TrackContainerViewSeekDelegate?
+
+    /// viewport 缓存（供空白区点击的 x → time 换算，与 ruler/playhead 同步）
+    private var visibleStartTime: TimeInterval = 0
+    private var visibleDuration: TimeInterval = 1
+
     /// 轨道数据
     var tracks: [EditorAudioTrack] = [] {
         didSet { rebuildTracks() }
@@ -41,31 +57,25 @@ class TrackContainerView: NSView {
         super.init(frame: frameRect)
         setupView()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupView()
     }
-    
+
     private func setupView() {
         wantsLayer = true
         layer?.backgroundColor = IndustrialColors.surfaceContainerLowest.cgColor
 
-        // P0-B 修复：trackContainerView 自身高度 = rulerHeight(22) + N*rowHeight（intrinsic），
-        // 通过 hugging/compression resistance 锁死。父视图（EditorViewController）
-        // 用 centerY 让本视图垂直居中于编辑器。内部布局最简化：ruler 在顶部，
-        // stackView 紧贴 ruler 下方填满底部（确定性的，不依赖 spacer 拉伸）。
-
-        // 锁定自身高度 = intrinsic 高度（ruler + 轨道总高）
-        setContentHuggingPriority(.required, for: .vertical)
-        setContentCompressionResistancePriority(.required, for: .vertical)
+        // UI-037: 容器高度不再由内容 intrinsic 决定（父视图钉满轨道区）；
+        // 内部分两层——ruler+playhead overlay（顶锚、铺满全高）与轨道行 stack（居中）。
 
         // P0-B: 横向贯通的时间刻度尺（位于 stackView 顶部之上、轨道头列之外）
         rulerView.translatesAutoresizingMaskIntoConstraints = false
         rulerView.headerWidth = EditorTrackRowView.headerWidth  // 跳过轨道头列
         addSubview(rulerView)
 
-        // stackView 装轨道行（不设任何 spacer — 让行紧贴 ruler 下方）
+        // stackView 装轨道行（不设 spacer — 高度 = 行内容高，在 trackBandArea 内居中）
         stackView.orientation = .vertical
         stackView.spacing = 0
         stackView.distribution = .fill
@@ -73,29 +83,46 @@ class TrackContainerView: NSView {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stackView)
 
-        // 播放头 overlay — 覆盖整个 trackContainer（ruler + 所有轨道），
-        // x 坐标与 ruler 共享同一公式，从 ruler 底部贯穿到 trackContainer 底部
+        // 播放头 overlay — 覆盖整个轨道区（ruler 顶 → 容器底），
+        // x 坐标与 ruler 共享同一公式，竖线贯穿全高（含轨道带上下留白）
         playheadOverlay.translatesAutoresizingMaskIntoConstraints = false
         playheadOverlay.headerWidth = EditorTrackRowView.headerWidth  // 与 ruler 同步
         playheadOverlay.rulerHeight = rulerHeight
         addSubview(playheadOverlay)
 
-        // 关键：ruler 顶部固定，stackView 紧贴 ruler 下方填满底部
-        // — 不再依赖 NSStackView spacer 拉伸（已知 bug：.fill 按添加顺序分配剩余空间）
+        // UI-037: 轨道带区间 = ruler 下沿 ↔ 容器底部
+        addLayoutGuide(trackBandArea)
+
+        // 关键约束：
+        // - ruler 贴容器顶（铺满宽）
+        // - stack 在 trackBandArea 内垂直居中（500）；多轨超高时 top≥(required)
+        //   让 stack 贴 ruler 下沿、bottom≤(749) 放行溢出（回退贴顶，与 UI-032 语义同构）
+        let stackBottomFits = stackView.bottomAnchor.constraint(lessThanOrEqualTo: trackBandArea.bottomAnchor)
+        stackBottomFits.priority = NSLayoutConstraint.Priority(749)
+        let stackCentered = stackView.centerYAnchor.constraint(equalTo: trackBandArea.centerYAnchor)
+        stackCentered.priority = NSLayoutConstraint.Priority(500)
+
         NSLayoutConstraint.activate([
-            // 横向贯通时间刻度尺：贯通整个 trackContainer 宽度（含轨道头列）
+            // 横向贯通时间刻度尺：贯通整个容器宽度（含轨道头列），贴顶
             rulerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             rulerView.trailingAnchor.constraint(equalTo: trailingAnchor),
             rulerView.topAnchor.constraint(equalTo: topAnchor),
             rulerView.heightAnchor.constraint(equalToConstant: rulerHeight),
 
-            // stackView：紧贴 ruler 下方，bottom 锚到 self.bottom（确定性）
+            // 轨道带区间（ruler 下沿 ↔ 底部）
+            trackBandArea.leadingAnchor.constraint(equalTo: leadingAnchor),
+            trackBandArea.trailingAnchor.constraint(equalTo: trailingAnchor),
+            trackBandArea.topAnchor.constraint(equalTo: rulerView.bottomAnchor),
+            trackBandArea.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            // stack：横向贯通；top≥ 区间顶（required）；居中(500)/溢出放行(749) 见上
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.topAnchor.constraint(equalTo: rulerView.bottomAnchor),
-            stackView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            stackView.topAnchor.constraint(greaterThanOrEqualTo: trackBandArea.topAnchor),
+            stackBottomFits,
+            stackCentered,
 
-            // playhead overlay 覆盖整个 trackContainer（在 ruler 和 stackView 之上）
+            // playhead overlay 覆盖整个容器（在 ruler 和 stackView 之上）——UI-037 竖线顶到底
             playheadOverlay.leadingAnchor.constraint(equalTo: leadingAnchor),
             playheadOverlay.trailingAnchor.constraint(equalTo: trailingAnchor),
             playheadOverlay.topAnchor.constraint(equalTo: topAnchor),
@@ -110,30 +137,70 @@ class TrackContainerView: NSView {
     ///   - start: 可见时间起点（秒）
     ///   - duration: 可见时间长度（秒）
     func updateRulerViewport(start: TimeInterval, duration: TimeInterval) {
-        rulerView.updateViewport(start: start, duration: duration)
+        let s = max(0, start)
+        let d = max(0.001, duration)
+        visibleStartTime = s
+        visibleDuration = d
+        rulerView.updateViewport(start: s, duration: d)
         // playhead overlay 共享 ruler 坐标系 — 同步
-        playheadOverlay.visibleStartTime = start
-        playheadOverlay.visibleDuration = duration
+        playheadOverlay.visibleStartTime = s
+        playheadOverlay.visibleDuration = d
     }
 
     /// 同步播放头位置（外部在 seek / 播放进度更新时调用）
     func updatePlayhead(time: TimeInterval) {
         playheadOverlay.playbackTime = time
     }
-    
+
+    // MARK: - UI-037 空白区 seek（点击标尺 / 轨道带留白处拖拽跳播）
+
+    /// 画布 x（容器坐标）→ 时间。与 PlayheadOverlayView.playheadX / TimeRulerView.timeToPixel
+    /// 共享同一坐标系（headerWidth 偏移 + 可见区比例），互为逆变换。
+    /// 不做 [0, totalDuration] clamp（容器不知道音频时长，由 delegate 实现方负责）。
+    func seekTime(forCanvasX x: CGFloat) -> TimeInterval {
+        let timeWidth = bounds.width - EditorTrackRowView.headerWidth
+        guard timeWidth > 0, visibleDuration > 0 else { return visibleStartTime }
+        let clampedX = min(max(x, EditorTrackRowView.headerWidth), bounds.width)
+        let ratio = Double((clampedX - EditorTrackRowView.headerWidth) / timeWidth)
+        return visibleStartTime + ratio * visibleDuration
+    }
+
+    /// 时间 → 画布 x（seekTime 的逆变换；lite 通道往返断言用）
+    func canvasX(forSeekTime time: TimeInterval) -> CGFloat {
+        let timeWidth = bounds.width - EditorTrackRowView.headerWidth
+        guard timeWidth > 0, visibleDuration > 0 else { return EditorTrackRowView.headerWidth }
+        let ratio = CGFloat((time - visibleStartTime) / visibleDuration)
+        return EditorTrackRowView.headerWidth + ratio * timeWidth
+    }
+
+    private func handleEmptyAreaSeek(at point: NSPoint) {
+        // 轨道头列（x < headerWidth）不 seek：该列是喇叭按钮/留白，语义为「轨道管理」
+        guard point.x >= EditorTrackRowView.headerWidth else { return }
+        let time = seekTime(forCanvasX: point.x)
+        UXEventLog.shared.module("Editor", "seek_empty_area", ok: true,
+                                detail: ["target_sec": (time * 1000).rounded() / 1000])
+        seekDelegate?.trackContainerView(self, didSeekTo: time)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        handleEmptyAreaSeek(at: point)
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        // 空白区按住拖动 = 持续 seek（对标剪映拖播放头）
+        let point = convert(event.locationInWindow, from: nil)
+        handleEmptyAreaSeek(at: point)
+    }
+
     // MARK: - Track Management
-    
+
     private func rebuildTracks() {
         stackView.subviews.forEach { $0.removeFromSuperview() }
         trackRows.removeAll()
 
-        // P0-B 修复：移除所有 spacer。NSStackView `.fill` distribution 按 hugging
-        // priority 顺序拉伸 subview（多 spacer 同优先级时按添加顺序），
-        // 会导致"第一个 spacer 撑开、第二个 spacer 高度 = 0"的 bug，
-        // 单轨时 row 贴底而非居中。
-        // 新策略：trackContainerView 自身高度 = rulerHeight(22) + N*rowHeight
-        // （由 intrinsic 决定 + hugging/compression resistance 锁死），
-        // 父视图用 centerY 居中。stackView 内部只装轨道行，无 spacer。
+        // UI-037: stack 高度 = 行内容高（行 min 140 required + hugging 750 > centerY 500，
+        // 行不会被拉伸），stack 在 trackBandArea 内垂直居中；多轨超高回退贴 ruler 下沿 + 溢出。
 
         for (index, track) in tracks.enumerated() {
             let row = EditorTrackRowView(
@@ -146,17 +213,14 @@ class TrackContainerView: NSView {
             stackView.addArrangedSubview(row)
             trackRows.append(row)
         }
-
-        // 通知 Auto Layout 刷新 trackContainerView 的 intrinsic 高度
-        invalidateIntrinsicContentSize()
     }
-    
+
     /// 获取指定轨道的波形视图
     func waveformView(for trackIndex: Int) -> EditorWaveformView? {
         guard trackIndex < trackRows.count else { return nil }
         return trackRows[trackIndex].waveformView
     }
-    
+
     // MARK: - Track Color Mapping
     private func trackColor(for clipColor: ClipColor) -> NSColor {
         switch clipColor {

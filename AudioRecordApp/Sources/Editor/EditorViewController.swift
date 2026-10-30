@@ -197,10 +197,12 @@ class EditorViewController {
             navigationBar.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
             navBarHeightConstraint!,
 
-            // UI-019 design-B 骨架 + UI-032 轨道带垂直居中：
-            // 轨道区 layoutGuide（navigationBar ↔ transcriptPanel），trackContainer（intrinsic：
-            // ruler 22 + N×140）在区间内垂直居中——对标剪映；多轨超高时 centerY(500)
-            // 让位于 top≥(required)，容器回退贴顶+滚动（bottom≤ 749 放行溢出）。
+            // UI-019 design-B 骨架 + UI-037 标尺贴顶分层：
+            // trackContainer 钉满轨道区 layoutGuide（navigationBar ↔ transcriptPanel），
+            // 内部由 TrackContainerView 分层——ruler 贴容器顶（=工具栏正下方），
+            // 轨道行 stack 在「ruler 下沿 ↔ 容器底」内垂直居中（对标剪映），
+            // 多轨超高时贴 ruler 下沿 + 溢出（bottom≤749 语义已在容器内部承载）。
+            // 播放头 overlay 铺满容器 = 竖线从标尺顶贯穿到轨道区底。
             trackContainerView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             trackContainerView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
         ])
@@ -213,15 +215,11 @@ class EditorViewController {
             trackArea.leadingAnchor.constraint(equalTo: editorView.leadingAnchor),
             trackArea.trailingAnchor.constraint(equalTo: editorView.trailingAnchor),
 
-            trackContainerView.topAnchor.constraint(greaterThanOrEqualTo: trackArea.topAnchor),
+            // UI-037: 容器钉满轨道区（原 UI-032 的整体 centerY 居中上移到容器内部
+            // 的轨道行 stack 层——标尺不再随轨道带漂移）
+            trackContainerView.topAnchor.constraint(equalTo: trackArea.topAnchor),
+            trackContainerView.bottomAnchor.constraint(equalTo: trackArea.bottomAnchor),
         ])
-        // 优先级需建约束后设置（anchor 构造器无 priority 参数）：
-        // 多轨超高时 centerY(500) 让位于 top≥(required)，bottom≤(749) 放行溢出 → 回退贴顶+滚动
-        let bottomFits = trackContainerView.bottomAnchor.constraint(lessThanOrEqualTo: trackArea.bottomAnchor)
-        bottomFits.priority = NSLayoutConstraint.Priority(749)
-        let centered = trackContainerView.centerYAnchor.constraint(equalTo: trackArea.centerYAnchor)
-        centered.priority = NSLayoutConstraint.Priority(500)
-        NSLayoutConstraint.activate([bottomFits, centered])
 
         NSLayoutConstraint.activate([
 
@@ -261,6 +259,7 @@ class EditorViewController {
         toolbar.zoomControls.delegate = self
         scrollBarView.delegate = self
         transcriptPanel.delegate = self
+        trackContainerView.seekDelegate = self  // UI-037: 空白区 seek
         // UI-020: 读数三框可键入
         toolbar.selectionReadout.delegate = self
     }
@@ -440,7 +439,8 @@ class EditorViewController {
     // MARK: - INFRA-006 UI 自验 lite 通道
 
     /// 触发器 "N uitest" → 录音停止自动进编辑器后由 MainViewController 调用本方法。
-    /// App 内脚本化执行 split/delete/undo/redo + 自进程 AX 按钮枚举（XCUITest 同源视角，自身进程免 TCC），
+    /// App 内脚本化执行 split/delete/undo/redo + 自进程 AX 按钮枚举 + seek 对齐往返断言（UI-037）
+    /// （XCUITest 同源视角，自身进程免 TCC），
     /// 每步结果吐 UXEventLog("UITest", step)；外部 `scripts/test-ui-lite.sh` 读日志断言。
     /// 无人值守闭环的关键：不依赖 XCUITest Runner，绕开 LOOP-05 卡死的系统拉起链路。
     func runLiteSelftest() {
@@ -525,9 +525,21 @@ class EditorViewController {
         report("ax_enumerate", axOK, ["windows": winCount, "nodes": nodeCount,
                                       "button_count": buttons.count, "buttons": Array(buttons.prefix(12))])
 
+        // 6) UI-037: seek 对齐断言（标尺/空白区 seek 换算与 playhead/ruler 同坐标系往返）。
+        // 时间→x→时间往返误差 <10ms 且 x 落在 header 列右侧，证明空白区点击 seek
+        // 与时间刻度精准卡住（PlayheadOverlayView.playheadX 同公式互逆）。
+        trackContainerView.updateRulerViewport(start: 0, duration: dur)
+        let seekTarget = dur * 0.3
+        let seekX = trackContainerView.canvasX(forSeekTime: seekTarget)
+        let seekRoundTrip = trackContainerView.seekTime(forCanvasX: seekX)
+        report("seek_align", abs(seekRoundTrip - seekTarget) < 0.01 && seekX >= EditorTrackRowView.headerWidth,
+               ["target_sec": (seekTarget * 1000).rounded() / 1000,
+                "x": (seekX * 10).rounded() / 10,
+                "roundtrip_sec": (seekRoundTrip * 1000).rounded() / 1000])
+
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 6 - failures.count])
+                                          "steps": 7 - failures.count])
     }
     
     func undo() {
@@ -938,6 +950,16 @@ extension EditorViewController: EditorWaveformViewDelegate {
             duration: view.currentVisibleDuration
         )
         syncControlsToWaveformState()
+    }
+}
+
+// MARK: - TrackContainerViewSeekDelegate（UI-037：标尺/空白区点击拖拽 seek）
+extension EditorViewController: TrackContainerViewSeekDelegate {
+    /// 空白区 seek：clamp 到音频时长后复用波形行 seek 的统一链路
+    /// （playhead overlay 同步、状态栏、转写联动、播放中无缝跳播全继承）。
+    func trackContainerView(_ view: TrackContainerView, didSeekTo time: TimeInterval) {
+        let clamped = max(0, min(time, waveformView.totalDuration))
+        editorWaveformView(waveformView, didSeekTo: clamped)
     }
 }
 
