@@ -50,6 +50,7 @@
 | UI-035     | 移除波形底部操作引导文字（drawGuideText） | P3 | done ✅ | 2026-10-29 老板交付验收（merge 8a10125）；合并态回归 build 0 / SDK 92/92 / lite PASS |
 | UI-036     | 轨道设计再优化（参考剪映）+承接 UI-026/034：轨道头只留静音喇叭+去截断文字+轨道边框+过载仅顶部变红+工具栏剪映风随单对照 | P2 | done ✅ | 2026-10-30 老板交付验收（随批吸收 026+034，merge 见 git log「验收 UI-036」）；R15 交付 + R15b-i 八轮实机返工（溢出段红/删圆点删暗轮廓/右端截断映射修复/dB 气泡/橙高亮/0dB 水位 38%/+20dB/基线对齐边框）；合并态回归 build 0 / SDK 92/92 / lite PASS；正文迁归档；遗留小项：轨道头编号/电平条去留未裁决（不阻塞，随时 S 级微调） |
 | UI-038     | 录制态灰色默认线与绿色点行不重合（看起来两条线）：对齐为同一条线，保持「灰→变绿→起波纹」 | P2 | 待需求审核 | 老板 2026-10-30 截图；根因=条带中心比灰虚线低 2pt（timelineRect 中心 h/2−2 vs 虚线 midY）+ 虚线录制中仍画在绿点行下面；正文见节 |
+| UI-039     | 编辑器空格键播放/暂停切换（toggle；输入框聚焦不误触） | P2 | todo（待需求审核） | 老板 2026-10-30 提出；10-30 代码核实：空格键（keyCode 49）未绑定无冲突，EditorRootView 键盘链现成；正文见节 |
 | UI-037     | 编辑页时间标尺贴轨道区顶部 + 播放头从标尺顶贯穿到轨道区底部（轨道带仍居中） | P2 | ready-for-review（2026-10-30） | R1 轮交付：TrackContainerView 拆两层（容器钉满轨道区 / ruler 贴顶 / 轨道行 stack 在「ruler 下沿↔底」内居中，centerY 500·贴顶 required·溢出放行 749 与 UI-032 同构）+ 删 intrinsic 锁高；PlayheadOverlayView hitTest 恒穿透（纯显示层，保波形行拖拽/选区/音量线不受影响）、竖线随容器全高自动贯穿、手柄仍骑标尺行内；EditorViewController 删整体居中 + 空白区 seek 委托（clamp 后复用 didSeekTo 链路，播放中无缝跳播/状态栏/转写联动全继承；轨道头列 x<88 不 seek）；lite 新增 seek_align 步（时间→x→时间往返断言）；build 0（新增零警告）/ SDK 93/93 / lite 7/7 PASS（seek_align 往返 2.961→2.961s 零误差）；⚠️ 形态对照（标尺贴顶/播放头贯穿/轨道带居中/空白区点击 seek）并入验收实机看；worktree loop/UI-037 7d0387a |
 | FEAT-007   | 非破坏编辑模型（剪映式）：原始录音永不覆盖+草稿自动保存+撤销全程+导出=渲染编辑结果 | P1 | ready-for-review（2026-10-30） | R16 轮交付（老板「FEAT-007开始修复」触发）：finalizeEdit/save 覆盖链路物理删除、草稿=命令栈 JSON 随编辑自动落盘+重开重放恢复（防双放）、导出=原始+草稿渲染（增益默认进导出）；build 0（14 告警全既有）/ SDK 104/104（基线 89 不回退）/ lite 两段真机全 PASS（original_untouched SHA256 前后一致 + draft_restored 221184==221184）；战报 docs/LoopBuddy/R16-2026-10-30-战报.md、证据 docs/证据/2026-10-30-FEAT007-交付证据.md；worktree loop/FEAT-007 9c7ea82；验收期两肉眼项（重开 App/真机导出时长）见战报 |
 | FIX-019    | 麦克风混录三连缺：①mic 混入在峰值回调之后——波形/DB表/无效守卫永远只看到系统侧峰值，mic 声音进文件但不进任何 UI/守卫 ②录音中切麦克风设备不生效（AUHAL 拒换设备，UI 无提示） ③失效聚合设备（历史会话残留 #376234/#60274）可被选中且静默降级 | P1 | todo（待需求审核） | 老板 2026-10-30 20:21 实录（「录制没有声音」）：开录 2.7s 后才开混录开关 → 注入引擎起（MacBook mic 首帧 peak=0.016）→ 录音中连切 6 次麦设备（unit 不换、只改 UI）→ 停止后守卫按回调峰值 0.0 判无效删除；代码证据 AudioCallbackHandler.swift:68（calculateAndReportLevel 在原始 buffer 上）早于 :71（writeAudioData 内部才混 mic）；日志证据 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」；正文见节 |
@@ -95,6 +96,24 @@
 ---
 
 ## 活跃单
+
+### UI-039 编辑器空格键播放/暂停切换 | P2 | S | [todo · 待需求审核 2026-10-30]
+
+> 来源：老板 2026-10-30「新增需求 支持空格键播放暂停」。
+> 现状核实（10-30）：编辑器键盘表（EditorViewController.handleKeyDown）已绑 Cmd 组合（缩放/fit）与 ←/→/Home/End/切分，**空格键（keyCode 49）未绑定，零冲突**；EditorRootView.keyDown → EditorKeyboardHandler 链路现成。
+
+**需求细项**（起草，待老板需求审核）：
+1. 编辑器窗口聚焦时，空格键 = 播放/暂停切换（toggle，复用播放按钮同一控制入口，不另起播放逻辑）
+2. 选区读数等文本输入框聚焦时，空格保持正常输入（firstResponder 隔离，验证不误触）
+3. 长按不连发（忽略 keyRepeat，或只响应首个 keyDown）
+
+**验收标准**（起草）：
+- [ ] 空格：未播放→播放；播放中→暂停；再按继续
+- [ ] 输入框聚焦时键入空格不触发播放
+- [ ] 现有快捷键（Cmd 缩放/fit、方向键、切分）行为不变
+- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS
+
+**预估**：S ｜ **证据**：（开工后附）
 
 ### LOOP-05 XCUITest 11 个失败修复（mock 注入失效） | P1 | [blocked] ≡INFRA-001
 
