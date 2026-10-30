@@ -1,0 +1,32 @@
+#!/bin/bash
+# 主线合并钩子：master 每次合入新提交（git merge / git pull）后自动出一次版本化构建。
+# 安装方式：bash scripts/install-hooks.sh（core.hooksPath → scripts/hooks，随仓库可追溯）。
+#
+# 设计约束：
+#   - 仅主工作区 + master 分支触发（worktree 里的 loop/* 分支 pull 不触发）
+#   - 构建失败不影响已完成的 merge（恒 exit 0），错误只落日志
+#   - 同一 commit 幂等（release-build.sh 内去重）
+
+GIT_DIR="$(git rev-parse --git-dir 2>/dev/null)" || exit 0
+COMMON_DIR="$(git rev-parse --git-common-dir 2>/dev/null)" || exit 0
+GD_ABS="$(cd "$GIT_DIR" 2>/dev/null && pwd)"
+CD_ABS="$(cd "$COMMON_DIR" 2>/dev/null && pwd)"
+# worktree 的 git-dir 是 <主仓>/.git/worktrees/<name>，与 common-dir 不同 → 跳过
+[[ -n "$GD_ABS" && -n "$CD_ABS" && "$GD_ABS" == "$CD_ABS" ]] || exit 0
+
+BRANCH="$(git branch --show-current)"
+[[ "$BRANCH" == "master" ]] || exit 0
+
+ROOT="$(git rev-parse --show-toplevel)"
+LOG_DIR="$ROOT/releases/logs"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/post-merge-$(date +%Y%m%d-%H%M%S).log"
+
+{
+  echo "=== post-merge 触发 $(date '+%Y-%m-%d %H:%M:%S') @ $(git rev-parse --short HEAD)"
+  bash "$ROOT/scripts/release-build.sh"
+  RC=$?
+  echo "=== 结束 exit=$RC"
+} >> "$LOG" 2>&1
+
+exit 0

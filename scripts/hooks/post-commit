@@ -1,0 +1,30 @@
+#!/bin/bash
+# 合并提交钩子：post-merge 覆盖不到「冲突解决后用 git commit 收尾」的合并
+# （git merge 停在冲突时不触发 post-merge，事后 git commit 也不再触发）。
+# 这里按 HEAD 父提交数判断：合并提交（≥2 个父提交）才触发版本化构建。
+# 与 post-merge 对同一 commit 双触发时，由 release-build.sh 的 last_built_commit 去重兜底。
+
+GD_ABS="$(cd "$(git rev-parse --git-dir 2>/dev/null)" 2>/dev/null && pwd)"
+CD_ABS="$(cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd)"
+[[ -n "$GD_ABS" && -n "$CD_ABS" && "$GD_ABS" == "$CD_ABS" ]] || exit 0
+
+BRANCH="$(git branch --show-current)"
+[[ "$BRANCH" == "master" ]] || exit 0
+
+# rev-list --parents 输出「HEAD + 父提交们」，词数 ≥3 即合并提交
+PARENTS="$(git rev-list --parents -n 1 HEAD | wc -w | tr -d ' ')"
+[[ "$PARENTS" -ge 3 ]] || exit 0
+
+ROOT="$(git rev-parse --show-toplevel)"
+LOG_DIR="$ROOT/releases/logs"
+mkdir -p "$LOG_DIR"
+LOG="$LOG_DIR/post-commit-merge-$(date +%Y%m%d-%H%M%S).log"
+
+{
+  echo "=== post-commit(merge) 触发 $(date '+%Y-%m-%d %H:%M:%S') @ $(git rev-parse --short HEAD)"
+  bash "$ROOT/scripts/release-build.sh"
+  RC=$?
+  echo "=== 结束 exit=$RC"
+} >> "$LOG" 2>&1
+
+exit 0

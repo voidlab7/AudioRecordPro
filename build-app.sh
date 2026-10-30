@@ -91,6 +91,29 @@ else
   echo "   安装: brew install ffmpeg"
 fi
 
+echo "🏷️  注入版本号..."
+# 版本体系：CFBundleShortVersionString = <营销版本>.<build 号>（如 1.1.42，关于面板显示）；
+# CFBundleVersion = 纯 build 号（Apple 语义：单调递增整数）；
+# LoocapBuildCommit = 构建 commit，供追溯「这个 App 是哪次合并出的」。
+# 营销版本单源：仓库根 VERSION；build 号单源：releases/BUILD_NUMBER（release-build.sh 递增）。
+# 流水线（release-build.sh）通过 LOOCAP_VERSION / LOOCAP_BUILD / LOOCAP_BUILD_COMMIT 显式传入；
+# 手动直接跑 build-app.sh 则用当前版本号重打包，不递增。
+VERSION_FILE="$ROOT_DIR/VERSION"
+LOOCAP_VERSION="${LOOCAP_VERSION:-$(cat "$VERSION_FILE" 2>/dev/null || echo "1.1")}"
+LOOCAP_BUILD="${LOOCAP_BUILD:-$(cat "$ROOT_DIR/releases/BUILD_NUMBER" 2>/dev/null || echo 0)}"
+FULL_VERSION="${LOOCAP_VERSION}.${LOOCAP_BUILD}"
+BUILD_COMMIT="${LOOCAP_BUILD_COMMIT:-$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)}"
+PLIST="$CONTENTS_DIR/Info.plist"
+if [ -f "$PLIST" ]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $FULL_VERSION" "$PLIST"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $LOOCAP_BUILD" "$PLIST"
+  /usr/libexec/PlistBuddy -c "Set :LoocapBuildCommit $BUILD_COMMIT" "$PLIST" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :LoocapBuildCommit string $BUILD_COMMIT" "$PLIST"
+  echo "   版本 ${FULL_VERSION}（build $LOOCAP_BUILD @ ${BUILD_COMMIT}）"
+else
+  echo "   ⚠️ 未找到 Info.plist，跳过版本注入"
+fi
+
 echo "🔐 [5/5] 代码签名..."
 # INFRA-002: 优先用稳定身份 LoocapDev（自签证书，TCC 授权不随重编译重置）；
 # 证书缺失时回退 adhoc（每次 cdhash 变化，TCC 当新 App，授权清零）
@@ -100,7 +123,7 @@ if security find-identity -v -p codesigning 2>/dev/null | grep -q "\"$SIGN_IDENT
   echo "   使用稳定签名身份: $SIGN_IDENTITY"
 else
   SIGN_FLAG=(--sign -)
-  echo "   ⚠️ 未找到 $SIGN_IDENTITY，回退 adhoc（重建后需重新授权录屏/麦克风）"
+  echo "   ⚠️ 未找到 ${SIGN_IDENTITY}，回退 adhoc（重建后需重新授权录屏/麦克风）"
   echo "   修复: 见 docs/INFRA-002-证书重建路径.md"
 fi
 # 检查是否有 entitlements

@@ -18,6 +18,8 @@ DerivedData/
 *.7z
 __pycache__/
 AudioRecordApp/Resources/ffmpeg
+# 本地版本化构建产物与台账（release-build.sh 产出，不入库）
+releases/
 
 # Loop worktree 隔离（2026-10-13 老板定：一单一 worktree）
 .worktrees/
