@@ -10,6 +10,7 @@ protocol EditorTrackRowViewDelegate: AnyObject {
 /// UI-019（design-B）：轨道头 80→88，音量滑块 / 16×16 M / 回放电平行
 /// UI-031：去左缘颜色条；波形小图标橙→青绿；静音改线性喇叭图标（去 M 字母）；S（solo）按钮与功能移除
 /// UI-034 R3：轨道头音量滑条移除（音量唯一入口=clip 波形上的音量线拖拽；静音喇叭保留）
+/// UI-036：轨道头再简化——波形图标与轨道名文字移除（对标剪映，只留静音喇叭；编号/电平条保留）
 class EditorTrackRowView: NSView {
 
     // MARK: - Constants
@@ -27,8 +28,6 @@ class EditorTrackRowView: NSView {
     let waveformView = EditorWaveformView()
 
     private let headerView = NSView()
-    private let trackIconView = NSImageView()
-    private let trackNameLabel = NSTextField(labelWithString: "")
     /// UI-019: 轨道元信息行（编号），9 mono
     private let trackMetaLabel = NSTextField(labelWithString: "")
     /// UI-031: 静音按钮（线性喇叭图标，去「M」字母）
@@ -46,7 +45,6 @@ class EditorTrackRowView: NSView {
         self.trackColor = trackColor
         super.init(frame: .zero)
 
-        trackNameLabel.stringValue = trackName
         trackMetaLabel.stringValue = String(format: "%02d", trackIndex + 1)
         setupView()
         // P0-C: 把轨道名作为占位 clip 名称（后续接入 AudioClip 后改用 clip.name）
@@ -69,23 +67,7 @@ class EditorTrackRowView: NSView {
         headerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(headerView)
 
-        // 轨道图标（与轨道名同行，规格表 §1.2：轨道名 11 Semibold）
-        // UI-031: 图标橙→青绿（waveformBase，与波形色族统一）
-        if let img = NSImage(systemSymbolName: "waveform", accessibilityDescription: nil) {
-            trackIconView.image = img
-            trackIconView.contentTintColor = IndustrialColors.waveformBase
-            trackIconView.translatesAutoresizingMaskIntoConstraints = false
-            headerView.addSubview(trackIconView)
-        }
-
-        // 轨道名称
-        trackNameLabel.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-        trackNameLabel.textColor = IndustrialColors.onSurface
-        trackNameLabel.lineBreakMode = .byTruncatingTail
-        trackNameLabel.translatesAutoresizingMaskIntoConstraints = false
-        headerView.addSubview(trackNameLabel)
-
-        // UI-019: 元信息（编号 9 mono）
+        // UI-019: 元信息（编号 9 mono）；UI-036: 轨道名移除后编号上移贴顶
         trackMetaLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
         trackMetaLabel.textColor = IndustrialColors.textTertiary
         trackMetaLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -144,18 +126,9 @@ class EditorTrackRowView: NSView {
             headerView.bottomAnchor.constraint(equalTo: bottomAnchor),
             headerView.widthAnchor.constraint(equalToConstant: hw),
 
-            // 竖排内容列：名行 / 编号 / 音量 / 静音 / 电平（gap 5，规格表 §1.3）
-            trackIconView.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
-            trackIconView.centerYAnchor.constraint(equalTo: trackNameLabel.centerYAnchor),
-            trackIconView.widthAnchor.constraint(equalToConstant: 13),
-            trackIconView.heightAnchor.constraint(equalToConstant: 13),
-
-            trackNameLabel.leadingAnchor.constraint(equalTo: trackIconView.trailingAnchor, constant: 5),
-            trackNameLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 18),
-            trackNameLabel.trailingAnchor.constraint(lessThanOrEqualTo: headerView.trailingAnchor, constant: -8),
-
+            // 竖排内容列：编号 / 静音 / 电平（UI-036: 图标与轨道名移除，编号贴顶）
             trackMetaLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
-            trackMetaLabel.topAnchor.constraint(equalTo: trackNameLabel.bottomAnchor, constant: 3),
+            trackMetaLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 18),
 
             // UI-034 R3: 音量滑条移除——静音按钮直接上移贴编号行
             muteButton.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),

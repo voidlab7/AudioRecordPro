@@ -663,9 +663,16 @@ class EditorWaveformView: NSView {
         var points: [(x: CGFloat, amp: CGFloat)] = []
         points.reserveCapacity(pixelCount)
 
+        // UI-036 R15d 修复：列→样本按「时间比例」映射。旧实现每列固定步进 samplesPerColumn=max(1, range/pixels)
+        // 个样本，样本数 < 像素数时（如 Phase2 targetBars=250 vs 851px）波形只画 count/pixels 比例就 break——
+        // 右端截断、与 clip 边框错位（老板 10-29 实机圈红）；且 Phase1/Phase2 样本数不同导致截断位置漂移。
+        // 新实现：列 i 取样本区间 [frac0·range, frac1·range)，样本复用铺满全宽。
         for i in 0..<pixelCount {
-            let bucketStart = startSampleIndex + i * samplesPerColumn
-            let bucketEnd = min(bucketStart + samplesPerColumn, endSampleIndex)
+            let frac0 = Double(i) / Double(pixelCount)
+            let frac1 = Double(i + 1) / Double(pixelCount)
+            let bucketStart = startSampleIndex + Int(frac0 * Double(sampleRange))
+            var bucketEnd = startSampleIndex + max(Int(frac0 * Double(sampleRange)) + 1, Int(frac1 * Double(sampleRange)))
+            bucketEnd = min(max(bucketEnd, bucketStart + 1), endSampleIndex)
             guard bucketStart < allSamples.count, bucketEnd <= allSamples.count else { break }
 
             // 取桶内最大值作为包络
@@ -926,42 +933,74 @@ class EditorWaveformView: NSView {
         (waveformRect.height - Self.volumeLaneHeight) * 0.82
     }
     /// UI-034: 波形基线 y（clip 下缘对齐）
-    private var envelopeBaselineY: CGFloat { waveformRect.minY + 2 }
+    /// UI-036 R15i（老板 10-30 实机）：对齐 clip 选中边框底线（inset dy:8）——旧值 minY+2 使波形底缘
+    /// 突出边框底 6pt（「波纹比轨道低」）；对齐后波形贴边框底线，无缝无突出。
+    private var envelopeBaselineY: CGFloat { waveformRect.minY + 8 }
     /// UI-034: 波形最大渲染高度（触顶前上限）
     private var envelopeMaxAmp: CGFloat { waveformRect.height - 4 - Self.volumeLaneHeight }
-    /// UI-034: 音量线 y = 满幅标尺 × gain；过 100% 后钳到 maxAmp
+    /// UI-034: 音量线 y
+    /// UI-036 R15g（老板 10-30 发剪映图定标尺）：**0dB 水位在波形中下部（≈38% 高度）**，
+    /// 正区间 [0,+6dB] 从水位线性升到顶部，负区间 [-24dB,0] 压缩在水位以下，gain=0 贴底。
+    /// 波形渲染标尺（fullHeight/maxAmp）不变——溢出红仍是波形超满幅段。
+    static let gainDBMax: Double = 20.0
+    static let gainDBMin: Double = -24.0
+    private var zeroDBHeight: CGFloat { envelopeMaxAmp * 0.38 }
+    /// 当前增益的 dB 值（gain=1 → 0dB）
+    var gainDB: Double { 20 * log10(Double(max(clipGain, 0.001))) }
+
+    /// dB → 线高度（自 baseline 向上，分段线性：正区间水位→顶，负区间底→水位）
+    private func lineHeight(forDB db: Double) -> CGFloat {
+        if db >= 0 {
+            return zeroDBHeight + CGFloat(min(db, Self.gainDBMax) / Self.gainDBMax) * (envelopeMaxAmp - zeroDBHeight)
+        }
+        let negT = max(0, 1 + db / (-Self.gainDBMin))   // -24dB → 0，0dB → 1
+        return 4 + CGFloat(negT) * (zeroDBHeight - 4)
+    }
+
     private var volumeLineY: CGFloat {
-        envelopeBaselineY + min(envelopeFullHeight * CGFloat(clipGain), envelopeMaxAmp)
+        envelopeBaselineY + lineHeight(forDB: gainDB)
     }
     /// UI-034: 过载态（gain > 100%）
     private var isOverdriven: Bool { clipGain > 1.001 }
 
     /// 单边渲染入口：波形贴 clip 下缘向上生长（下半让位剪映语言）。
-    /// gain≠100% 时先画暗色原始轮廓（增益不作用，对标剪映「线上方暗轮廓」），再叠当前增益波形；
-    /// 过载态（gain>100%）波形切警示色。末尾绘制音量线+拖拽圆点（R2）。
+    /// UI-036 R15b（老板实机 10-29）：①过载变红=**波形顶部溢出段**变红（超过 100% 满幅的部分），
+    /// 波形 0…100% 段与音量线均不变红；②音量线/圆点改「很浅」的低存在感样式（恒浅色，永不变红）。
+    /// UI-036 R15c（老板实机 10-29）：③删除暗轮廓层（调音量后波纹「重影」，原始形状不再叠加显示）；
+    /// ④删除播放头×音量线交叉处的拖拽圆点（拖拽热区保留，只去视觉）。
     /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
     private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
         guard !points.isEmpty else { return }
         let baselineY = envelopeBaselineY
         let maxAmp = envelopeMaxAmp
+        let fullHeight = envelopeFullHeight
 
-        if abs(CGFloat(clipGain) - 1.0) > 0.001 {
-            // 暗轮廓层：原始包络（不乘 gain），低透明度——增益压低/抬高后原始形状仍可读
-            let ghost = points.map { (x: $0.x, amp: min($0.amp, maxAmp)) }
-            WaveformEnvelopeRenderer.fillUpward(points: ghost, baselineY: baselineY,
-                                                color: IndustrialColors.waveformBase.withAlphaComponent(0.30))
+        // UI-036 R15b: 过载溢出层——先画增益高度整段警示色，再用基色盖住 0…100% 段，
+        // 只露出超过满幅标尺的「顶部」段（老板：变红说的是波纹，且只有顶部）
+        if isOverdriven {
+            let driven = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
+            WaveformEnvelopeRenderer.fillUpward(points: driven, baselineY: baselineY,
+                                                color: IndustrialColors.waveformOverdrive)
         }
 
-        let waveColor = isOverdriven ? IndustrialColors.waveformOverdrive : IndustrialColors.waveformBase
-        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
-        WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY, color: waveColor)
+        // 波形主体（基色）：gain≤100% 时=amp×gain；过载时钳到 100% 满幅（溢出段已由红色层画出）
+        let cap = isOverdriven ? fullHeight : maxAmp
+        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), cap))) }
+        WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY,
+                                            color: IndustrialColors.waveformBase)
 
         drawVolumeLine()
     }
 
-    /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）+ 播放头处拖拽圆点
+    /// UI-034 R2: 音量包络线（横贯 clip 的水平线，y=gain 满幅标尺×gain）
+    /// UI-036 R15b: 恒「很浅」低存在感（白色半透明），过载也不变红（红色只属波形顶部溢出段）
+    /// UI-036 R15c: 播放头交叉处的拖拽圆点删除（老板：这个交叉点不要）；拖拽热区在线上不变
+    /// UI-036 R15e: 拖拽中显示剪映同款 dB 气泡（黑底白字，如「-2.8dB」「5.5dB」；gain=100% 即 0dB）
+    /// UI-036 R15f: 拖拽中线点亮为剪映橙高亮（老板发图「这个也打开」）；常态仍浅白
     private func drawVolumeLine() {
-        let lineColor = isOverdriven ? IndustrialColors.waveformOverdrive : IndustrialColors.volumeEnvelope
+        let lineColor = dragMode == .gainDrag
+            ? IndustrialColors.volumeEnvelope
+            : NSColor.white.withAlphaComponent(0.35)
         let y = volumeLineY
 
         let line = NSBezierPath()
@@ -971,15 +1010,30 @@ class EditorWaveformView: NSView {
         lineColor.setStroke()
         line.stroke()
 
-        // 拖拽圆点：跟随播放头（播放头不在可视范围时贴可视区右缘内侧）
-        let dotX = min(max(timeToPixel(playbackTime), waveformRect.minX + 12), waveformRect.maxX - 12)
-        let dotRect = NSRect(x: dotX - 4.5, y: y - 4.5, width: 9, height: 9)
-        lineColor.setFill()
-        NSBezierPath(ovalIn: dotRect).fill()
-        NSColor.white.withAlphaComponent(0.9).setStroke()
-        let ring = NSBezierPath(ovalIn: dotRect.insetBy(dx: -1, dy: -1))
-        ring.lineWidth = 1
-        ring.stroke()
+        // R15e: 拖拽中的 dB 数值气泡（剪映同款：黑底圆角 + 白字，正数不带 + 号）
+        // R15g: 数值钳在标尺量程 [-24, +6] 内显示
+        if dragMode == .gainDrag {
+            let displayDB = min(max(gainDB, Self.gainDBMin), Self.gainDBMax)
+            let label = String(format: "%.1fdB", displayDB)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+                .foregroundColor: NSColor.white
+            ]
+            let textSize = (label as NSString).size(withAttributes: attrs)
+            let padH: CGFloat = 8, padV: CGFloat = 4
+            let boxW = textSize.width + padH * 2
+            let boxH = textSize.height + padV * 2
+            // 气泡跟随播放头 x（同旧圆点取位逻辑），贴音量线上方；越界钳回 clip 内
+            let boxX = min(max(timeToPixel(playbackTime) - boxW / 2, waveformRect.minX + 4),
+                           waveformRect.maxX - boxW - 4)
+            let boxY = min(y + 10, waveformRect.maxY - boxH - 2)
+            let box = NSRect(x: boxX, y: boxY, width: boxW, height: boxH)
+            NSColor.black.withAlphaComponent(0.82).setFill()
+            NSBezierPath(roundedRect: box, xRadius: 4, yRadius: 4).fill()
+            (label as NSString).draw(at: NSPoint(x: box.midX - textSize.width / 2,
+                                                 y: box.midY - textSize.height / 2),
+                                     withAttributes: attrs)
+        }
     }
 
     /// UI-034 R2: 音量拖拽热区——拖拽圆点 ±14pt 或音量线 ±8pt（限 clip 区内）
@@ -994,9 +1048,17 @@ class EditorWaveformView: NSView {
     }
 
     /// UI-034 R2: 拖拽换算——鼠标 y 反解 gain（0...2.0），渲染与播放联动同步走
+    /// UI-036 R15g: 改按 dB 标尺反解（0dB 水位之上=正区间升到 +6dB，之下=负区间压到 -24dB/贴底）
     private func applyGainDrag(to location: NSPoint) {
-        let raw = (location.y - envelopeBaselineY) / envelopeFullHeight
-        clipGain = Float(min(max(raw, 0), 2.0))
+        let h = location.y - envelopeBaselineY
+        let db: Double
+        if h >= zeroDBHeight {
+            db = Double((h - zeroDBHeight) / max(1, envelopeMaxAmp - zeroDBHeight)) * Self.gainDBMax
+        } else {
+            let negRatio = Double(max(0, (h - 4) / max(1, zeroDBHeight - 4)))
+            db = Self.gainDBMin * (1 - negRatio)
+        }
+        clipGain = Float(min(max(pow(10, db / 20), 0), pow(10, Self.gainDBMax / 20)))
         delegate?.editorWaveformView(self, didChangeGain: clipGain)
     }
 
