@@ -481,7 +481,8 @@ class WaveformView: NSView {
 
         equalizerContainer.isHidden = true
         // FIX-008: 录制态圆头条形由条形层承载（60Hz 连续平移），draw() 不再逐条重绘
-        let useStripLayer = isRecording && Self.renderStyle == .roundedBars && !waveformData.isEmpty
+        // UI-038 R2: 录制中条带层常显——无数据期渲染满宽静音点行，点击瞬间即接管中线（灰线不再滞留）
+        let useStripLayer = isRecording && Self.renderStyle == .roundedBars
         barsClipLayer.isHidden = !useStripLayer
         if isRecording || (isShowingStaticWaveform && staticFileDuration > 0) || recordingDuration > 0 {
             drawNativeTimeline(in: bounds)
@@ -586,7 +587,8 @@ class WaveformView: NSView {
     /// R2（老板 10-13 口述「从最右边往最左边」）：右端锚定——最新条右缘贴 timeline 右缘冒头，
     /// 全部历史条随相位连续左移；未满窗/满窗同一公式（追加瞬间 (n-1) 增一且相位归零，两者相抵，像素级连续）。
     private func updateStripTranslation() {
-        guard isRecording, Self.renderStyle == .roundedBars, !waveformData.isEmpty, bounds.width > 0 else { return }
+        // UI-038 R2: 去掉 isEmpty 门控——无数据期也驱动条带层（满宽静音点行），点击瞬间即变绿
+        guard isRecording, Self.renderStyle == .roundedBars, bounds.width > 0 else { return }
         let timelineRect = timelineRectForBars
         let step = vbBarWidth + vbBarGap
         let maxVisibleBars = max(2, Int(floor(timelineRect.width / step)))
@@ -603,9 +605,11 @@ class WaveformView: NSView {
             stripBoundsSize = bounds.size
         }
 
-        let n = CGFloat(min(waveformData.count, maxVisibleBars))
+        // UI-038 R2: 无数据期按 n=1（单根静音点行）代入公式，右缘仍贴 timeline 右缘；
+        // 首条落下时 (n-1) 增一且相位归零，两者相抵——与既有的未满窗/满窗连续性同性质，像素级无跳变
+        let n = CGFloat(max(1, min(waveformData.count, maxVisibleBars)))
         let elapsed = max(0, CFAbsoluteTimeGetCurrent() - lastBarAppendTime)
-        let phase = min(0.999, elapsed / barInterval)
+        let phase = waveformData.isEmpty ? 0 : min(0.999, elapsed / barInterval)
         // 最新条右缘 = 裁剪层右缘 - phase*step；其余历史条在条带图内按 step 排其左
         let x = timelineRect.width - vbBarWidth - stripGlowPad - (n - 1) * step - CGFloat(phase) * step
         CATransaction.begin()
@@ -637,7 +641,11 @@ class WaveformView: NSView {
         let centerY = stripH / 2
         let drawHeight = min(maxBarHeight, timelineRect.height * 0.82)
         let startIndex = max(0, waveformData.count - maxVisibleBars)
+        // UI-038 R2: 未到的槽位补静音点（amplitude 经 max(1.0,·) 钳 2pt 圆头）——录制全程满宽点行，
+        // 点击瞬间整条「变绿」，真实波形从右端槽位逐条替换、向左推进
+        let realCount = waveformData.count - startIndex
         let visibleData = Array(waveformData[startIndex...])
+            + Array(repeating: Float(0), count: max(0, maxVisibleBars - realCount))
         let glow = NSShadow()
         glow.shadowColor = NSColor(hex: "#13BBA3").withAlphaComponent(0.5)
         glow.shadowBlurRadius = 3
@@ -869,9 +877,9 @@ class WaveformView: NSView {
 
         // 只有实际录制/预览才会调用本方法；静音零位线保持中性灰，不模拟录制进度。
         // UI-038 方案②（需求审核拍板「推荐②」）：录制中条带已出现（绿点行/条形）时整根灰虚线让位，
-        // 由绿点行本身充当中线（「灰→变绿→起波纹」是同一条线换色，不再是两条线叠加）；
-        // 录制开始瞬间（尚无数据）与预览/停止态灰虚线照常显示，不闪烁不跳位。
-        let stripOwnsCenterline = isRecording && Self.renderStyle == .roundedBars && !waveformData.isEmpty
+        // 由绿点行本身充当中线（「灰→变绿→起波纹」是同一条线换色，不再是两条线叠加）。
+        // UI-038 R2: 让位条件去掉 isEmpty——无数据期由满宽静音点行接管，点击瞬间即变绿，灰线不再滞留一拍。
+        let stripOwnsCenterline = isRecording && Self.renderStyle == .roundedBars
         if !stripOwnsCenterline {
             IndustrialColors.gridMedium.withAlphaComponent(0.5).setStroke()
             let centerLine = NSBezierPath()
