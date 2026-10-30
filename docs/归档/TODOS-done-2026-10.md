@@ -1865,3 +1865,27 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 - 合并态回归（2026-10-30 验收合并后实测）：build 0 / SDK 105/105 / lite 第一段 11 步全 PASS（草稿三断言 draft_saved/original_untouched/draft_render + UI-037 seek_align 合并态合计，steps 计数 10+1=11）/ UITest2 第二段 draft_restored 219648==219648
 - 证据：战报 `docs/LoopBuddy/R16-2026-10-30-战报.md`、交付证据 `docs/证据/2026-10-30-FEAT007-交付证据.md`
 - ⚠️ 验收期两肉眼项（重开 App 草稿恢复观感/真机导出时长）老板明示免验，逻辑正确性由 EditDraftTests 单测与 lite 硬断言承载；留日常观察
+
+---
+
+### REL-005 i18n R3：主界面漏网站点收尾（中英混排修复，语言全量跟随系统） | P1 | S | [done ✅ 2026-10-30 老板交付验收 → merge 03d44e6]
+
+> 来源：老板 2026-10-30 截图（REC 页侧边栏+空态画布中英混排），原话「我现在界面是中英混排，我需要中文就是中文，英文就是英文」。
+> 现状核实（10-30）：zh-Hans lproj 机制工作正常（同屏「录制」「文件」「刷新」「同时录入麦克风」均正确显示中文）——混排不是机制失效，是 **REL-003「全量字符串迁移」的漏网批次**：主窗口一批用户可见字符串仍是裸英文硬编码、未接 `.localized`。且 en.lproj 字典里 `"准备录制"/"系统声音"/"应用声音"/"麦克风"` 条目早已备好——纯源码侧漏接。
+> 实锤漏网站点：SidebarView.swift:174-176（三分组头）、:39/:877/:885（系统卡副题）、WaveformView.swift:774/796/808-809（空态画布）、LevelMeterCardView.swift:192（DB METER）。
+
+**执行注记（R1 轮，2026-10-30 同日审核+交付）**：
+- 11 处接线：分组头×3（复用 key + `.uppercased()` 保英文 SYSTEM AUDIO 零回退，中文恒等）、系统卡副题×2（默认输出主设备/正在捕获所选应用，构造+updateAppearance 双写点）、空态画布×4（就绪/准备录制/点击录制或按/开始录音，三段绘制 prefix+[Space 键帽]+suffix）、电平表×1
+- en.lproj 新增 5 条（Unicode 码点序插入正文区）；复用已有 key 5 条
+- 审核拍板落实：DB METER→「电平表」（en 保持 "DB METER" 英文用户零回退）；刻度（-6/-12dB）、48kHz、Space 键帽、REC·源名、CPU % 保留英文；来源列表 App 名（企业微信等）系统数据不翻
+- 保留不动：TrackPanelView 旧面板 "S"（UI-031 遗留留观，非本单范围）
+
+**验收标准**（R1 自验勾选）：
+- [x] 静态扫描：漏网站点清零（`SYSTEM AUDIO/APP AUDIO/MICROPHONE/Ready to Record/Press record/Default Output Master/Focused App Capture/DB METER` 在 swift 源零命中）
+- [x] 中文系统实机对照：老板验收现场实看预览版（PID 49174）——分组头/系统卡副题/空态画布/电平表全中文
+- [x] 英文侧零回退：分组头 uppercased、DB METER en 原样、en base 语义不变
+- [x] plutil lint OK ×2；build 0（1.1.0 b0 @ a0fff0c，LoocapDev 稳定签名）；SDK 105/105；lite 11+1 全 PASS
+- [x] AX 中文佐证：ax_enumerate buttons 全中文（导出/静音/缩小/放大/适应全部/重新转写/搜索）
+
+**预估**：S ｜ **证据**：worktree loop/REL-005 57ebd87（merge 03d44e6，分支与 worktree 已清）；5 文件 +81/-11；证据 `docs/证据/2026-10-30-REL005-i18n-R3-漏网站点收尾-硬验证.md`
+**验收注**：老板 2026-10-30 会话内实机验收通过。i18n 三期（R1+R2+R3）至此全部闭环。
