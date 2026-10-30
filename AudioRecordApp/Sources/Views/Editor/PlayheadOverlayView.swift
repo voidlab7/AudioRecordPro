@@ -1,14 +1,16 @@
 import Cocoa
 
 // MARK: - PlayheadOverlayView
-/// 播放头/游标线 — 覆盖在 ruler + 所有 track 行上方。
+/// 播放头/游标线 — 覆盖整个轨道区（UI-037：ruler 顶 → 容器底贯穿）。
 /// x 坐标公式与 TimeRulerView.timeToPixel 完全一致（基于 headerWidth 偏移），
 /// 保证 playhead 与 ruler 时间刻度"精准卡住"。
 ///
 /// UI-030 剪映风格：
-/// - 白色细竖线从 ruler 贯穿到容器底部
-/// - U 形圆角手柄恒在顶部、骑在 ruler 行内（老板 10-27 强调：严禁画在底部）
+/// - 白色细竖线从容器顶贯穿到容器底（UI-037：含轨道带上下留白区）
+/// - 圆角矩形手柄恒在顶部、骑在 ruler 行内（老板 10-27 强调：严禁画在底部）
 /// - 播放头在 0:00 与末端时整体内收 clamp，手柄完整可见不越界
+/// UI-037: 纯显示层，hitTest 恒穿透——不拦截波形行（seek/选区/音量线拖拽）
+/// 与容器空白区（seek）的鼠标事件。
 /// 坐标惯例：本视图非翻转（y-up），视觉顶部 = y 大。
 class PlayheadOverlayView: NSView {
 
@@ -52,6 +54,10 @@ class PlayheadOverlayView: NSView {
         // 透明背景 — 只画 playhead 本身
         layer?.backgroundColor = NSColor.clear.cgColor
     }
+
+    /// UI-037: 纯显示层 — 鼠标事件全部穿透到下层（波形行 / 标尺 / 容器空白区）。
+    /// 否则 overlay 覆盖整个轨道区会拦截波形行的 seek/选区/音量线拖拽。
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     /// 一次性更新所有 viewport 相关属性（避免多次 invalidating）
     func update(playbackTime: TimeInterval, visibleStartTime: TimeInterval, visibleDuration: TimeInterval) {
