@@ -1831,3 +1831,37 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 - `EditorViewController.swift`（±50）：容器钉满 trackArea（top/bottom required）删整体 centerY 居中；空白区 seek clamp 后复用 `editorWaveformView(_:didSeekTo:)` 统一链路（播放中无缝跳播/状态栏/转写联动全继承）；lite 序列新增 seek_align 步（6→7 步）
 - 测试：build 0（本次改动零新增警告，7 条预存）/ SDK 93/93 / lite 7/7 PASS（seek_align 往返 2.961→2.961s 零误差 + 原 6 步零回归）；UXEventLog `Editor/seek_empty_area` 落点供实机硬验证
 - 形态对照（标尺贴顶/播放头贯穿/轨道带居中/空白区点击 seek/960×640 与 1200×750 两尺寸）老板 2026-10-30 实机验收通过
+
+---
+
+### FEAT-007 非破坏编辑模型（剪映式）：原始录音永不覆盖+草稿自动保存+导出=渲染编辑结果 | P1 | M–L | [done ✅ 2026-10-30 老板交付验收（merge c00aa5f）]
+
+> 来源：老板 10-29 定调：「不要保存。剪映的概念是导出，导出的时候才会真正地去输出真正的目标的样子。而原始的文件一直在那里，可以一直撤销。是吧，剪映应该是这么做的。」
+> 背景：10-29 代码核实三个与该预期冲突的现状——①残留 save()/finalizeEdit 链路以原 UUID 重加密**覆盖原始 .arlock**（EditorViewController.swift:565/572-578，含非加密文件直接覆盖兜底；026 仅删了按钮）；②编辑状态**零持久化**（EditorSessionManager 内存 LRU 池 3 会话/450MB，关 App 即丢，无自动保存无工程文件）；③导出链路**完全不读编辑结果**（ExportService 从原始 .arlock 重新解密转码——裁剪 10min→3min 后导出仍是完整原始音频，所有编辑导出均不生效，不止增益）。
+
+**需求细项**：
+1. 原始录音文件永不覆盖：拆除 finalizeEdit 覆盖原 .arlock 路径（含非加密兜底分支），编辑结果只进草稿
+2. 草稿自动保存：编辑状态（buffer 或命令栈序列化）持久化，编辑中/退出编辑器/退出 App 均不丢，重开可恢复（对标剪映草稿，对用户透明、无「保存」概念）
+3. 撤销全程可用：撤销栈随草稿保留（「可以一直撤销」），重开后撤销行为尽量延续
+4. 导出=渲染编辑结果：ExportService 从「原始文件+草稿」渲染输出目标文件（治「导出原始音频」坑）；**增益纳入导出——10-29 老板拍板「先默认导出吧」，增益默认进导出产物，取代 UI-034 拍板 a「导出不应用增益」**（a 的「另开单」即本单，已落）
+
+**不做什么**：
+- 不做 UI-024 clip 级多段编辑（另有其单，本单草稿模型为其铺路）
+- 不做剪映式草稿管理 UI（草稿列表/多版本），本期草稿对用户透明
+- 不动 UI-036（轨道形态/工具栏，两单边界：036 管样子、本单管模型）
+
+**验收标准**：
+- [x] 任一编辑命令执行后，原始 .arlock 文件字节不变（前后哈希对比）✅ lite original_untouched：SHA256 前后一致（cee47a97fc86b2a7）
+- [x] 编辑→退出编辑器→重进：编辑状态保持 ✅ UITest2.draft_restored 219648==219648（防「双放」断言）
+- [x] 编辑→退出 App→重开→重进：编辑状态保持（草稿恢复）✅ 逻辑由 EditDraftTests 草稿重开重放单测覆盖（SDK 105/105 内）；真机肉眼项老板 2026-10-30 免验（「不太好验，直接就验收通过」）
+- [x] 裁剪 10min→3min 后导出，产物时长=3min（编辑结果生效）✅ 导出=原始+草稿渲染链路（DraftRenderEngine 导出同核）；真机导出时长肉眼项老板免验
+- [x] 撤销在上述全流程可用；build 0 / SDK 单测基线不回退 / lite PASS ✅ 合并态实测 build 0 / SDK 105/105 / lite 11 步全 PASS
+
+**预估**：M–L（草稿序列化+导出链路改造，undo/redo 栈已有 EditHistory 基础）
+
+**交付记录（R16 轮 2026-10-30，worktree loop/FEAT-007 9c7ea82；验收合并 master c00aa5f，老板 2026-10-30「不太好验，直接就验收通过」）**：
+- 交付核心：finalizeEdit/save 覆盖原文件链路物理删除；草稿=命令栈 JSON 随编辑自动落盘（EditDraftStore）+ 重开重放恢复（防双放守卫）；导出=原始+草稿渲染（DraftRenderEngine 导出同核，增益默认进导出）
+- 新增：Kit 侧 DraftRenderEngine/EditDraft/EditDraftStore + App 侧 DraftSpecFactory；EditCommand 迁入 Kit（App 侧旧桩删除）；EditDraftTests 308 行单测
+- 合并态回归（2026-10-30 验收合并后实测）：build 0 / SDK 105/105 / lite 第一段 11 步全 PASS（草稿三断言 draft_saved/original_untouched/draft_render + UI-037 seek_align 合并态合计，steps 计数 10+1=11）/ UITest2 第二段 draft_restored 219648==219648
+- 证据：战报 `docs/LoopBuddy/R16-2026-10-30-战报.md`、交付证据 `docs/证据/2026-10-30-FEAT007-交付证据.md`
+- ⚠️ 验收期两肉眼项（重开 App 草稿恢复观感/真机导出时长）老板明示免验，逻辑正确性由 EditDraftTests 单测与 lite 硬断言承载；留日常观察
