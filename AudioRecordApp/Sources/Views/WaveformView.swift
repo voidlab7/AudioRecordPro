@@ -26,8 +26,7 @@ class WaveformView: NSView {
     
     private var waveformData: [Float] = []
     var selectedSourceName: String = "系统音频".localized { didSet { needsDisplay = true } }
-    private var rawPeakData: [Float] = []  // 原始 PCM 峰值（未归一化），FIX-010: 仅作可见窗重映射数据源
-    private var runningPeakMax: Float = 0  // FIX-010: 自开始录音起的累计最大峰值（只增不减，全局线性参考值）
+    private var rawPeakData: [Float] = []  // 原始 PCM 峰值（未归一化），FIX-018: 不再参与映射（映射固定满刻度），仅作「已有峰值回调」标记 + 原始值留存
     private var maxDataPoints: Int = 260
     private(set) var isRecording: Bool = false
     private var smoothedLevel: Float = 0.0
@@ -225,21 +224,13 @@ class WaveformView: NSView {
         // 存储原始 PCM 峰值
         rawPeakData.append(peakLevel)
 
-        // FIX-010: 全局线性归一化——参考值 = 本次录音迄今最大峰值（running max，只增不减），
-        // 与编辑态「峰值 / 整段最大值」同规则（共用 WaveformAmplitudeMapper）。
-        // 静默期底噪不再被滑窗自动增益放大（原注释写「全局」实为 260 点滑窗，名实不符，根因修复）。
-        let maxGrew = peakLevel > runningPeakMax
-        if maxGrew { runningPeakMax = peakLevel }
-        let normalizedPeak = WaveformAmplitudeMapper.normalized(peakLevel, referenceMax: runningPeakMax)
+        // FIX-018: 固定满刻度映射（老板 2026-10-29 拍板方案 A）——参考值恒为 1.0，与编辑态 tile 路径同口径。
+        // 同电平永远同高；条落即定稿，尖峰不再抬高标尺、历史条不再回溯重映射（FIX-010 B 方案 running max 的「标尺随录音漂移」副作用废除）。
+        // −60 dBFS 静音门限与 ≥1.0 削波钳满高由 WaveformAmplitudeMapper 承担（FIX-010 口径保留）。
+        let normalizedPeak = WaveformAmplitudeMapper.normalized(peakLevel, referenceMax: 1.0)
 
         waveformData.append(normalizedPeak)
         dataVersion += 1
-
-        // running max 增长时，可见窗内历史条按新参考重映射（保持与最新条同一口径）
-        if maxGrew {
-            waveformData = rawPeakData.map { WaveformAmplitudeMapper.normalized($0, referenceMax: runningPeakMax) }
-            stripDataVersion = -1  // FIX-008: 值变版本不变，强制条带重渲
-        }
 
         if waveformData.count > maxDataPoints {
             waveformData.removeFirst(waveformData.count - maxDataPoints)
@@ -261,7 +252,6 @@ class WaveformView: NSView {
         isShowingStaticWaveform = false
         staticWaveformData = nil
         rawPeakData.removeAll()
-        runningPeakMax = 0  // FIX-010: running max 随新录音复位
         waveformData = Array(repeating: 0.0, count: 0)
         barBucketStart = 0   // FIX-009: 时间桶状态复位
         barBucketPeak = 0
@@ -285,18 +275,16 @@ class WaveformView: NSView {
         smoothedLevel = 0
         recentRawLevels.removeAll()
         rawPeakData.removeAll()
-        runningPeakMax = 0  // FIX-010: running max 复位
         barBucketStart = 0   // FIX-009: 时间桶状态复位
         barBucketPeak = 0
         needsDisplay = true
     }
-    
+
     /// 重置波形
     func reset() {
         smoothedLevel = 0
         recentRawLevels.removeAll()
         rawPeakData.removeAll()
-        runningPeakMax = 0  // FIX-010: running max 复位
         waveformData.removeAll()
         waveformLoadID = UUID()
         isShowingStaticWaveform = false
