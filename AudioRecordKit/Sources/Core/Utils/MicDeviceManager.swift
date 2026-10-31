@@ -57,6 +57,15 @@ final class MicDeviceManager {
         for id in ids {
             guard hasInputStreams(id) else { continue }
             let name = deviceName(id)
+            // FIX-021: 过滤本 App 自建的 ProcessTap 聚合（名字恒为 "Tap-<UUID>"）——
+            // 私有聚合对创建进程可见：在跑的那只录音期间会污染列表，崩溃残留的跨会话
+            // 泄漏也会一直躺在麦列表里（老板 10-31 截图实锤：聚合设备 #89802 / #81333）
+            if name.hasPrefix("Tap-") { continue }
+            // FIX-021: 过滤已失效设备（isAlive=0，如死聚合残留/已拔出设备）
+            guard isDeviceAlive(id) else {
+                logger.info("MicDeviceManager: 跳过失效设备 id=\(id) name=\(name)")
+                continue
+            }
             let uid = deviceUID(id)
             guard let uid = uid, !uid.isEmpty else { continue }
             devices.append(MicDeviceInfo(deviceID: id, uid: uid, name: name, isSystemDefault: id == defaultID))
@@ -168,14 +177,37 @@ final class MicDeviceManager {
     var preferredDeviceUID: String? {
         get { UserDefaults.standard.string(forKey: defaultsKey) }
         set {
+            let old = UserDefaults.standard.string(forKey: defaultsKey)
             lock.lock()
-            defer { lock.unlock() }
             if let uid = newValue {
                 UserDefaults.standard.set(uid, forKey: defaultsKey)
             } else {
                 UserDefaults.standard.removeObject(forKey: defaultsKey)
             }
+            lock.unlock()
+            // FIX-021: 变更即在锁外广播（录音中切麦 → 录制器重建注入引擎）
+            if old != newValue {
+                firePreferredDeviceChanged(newValue)
+            }
         }
+    }
+
+    // MARK: - FIX-021: 偏好设备变更广播
+
+    private var preferredChangeCallback: ((String?) -> Void)?
+
+    /// 订阅偏好麦克风设备变更（参数=新偏好 uid，nil=跟随系统默认）
+    func onPreferredDeviceChanged(_ callback: @escaping (String?) -> Void) {
+        lock.lock()
+        preferredChangeCallback = callback
+        lock.unlock()
+    }
+
+    private func firePreferredDeviceChanged(_ uid: String?) {
+        lock.lock()
+        let cb = preferredChangeCallback
+        lock.unlock()
+        cb?(uid)
     }
 
     /// FEAT-004R2: 解析偏好设备为可用设备（在线校验）
@@ -230,6 +262,20 @@ final class MicDeviceManager {
             mElement: kAudioObjectPropertyElementMain)
         guard AudioObjectGetPropertyDataSize(id, &addr, 0, nil, &size) == noErr else { return false }
         return size > 0
+    }
+
+    /// FIX-021: 设备存活探测（kAudioDevicePropertyDeviceIsAlive，0=失效）
+    private func isDeviceAlive(_ id: AudioDeviceID) -> Bool {
+        var alive: UInt32 = 1
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        var addr = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsAlive,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &alive) == noErr else {
+            return true  // 查询失败保守放行，不误杀
+        }
+        return alive != 0
     }
 
     private func deviceName(_ id: AudioDeviceID) -> String {

@@ -64,12 +64,13 @@ func globalAudioCallback(
     let channels = handler.channelCount
     let frameCount = UInt32(totalSamples / channels)
     
+    // FIX-021: 先写后取样——写入路径内部的 mic 混音结果暂存为 lastMixedSamples，
+    // 紧随其后的电平取样优先消费它，保证波形/电平表/无效守卫与实际写盘内容同源
+    handler.writeAudioData(from: bufferList, frameCount: frameCount)
+
     // 计算电平
     handler.calculateAndReportLevel(from: bufferList, frameCount: frameCount)
-    
-    // 写入音频数据
-    handler.writeAudioData(from: bufferList, frameCount: frameCount)
-    
+
     return noErr
 }
 
@@ -142,6 +143,11 @@ class AudioCallbackHandler {
     func setMicMixProvider(_ provider: ((UInt32) -> [Float]?)?) {
         self.micMixProvider = provider
     }
+
+    /// FIX-021: 本回调帧真实写盘的 mic 混音结果（交错样本）。writeAudioData 注入分支产出，
+    /// calculateAndReportLevel 一次性消费后清空。仅音频 IO 回调线程读写（串行），无锁。
+    /// internal 无修饰符供 Kit 单测直接断言。
+    var lastMixedSamples: [Float]?
     
     /// 创建音频回调函数
     func createAudioCallback() -> (AudioDeviceIOProc, UnsafeMutableRawPointer) {
@@ -215,16 +221,45 @@ class AudioCallbackHandler {
     func calculateAndReportLevel(from bufferList: AudioBufferList, frameCount: UInt32) {
         let hasLevelCb = onLevel != nil
         let hasPeakCb = onPeakLevel != nil
-        guard hasLevelCb || hasPeakCb else { return }
-        
-        // 使用统一的工具类计算电平（同时拿到 maxLevel 和 normalizedLevel）
-        let (maxLevel, _, normalizedLevel) = AudioUtils.calculateAudioLevel(from: bufferList, frameCount: frameCount)
+        guard hasLevelCb || hasPeakCb else {
+            lastMixedSamples = nil  // FIX-021: 无消费者也不滞留过期混音缓存
+            return
+        }
+
+        // FIX-021: 本帧发生过 mic 注入时，以混音后样本取样（一次性消费）——
+        // 波形（onPeakLevel）/电平表（onLevel）/BUG-1 无效录音守卫看到的即用户听到的内容。
+        // 修复前只对原始系统 buffer 取样：mic 独响时三者全零，守卫还会误删 mic-only 正常录音。
+        let mixed = lastMixedSamples
+        lastMixedSamples = nil
+        let (maxLevel, _, normalizedLevel): (Float, Float, Float)
+        if let samples = mixed, !samples.isEmpty {
+            (maxLevel, _, normalizedLevel) = AudioUtils.calculateAudioLevel(fromSamples: samples)
+        } else {
+            (maxLevel, _, normalizedLevel) = AudioUtils.calculateAudioLevel(from: bufferList, frameCount: frameCount)
+        }
 
         DispatchQueue.main.async { [weak self] in
             self?.onLevel?(normalizedLevel)
             // 峰值回调：直接传 PCM 峰值（0~1），与 extractWaveformSamples 一致
             self?.onPeakLevel?(maxLevel)
         }
+    }
+
+    /// FIX-021: mic 注入混音（交错单 buffer 限定）。返回混音后样本；nil=本帧不注入
+    /// （开关关/引擎未就绪/非交错多 buffer）。混音配比与 MixedAudioRecorder 一致：
+    /// 60% 系统 + 40% 麦克风，防削波。internal 供 Kit 单测直接断言混音值。
+    func mixMicIfNeeded(from bufferList: AudioBufferList, frameCount: UInt32) -> [Float]? {
+        guard let provider = micMixProvider, let micData = provider(frameCount), !micData.isEmpty,
+              bufferList.mNumberBuffers == 1, let src = bufferList.mBuffers.mData else { return nil }
+        let srcFloats = Int(bufferList.mBuffers.mDataByteSize) / MemoryLayout<Float>.size
+        let sampleCount = min(srcFloats, micData.count)
+        var mixedData = [Float](repeating: 0, count: sampleCount)
+        let sys = src.assumingMemoryBound(to: Float.self)
+        for i in 0..<sampleCount {
+            let mixed = sys[i] * 0.6 + micData[i] * 0.4
+            mixedData[i] = max(-1.0, min(1.0, mixed))
+        }
+        return mixedData
     }
     
      func writeAudioData(from bufferList: AudioBufferList, frameCount: UInt32) {
@@ -251,39 +286,31 @@ class AudioCallbackHandler {
 
         // FIX-007: 麦克风动态注入（纯系统 Tap 路径）——把 mic 样本按 40% 混入系统音频后写文件。
         // 与现有写入路径同构：仅支持交错单 buffer（非交错本就被跳过，行为不变）。
-        if let provider = micMixProvider, let micData = provider(frameCount), !micData.isEmpty,
-           bufferList.mNumberBuffers == 1, let src = bufferList.mBuffers.mData {
+        // FIX-021: 仅在混音结果真实写盘时暂存 lastMixedSamples（AVAudioFile 回退路径不注入不暂存）。
+        if var mixedData = mixMicIfNeeded(from: bufferList, frameCount: frameCount),
+           bufferList.mNumberBuffers == 1, let fm = audioToolboxFileManager {
             let srcChannels = bufferList.mBuffers.mNumberChannels
-            let srcFloats = Int(bufferList.mBuffers.mDataByteSize) / MemoryLayout<Float>.size
-            let sampleCount = min(srcFloats, micData.count)
-            var mixedData = [Float](repeating: 0, count: sampleCount)
-            let sys = src.assumingMemoryBound(to: Float.self)
-            for i in 0..<sampleCount {
-                // 混音配比与 MixedAudioRecorder 一致：60% 系统 + 40% 麦克风，防削波
-                let mixed = sys[i] * 0.6 + micData[i] * 0.4
-                mixedData[i] = max(-1.0, min(1.0, mixed))
-            }
-            if let fm = audioToolboxFileManager {
-                mixedData.withUnsafeMutableBytes { raw in
-                    guard let base = raw.baseAddress else { return }
-                    let mixedList = AudioBufferList(
-                        mNumberBuffers: 1,
-                        mBuffers: AudioBuffer(
-                            mNumberChannels: srcChannels,
-                            mDataByteSize: UInt32(sampleCount * MemoryLayout<Float>.size),
-                            mData: base
-                        )
+            let sampleCount = mixedData.count
+            if let base = mixedData.withUnsafeMutableBytes({ $0.baseAddress }) {
+                let mixedList = AudioBufferList(
+                    mNumberBuffers: 1,
+                    mBuffers: AudioBuffer(
+                        mNumberChannels: srcChannels,
+                        mDataByteSize: UInt32(sampleCount * MemoryLayout<Float>.size),
+                        mData: base
                     )
-                    do {
-                        try fm.writeAudioData(mixedList, frameCount: frameCount)
-                    } catch {
-                        logger.error("AudioCallbackHandler: mic 注入写入失败: \(error.localizedDescription)")
-                    }
+                )
+                do {
+                    try fm.writeAudioData(mixedList, frameCount: frameCount)
+                } catch {
+                    logger.error("AudioCallbackHandler: mic 注入写入失败: \(error.localizedDescription)")
                 }
-                return
             }
-            // 无 AudioToolbox 时走原 AVAudioFile 回退路径（保持兼容，不注入）
+            // FIX-021: 电平取样与写盘同源（本帧混音内容）
+            lastMixedSamples = mixedData
+            return
         }
+        // 无 AudioToolbox 时走原 AVAudioFile 回退路径（保持兼容，不注入）
 
         // 如果设置了自定义回调（混音模式），则调用自定义回调
         if let customCallback = customCallback {

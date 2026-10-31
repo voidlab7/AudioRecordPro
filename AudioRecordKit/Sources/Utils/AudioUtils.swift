@@ -404,7 +404,30 @@ class AudioUtils {
         let _ = maxLevel > 0 ? 20 * log10(maxLevel) : -96.0 // 暂时未使用，但保留以备将来使用
         let rmsDB = rmsLevel > 0 ? 20 * log10(rmsLevel) : -96.0
         let normalizedLevel = max(0, min(1, (rmsDB + 96) / 96))
-        
+
+        return (maxLevel, rmsLevel, normalizedLevel)
+    }
+
+    /// FIX-021: 计算音频电平（从交错 Float 样本数组）——mic 混音后样本的电平取样口径。
+    /// 与 AudioBufferList 版完全一致：maxLevel=|样本|最大值，normalizedLevel=(rmsDB+96)/96。
+    static func calculateAudioLevel(fromSamples samples: [Float]) -> (maxLevel: Float, rmsLevel: Float, normalizedLevel: Float) {
+        guard !samples.isEmpty else { return (0.0, 0.0, 0.0) }
+
+        var maxLevel: Float = 0.0
+        var sumSquares: Float = 0.0
+
+        for sample in samples {
+            let v = abs(sample)
+            if v > maxLevel {
+                maxLevel = v
+            }
+            sumSquares += v * v
+        }
+
+        let rmsLevel = sqrt(sumSquares / Float(samples.count))
+        let rmsDB = rmsLevel > 0 ? 20 * log10(rmsLevel) : -96.0
+        let normalizedLevel = max(0, min(1, (rmsDB + 96) / 96))
+
         return (maxLevel, rmsLevel, normalizedLevel)
     }
 }

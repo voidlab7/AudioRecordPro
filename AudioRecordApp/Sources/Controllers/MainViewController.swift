@@ -124,6 +124,19 @@ class MainViewController: NSViewController {
                 }
             }
         }
+
+        // FIX-021: 录音中切换麦克风设备 → 重建注入引擎（AUHAL unit 启动后不响应设备变更）
+        MicDeviceManager.shared.onPreferredDeviceChanged { [weak self] _ in
+            DispatchQueue.main.async {
+                guard let self = self, self.isRecording else { return }
+                if #available(macOS 14.4, *),
+                   let recorder = self.audioRecorderController?.getCurrentRecorder() as? CoreAudioProcessTapRecorder,
+                   recorder.restartMicCaptureForDeviceChange() {
+                    self.logger.info("🎤 [FIX021] 录音中麦克风设备已切换，注入引擎已重建")
+                    self.mainWindowView.updateStatus("麦克风已切换，本次录制即时生效".localized)
+                }
+            }
+        }
         
         // BUG-1 修复：录制态由管线真正启动回调驱动
         audioRecorderController.onRecordingStarted = { [weak self] in

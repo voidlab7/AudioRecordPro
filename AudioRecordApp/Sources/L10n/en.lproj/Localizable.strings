@@ -305,6 +305,7 @@
 "麦克风" = "Microphone";
 "麦克风_%@" = "Mic_%@";
 "麦克风已加入本次录制" = "Microphone added to this recording";
+"麦克风已切换，本次录制即时生效" = "Microphone switched — applies to this recording";
 "麦克风已移出本次录制" = "Microphone removed from this recording";
 "麦克风权限已授予" = "Microphone permission granted";
 "麦克风权限未确定" = "Microphone permission not determined";
