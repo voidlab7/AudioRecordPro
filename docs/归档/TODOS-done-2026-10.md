@@ -1959,3 +1959,28 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 - 硬验证：build 0 / SDK 127/127（基线 119+8：判定边界/脉冲列定位/波纹存在性数值化/stride 护栏/门限/边界 clamp）/ lite 13/13+UITest2（新步 fine_peaks：放大态 fine_active=true、851 列、真实录音 peak_range=0.138）
 
 **验收注**：老板 2026-10-31 实机验收通过（「符合预期。验收通过」）。R1 轮一次过；master @ f1e556e。同日与 FIX-020 双单闭环（FIX-020 验收期衍生本单，同日入池→交付→验收）。
+### UI-039 编辑器空格键播放/暂停切换 | P2 | S | [done · 2026-10-31 签收]
+
+> 来源：老板 2026-10-30「新增需求 支持空格键播放暂停」；需求审核=老板 10-31「审核通过，开始开发」。
+> 现状核实（10-30）：编辑器键盘表（EditorViewController.handleKeyDown）已绑 Cmd 组合（缩放/fit）与 ←/→/Home/End/切分，**空格键（keyCode 49）未绑定，零冲突**；EditorRootView.keyDown → EditorKeyboardHandler 链路现成。
+> ⚠️ 旧 R10 轮（10-30 21:08，未验收即弃）走 EditorRootView.keyDown 链——本轮开发前核实：工程无任何焦点保障（零 makeFirstResponder），编辑器打开后 firstResponder 落点不可控，「打开编辑器直接按空格」在 keyDown 方案下不可靠。本轮改用局部事件监视器方案。
+
+**需求细项**（10-31 需求审核通过）：
+1. 编辑器窗口聚焦时，空格键 = 播放/暂停切换（toggle，复用播放按钮同一控制入口，不另起播放逻辑）✅ togglePlayback() 与播放按钮 delegate 收敛同一入口
+2. 选区读数等文本输入框聚焦时，空格保持正常输入（firstResponder 隔离，验证不误触）✅ SpaceKeyPolicy 文本焦点判定 + lite 真窗口 makeFirstResponder 隔离断言（比「留实机确认」强）
+3. 长按不连发（忽略 keyRepeat，或只响应首个 keyDown）✅ .swallowRepeat 三态
+
+**验收标准**：
+- [x] 空格：未播放→播放；播放中→暂停；再按继续（lite space_toggle：toggle_play/toggle_pause/playhead_kept 全 true，暂停=stopPreview 保留 playhead 的 FIX-003 语义）
+- [x] 输入框聚焦时键入空格不触发播放（lite text_focus_isolated=true：真窗口临时 field editor + makeFirstResponder，断言 passthrough；恢复后 resume_toggle_works=true）
+- [x] 现有快捷键（Cmd 缩放/fit、方向键、切分）行为不变（空格为独立监视器路径，不触碰 handleKeyDown 既有分支；lite 既有 13 步全 PASS）
+- [x] `build-app.sh` exit 0；SDK 单测基线不回退（127→133，+6 全为新用例）；lite PASS（14/14 + UITest2 草稿恢复段 PASS）
+
+**实施要点**（R1 轮，3 文件）：
+- Kit `SpaceKeyPolicy.swift`：三态纯函数（toggle/swallowRepeat/passthrough），显式位判定不受合成事件非标准 flag 位污染（R10 坑1 回归固化进单测）
+- EditorViewController：局部事件监视器随 editorView 挂/摘窗口挂撤（UXEventLog 同款先例）；isKeyWindow 判定在监视器分发层（R3 轮实锤：无人值守跑批主窗口非 key 属常态，逻辑分发层不做窗口检查）；初始焦点收归（编辑器挂载时焦点若误落文本控件，一拍 async 收归窗口——空格直接可播，用户显式点击输入框时焦点自然进入）
+- lite 第 14 步：合成 CGEvent（unicodeString 避 R10 坑2 + autorepeat 位）走 handleSpaceKeyEvent 同一分发路径，六断言 + firstResponder/key_window 观测字段
+
+**预估**：S ｜ **证据**：R17 战报（docs/LoopBuddy/R17-2026-10-31-战报.md）
+
+**验收注**：老板 2026-10-31 实机验收通过（「验收通过」）。R1 轮一次过（排障 3 轮均在自验期内：R3 轮 isKeyWindow 实锤上移监视器层）；master @ 578610d。方案升级要点与排障全记录见 docs/LoopBuddy/R17-2026-10-31-战报.md。
