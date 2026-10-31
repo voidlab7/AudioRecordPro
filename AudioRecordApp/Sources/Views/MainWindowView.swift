@@ -617,7 +617,10 @@ class MainWindowView: NSView {
         
         currentEditorView?.removeFromSuperview()
         currentEditorView = nil
-        
+
+        // UI-040: 焦点交还主界面——保证「编辑器返回后按空格直接再录」场景可用
+        window?.makeFirstResponder(self)
+
         recordingContentView.isHidden = false
         recordingContentView.alphaValue = 0
         
@@ -626,6 +629,39 @@ class MainWindowView: NSView {
             context.timingFunction = IndustrialAnimation.timingFunction
             recordingContentView.animator().alphaValue = 1.0
         }
+    }
+
+    // MARK: - Keyboard (UI-040 主界面空格键开始/停止录音)
+
+    override var acceptsFirstResponder: Bool { true }
+
+    /// UI-040: 主界面成为 firstResponder，空格 keyDown 才会沿响应链到达本视图
+    /// （窗口初始 firstResponder 是 window 自身，keyDown 不经过 contentView）
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        window?.makeFirstResponder(self)
+    }
+
+    /// UI-040: 空格键 = 开始/停止录音 toggle（对标剪映「Press record or hit Space」）。
+    /// - 仅 idle/recording 态响应；编辑态放行给编辑器链（空格=播放/暂停，UI-039）
+    /// - 四个真实修饰键全无才响应；不用 subtracting 白名单——合成/系统事件可能携带
+    ///   非标准 flag 位（如 0x2000_0000），subtracting 后永远非空导致分支失活
+    ///   （UI-039 实测踩坑）；keyRepeat 直接吞掉（长按不连发）
+    /// - 文本控件聚焦时 field editor（NSTextView）持有字符事件，响应链到不了本视图，
+    ///   空格正常输入；系统模态面板（NSAlert runModal / TCC 弹窗 / sheet）持有焦点时
+    ///   主窗口非 key 或模态循环接管事件，本方法同样收不到——天然满足「不误触」
+    override func keyDown(with event: NSEvent) {
+        guard !isInEditorMode else { super.keyDown(with: event); return }
+
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if event.keyCode == 49,
+           !flags.contains(.command), !flags.contains(.shift),
+           !flags.contains(.option), !flags.contains(.control) {
+            if event.isARepeat { return }
+            delegate?.mainWindowViewDidToggleRecording(self)
+            return
+        }
+        super.keyDown(with: event)
     }
 }
 
@@ -867,6 +903,8 @@ protocol MainWindowViewDelegate: AnyObject {
     func mainWindowViewDidSwitchMode(_ view: MainWindowView)
     func mainWindowViewDidStartRecording(_ view: MainWindowView)
     func mainWindowViewDidStopRecording(_ view: MainWindowView)
+    /// UI-040: 空格键请求开始/停止录音 toggle
+    func mainWindowViewDidToggleRecording(_ view: MainWindowView)
     func mainWindowViewDidPlayRecording(_ view: MainWindowView)
     func mainWindowViewDidDownloadRecording(_ view: MainWindowView)
     func mainWindowViewDidChangeFormat(_ view: MainWindowView, format: String)

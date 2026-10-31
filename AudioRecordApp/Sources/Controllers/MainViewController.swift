@@ -20,6 +20,10 @@ class MainViewController: NSViewController {
     private var isRecording = false
     /// INFRA-006: 自验 lite 通道待跑标志（触发器 "N uitest" 置位，enterEditor 消费）
     private var pendingLiteUITest = false
+    /// UI-040: lite space_record 步骤的 mock 态标志——空格 toggle 走模拟录制状态机，
+    /// 不碰真实管线/文件（真录音产物 finalize 后会 0.3s 自动进编辑器，短文件会错位
+    /// 抢占 lite 的编辑器素材并触发序列提前），断言只看 isRecording 布尔翻转
+    private var pendingSpaceSelftest = false
     private var recordingStartTime: Date?
     private var captureStartTime: Date?
     private var recordingTimer: Timer?
@@ -238,26 +242,82 @@ class MainViewController: NSViewController {
 
     /// FIX-004 诊断自测（临时）：无头驱动一轮真实录音——启动 N 秒后自动停。
     /// 用法：Loocap --selftest-record 5（3 秒后开始，录 5 秒，自动停）
-    func runSelftestRecording(seconds: Int, mixMic: Bool = false, mixMicMidway: Bool = false, uitest: Bool = false) {
-        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停, mixMic=\(mixMic), mixMidway=\(mixMicMidway), uitest=\(uitest)）")
+    /// UI-040: spaceTest=true 时先跑空格 toggle 步骤（mock 态、零产物）再录正式素材
+    func runSelftestRecording(seconds: Int, mixMic: Bool = false, mixMicMidway: Bool = false, uitest: Bool = false, spaceTest: Bool = false) {
+        logger.info("🔬 [FIX004] selftest: 开始录音（\(seconds)s 后自动停, mixMic=\(mixMic), mixMidway=\(mixMicMidway), uitest=\(uitest), spaceTest=\(spaceTest)）")
         pendingLiteUITest = uitest
         if mixMic {
             // FIX-006 复现钩子：等价手点「同时录入麦克风」，走 MixedAudioRecorder 混录链路
             mainWindowView.setMicrophoneMixEnabled(true)
         }
-        startRecording()
-        if mixMicMidway {
-            // FIX-007 回归钩子：纯系统起录，5s 后切「同时录入麦克风」开——录音中动态注入
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
-                guard let self = self, self.isRecording else { return }
-                self.logger.info("🔬 [FIX007] selftest: 录音中切麦克风开")
-                self.mainWindowView.setMicrophoneMixEnabled(true)
+        // 正式素材录制流（space 步骤完成后也走这里）
+        let beginRecording: () -> Void = { [weak self] in
+            self?.startRecording()
+            if mixMicMidway {
+                // FIX-007 回归钩子：纯系统起录，5s 后切「同时录入麦克风」开——录音中动态注入
+                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) { [weak self] in
+                    guard let self = self, self.isRecording else { return }
+                    self.logger.info("🔬 [FIX007] selftest: 录音中切麦克风开")
+                    self.mainWindowView.setMicrophoneMixEnabled(true)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds)) { [weak self] in
+                self?.logger.info("🔬 [FIX004] selftest: 停止录音")
+                self?.stopRecording()
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + .seconds(seconds)) { [weak self] in
-            self?.logger.info("🔬 [FIX004] selftest: 停止录音")
-            self?.stopRecording()
+        if spaceTest {
+            runSpaceRecordSelftest(completion: beginRecording)
+        } else {
+            beginRecording()
         }
+    }
+
+    // MARK: - UI-040 lite space_record 步骤
+
+    /// lite 自验：合成空格 NSEvent 喂 MainWindowView.keyDown **真实分支**（守卫+分派），
+    /// mock 态（pendingSpaceSelftest）下断言 toggle 语义——mock start/stop 同步置位
+    /// isRecording，三段断言全程主线程同步、零轮询、零产物（不碰管线与录音文件）。
+    /// 1) 待录制态空格 → isRecording=true（开始）
+    /// 2) 录音中 keyRepeat 空格 → 仍 true（长按不连发；未吞则会误触发停止）
+    /// 3) 录音中空格 → isRecording=false（停止）
+    /// 输入框聚焦隔离（field editor 响应链语义）lite 无法合成 firstResponder 切换，
+    /// 与 UI-039 同款边界，由验收实机确认。
+    private func runSpaceRecordSelftest(completion: @escaping () -> Void) {
+        logger.info("🔬 [UI040] selftest: space_record 步骤开始（mock 态）")
+        pendingSpaceSelftest = true
+
+        func synthSpace(_ isARepeat: Bool) -> NSEvent? {
+            guard let cg = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: true) else { return nil }
+            cg.keyboardSetUnicodeString(stringLength: 1, unicodeString: [0x20])  // 空格字符，保持与真实事件同构
+            cg.setIntegerValueField(.keyboardEventAutorepeat, value: isARepeat ? 1 : 0)
+            return NSEvent(cgEvent: cg)
+        }
+        var failures: [String] = []
+
+        // 1) 待录制态：空格 → 开始
+        if let ev = synthSpace(false) { mainWindowView.keyDown(with: ev) }
+        let started = isRecording
+        if !started { failures.append("space_start") }
+
+        // 2) 录音中：keyRepeat 被吞（若未吞会在此误停）
+        if let ev = synthSpace(true) { mainWindowView.keyDown(with: ev) }
+        let repeatIgnored = isRecording
+        if !repeatIgnored { failures.append("repeat_not_swallowed") }
+
+        // 3) 录音中：空格 → 停止
+        if let ev = synthSpace(false) { mainWindowView.keyDown(with: ev) }
+        let stopped = !isRecording
+        if !stopped { failures.append("space_stop") }
+
+        pendingSpaceSelftest = false
+        let ok = failures.isEmpty
+        UXEventLog.shared.module("UITest", "space_record", ok: ok, detail: [
+            "started": started, "repeat_ignored": repeatIgnored, "stopped": stopped,
+            "failures": failures.joined(separator: ","),
+        ])
+        logger.info("🔬 [UI040] selftest: space_record ok=\(ok) started=\(started) repeatIgnored=\(repeatIgnored) stopped=\(stopped)")
+        completion()
     }
 
     private func startRecording() {
@@ -268,7 +328,8 @@ class MainViewController: NSViewController {
         }
         
         // LOOP-05: UI 测试模式——模拟录制状态机，不启动真实管线（mock PID 无真实音频）
-        if isUITesting {
+        // UI-040: lite space_record 步骤同走 mock 态（pendingSpaceSelftest）
+        if isUITesting || pendingSpaceSelftest {
             logger.info("🧪 UI 测试模式：模拟启动录制")
             isRecording = true
             recordingStartTime = Date()
@@ -409,8 +470,8 @@ class MainViewController: NSViewController {
         // 不受 isRecording 拦截（防状态不一致时 UI 停在录制态但停止按钮失灵）
         guard recordingStartTime != nil else { return }
         
-        // LOOP-05: UI 测试模式——模拟停止，不触碰真实管线
-        if isUITesting {
+        // LOOP-05: UI 测试模式——模拟停止，不触碰真实管线（UI-040: space 步骤同走 mock）
+        if isUITesting || pendingSpaceSelftest {
             logger.info("🧪 UI 测试模式：模拟停止录制")
             isRecording = false
             recordingStartTime = nil
@@ -1148,6 +1209,8 @@ extension MainViewController: MainWindowViewDelegate {
     func mainWindowViewDidSwitchMode(_ view: MainWindowView) { switchRecordingMode() }
     func mainWindowViewDidStartRecording(_ view: MainWindowView) { startRecording() }
     func mainWindowViewDidStopRecording(_ view: MainWindowView) { stopRecording() }
+    /// UI-040: 空格键 toggle 录音——与菜单 Cmd 快捷键/红钮完全同一对入口
+    func mainWindowViewDidToggleRecording(_ view: MainWindowView) { toggleRecordingFromMenu() }
     func mainWindowViewDidPlayRecording(_ view: MainWindowView) { playRecording() }
     
     func mainWindowViewDidDownloadRecording(_ view: MainWindowView) {

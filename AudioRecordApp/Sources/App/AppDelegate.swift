@@ -126,9 +126,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let mixMic = flags.contains("mix")
             let mixMicMidway = flags.contains("mixmid")
             let uitest = flags.contains("uitest")
-            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")\(mixMicMidway ? " + 录音中切麦" : "")\(uitest ? " + lite自验序列" : "")")
+            let spaceTest = flags.contains("space")  // UI-040: 空格键 toggle 步骤（mock 态）
+            logger.info("🔬 [FIX004] selftest 触发器命中: \(secs)s\(mixMic ? " + 麦克风混录" : "")\(mixMicMidway ? " + 录音中切麦" : "")\(uitest ? " + lite自验序列" : "")\(spaceTest ? " + 空格键步骤" : "")")
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
-                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic, mixMicMidway: mixMicMidway, uitest: uitest)
+                self?.mainViewController?.runSelftestRecording(seconds: secs, mixMic: mixMic, mixMicMidway: mixMicMidway, uitest: uitest, spaceTest: spaceTest)
             }
         }
     }
