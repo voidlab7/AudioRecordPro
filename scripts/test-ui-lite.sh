@@ -5,9 +5,11 @@
 #       绕开 XCUITest Runner 的系统拉起链路（LOOP-05 卡点），无人值守可用。
 #
 # 用法: bash scripts/test-ui-lite.sh [app 路径，默认仓库 build/Loocap.app]
-# 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（14 步全过：
+# 通过判据: 新增 UXEvents 中出现 UITest/done 且 ok=true（编辑器 14 步全过：
 #   baseline/baseline_hash/split/delete/undo/redo/draft_saved/original_untouched/draft_render/ax_enumerate/seek_align/playback_gain/fine_peaks/space_toggle，
-#   FEAT-007 草稿三断言 + UI-037 seek_align + FIX-020 回放增益设值断言 + UI-041 波形精细层断言 + UI-039 空格键 toggle 合并态合计）
+#   FEAT-007 草稿三断言 + UI-037 seek_align + FIX-020 回放增益设值断言 + UI-041 波形精细层断言
+#   + UI-039 空格键播放 toggle 合并态合计），
+#   且 UITest.space_record ok=true（UI-040 主界面空格键录音 toggle——mock 录制态机，跑在编辑器序列之前）
 # 依赖: python3 / afplay
 # INFRA-009: 声源改版——原 440Hz 正弦蜂鸣（刺耳）核对断言链后确认无判定作用：
 #   baseline 仅断言 frameLength>0，split/delete/undo/redo 全命令级帧断言，
@@ -66,7 +68,7 @@ BEFORE_LINES=0
 pkill -x Loocap 2>/dev/null
 pkill -x afplay 2>/dev/null
 sleep 1
-printf '10 mix uitest' > "$TRIGGER"
+printf '10 mix uitest space' > "$TRIGGER"
 open "$APP"
 (afplay "$MUSIC" &) 2>/dev/null
 echo "测试声源 → $SRC_DESC"
@@ -118,6 +120,15 @@ if not done:
     sys.exit(1)
 
 ok = (done[-1].get("detail") or {}).get("ok") is True
+# UI-040: space_record 步骤跑在编辑器序列之前（主界面态、mock 录制态机），不计入
+# done 的 steps 统计——独立检查传导：缺失（App 未带该步骤）或 ok=false 都判 FAIL
+space = [e for e in events if e.get("event") == "UITest.space_record"]
+if not space:
+    print("FAIL: 未看到 UITest.space_record 步骤")
+    ok = False
+elif (space[-1].get("detail") or {}).get("ok") is not True:
+    print("FAIL: UITest.space_record 断言未全过")
+    ok = False
 print("== UITest 步骤结果 ==")
 for e in events:
     if e.get("event") == "UITest.done":
