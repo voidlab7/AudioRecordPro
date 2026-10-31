@@ -1927,3 +1927,20 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 **合并态回归**（master @ 8f4546b）：build exit 0 / SDK 105/105 / lite PASS（RESULT: PASS）。
 
 **验收注**：老板 2026-10-30 实机验收通过（「没有灰色的线。不过这个交互也可以 什么都没有，然后直接就是绿色的线过来。验收通过，解决了跳变问题」）——R2 的「点击瞬间整条变绿、从右往左推进」交互获老板认可，跳变问题闭环。R1+R2 两轮同日完成。
+
+---
+
+### FIX-020 编辑器拖音量线后播放声音大小无变化（三因修复） | P1 | S–M | [done ✅ 2026-10-31 老板交付验收]
+
+> 来源：老板 2026-10-30 反馈：「调整音量高低的线条，播放声音大小没有变化。加入 Fix bug 修复」。
+> 背景：UI-034 R2 交付「音量线拖拽→回放增益联动」，UI-036 把标尺扩成 −24dB～+20dB（0dB 水位 38%）；验收时音量线形态过了，但**听感联动从未被硬验证**（lite 通道无音频输出断言，验收看的是形态）。
+> **R1 轮交付（2026-10-31，worktree loop/FIX-020 fe085be → master fa93ded）**：三因全修——①回放链 `playerNode → AVAudioUnitEQ(globalGain) → mainMixer`，建链即读当前 clipGain（停止/重播/seek/播完再播统一入口恒保持）；②升降益单一路径 dB 直设（playerNode.volume 三处写入全删，含属性面板死代码）；③Kit 新增 GainScale 单一来源，didSet/草稿 setGain/拖拽反解三口径统一（上限 +20dB=10.0）。硬验证：build 0 / SDK 119/119（基线 105+新增 14：GainScaleTests 9 + PreviewGainChainTests 离线渲染 5，+6/−12/+12/+20dB RMS 比值全精确）/ lite 12/12（新步 playback_gain：0→−96dB 静音起播、播放中三档实时映射、停止回收干净）。⚠️ macOS 26 SDK 移除 AVAudioUnitDynamicsProcessor（组件仍在但仅剩 async instantiate）→ 过载处理走需求单备选「接受削波」，与导出 ±1 限幅同口径+红色溢出层警示；后续要软限幅走 async 预热另立单。证据 docs/证据/2026-10-31-FIX020-回放增益三因修复-硬验证.md。
+
+**需求台分析（代码取证，三个独立缺陷叠加）**：
+1. **主因——新一轮播放不应用当前增益**：`startPreview()` 每次都 `AVAudioEngine()` + 新建 `AVAudioPlayerNode`（EditorViewController.swift:1116-1137），新节点 `volume` 默认 1.0，**全程没有读取 `waveformView.clipGain`**。增益只在拖拽的那一刻写到「当时存在的」`previewPlayerNode`（:892-894）。典型使用流程「先拖线调好 → 再按播放」时 playerNode 还不存在（或随后被重建），拖拽结果被丢弃；播放结束/停止/seek 重播后同理回到 1.0。界面上线条和波形高度保留了增益，声音却是原音量——正是老板描述的现象。
+2. **升益无效**：`AVAudioPlayerNode.volume` 取值范围 0～1，大于 1 被钳住。线条标尺允许拉到 +20dB（10×），拖到 0dB 以上声音永远不会更大。
+3. **内部上限不一致**：`clipGain` 的 `didSet` 把值钳到 ≤ 2.0（EditorWaveformView.swift:83，UI-034 时代 +6dB 的旧上限），而拖拽反解最大给出 10.0（:1061，UI-036 扩到 +20dB）——超过 +6dB 的拖拽在模型里被静默截成 2.0，但显示/dB 气泡口径与之可能不同步。
+- 旁证：`didChangeVolume`（属性面板，:1511-1514）同样写 `playerNode.volume`，且该面板 UI 已无入口（UI-034 R3 已拆滑条），属死代码。
+- 与 FEAT-007 关系：FEAT-007 已拍板「增益默认进导出」，导出渲染需同一套增益定义；本单把「增益 dB→线性」抽成单一来源（GainScale），供预览与未来导出共用。
+
+**验收注**：老板 2026-10-31 实机验收通过（「验收通过」）。R1 轮一次过；master @ fa93ded（worktree loop/FIX-020 fe085be cherry-pick）。验收期衍生 UI-041（波形安静区放大死平带 → 逐列真峰值渲染）已另立单。
