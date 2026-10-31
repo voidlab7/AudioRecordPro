@@ -744,9 +744,67 @@ class EditorViewController {
                 "resume_toggle_works": resumeToggleWorks,
                 "first_responder": frDesc, "key_window": keyWin])
 
+        // 10) UI-042: 窗口 resize 时间-像素映射锁定——pps 恒定 + 锚左缘 + 标尺档位稳定。
+        // 走 applyResizeLock 真实路径（layout() 同款，纯计算由 ViewportResizeLockTests
+        // 单测覆盖）。此处断言：缩窄/拉宽后 pixelsPerSecond 与 resize 前一致（波形不拉伸）、
+        // niceStep 档位不变（rawStep = 80/pps，表与 TimeRulerView 同源）、非零起点锚左缘保持。
+        // 数学保证：fitAll→2 倍 zoom→滚到 0.2dur 后，0.7x/1.2x 两轮的 start+duration 均未越尾
+        // （0.55dur / 0.8dur < dur），锚定断言有区分度。
+        var resizeOK = false
+        var resizeDetail: [String: Any] = ["skipped": "width-too-small"]
+        let w0 = waveformView.bounds.width
+        if w0 > 40 {
+            waveformView.fitAll()
+            waveformView.setZoomLevel(2)
+            waveformView.setScrollOffset(dur * 0.2)
+            let v0 = waveformView.currentVisibleDuration
+            let start0 = waveformView.currentVisibleStartTime
+            let pps0 = ViewportResizeLock.pixelsPerSecond(viewWidth: w0, visibleDuration: v0)
+
+            waveformView.applyResizeLock(newWidth: w0 * 0.7)
+            let vNarrow = waveformView.currentVisibleDuration
+            let startNarrow = waveformView.currentVisibleStartTime
+            let ppsNarrow = ViewportResizeLock.pixelsPerSecond(viewWidth: w0 * 0.7, visibleDuration: vNarrow)
+
+            waveformView.applyResizeLock(newWidth: w0 * 1.2)
+            let vWide = waveformView.currentVisibleDuration
+            let startWide = waveformView.currentVisibleStartTime
+            let ppsWide = ViewportResizeLock.pixelsPerSecond(viewWidth: w0 * 1.2, visibleDuration: vWide)
+
+            func niceStep(forPPS p: Double) -> TimeInterval {
+                let raw = 80.0 / max(p, 0.001)
+                for s: TimeInterval in [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600] {
+                    if s >= raw { return s }
+                }
+                return 600
+            }
+            let relNarrow = pps0 > 0 ? abs(ppsNarrow - pps0) / pps0 : 1
+            let relWide = pps0 > 0 ? abs(ppsWide - pps0) / pps0 : 1
+            let ppsStable = relNarrow < 0.02 && relWide < 0.02
+            let stepStable = niceStep(forPPS: pps0) == niceStep(forPPS: ppsNarrow)
+                && niceStep(forPPS: pps0) == niceStep(forPPS: ppsWide)
+            let anchorHeld = abs(startNarrow - start0) < 0.001 && abs(startWide - start0) < 0.001
+            resizeOK = ppsStable && stepStable && anchorHeld
+            waveformView.fitAll()  // 复位概览态
+            resizeDetail = [
+                "ok": resizeOK,
+                "w0": (w0 * 10).rounded() / 10,
+                "pps0": (pps0 * 100).rounded() / 100,
+                "pps_narrow": (ppsNarrow * 100).rounded() / 100,
+                "pps_wide": (ppsWide * 100).rounded() / 100,
+                "rel_narrow_pct": (relNarrow * 10000).rounded() / 100,
+                "rel_wide_pct": (relWide * 10000).rounded() / 100,
+                "step_stable": stepStable,
+                "anchor_start0": (start0 * 1000).rounded() / 1000,
+                "anchor_narrow": (startNarrow * 1000).rounded() / 1000,
+                "anchor_wide": (startWide * 1000).rounded() / 1000,
+            ]
+        }
+        report("resize_lock", resizeOK, resizeDetail)
+
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 14 - failures.count])
+                                          "steps": 15 - failures.count])
     }
 
     /// FEAT-007: 文件 SHA256 十六进制摘要（自验「原始文件永不覆盖」判据）
@@ -1609,13 +1667,15 @@ extension EditorViewController {
         let maxZoom = waveformView.maxZoomLevel
 
         zoomControls.maxZoomLevel = maxZoom
-        zoomControls.zoomLevel = currentZoom
+        // UI-042: 全显+右端留白态（resize 拉宽越过全音频）zoomLevel < 1——控件量表从 1 起，钳显示值
+        zoomControls.zoomLevel = max(1.0, currentZoom)
         zoomControls.isAtMinZoom = currentZoom <= 1.0
         zoomControls.isAtMaxZoom = currentZoom >= maxZoom
 
         let totalDur = waveformView.totalDuration
         let visDur = waveformView.visibleDuration
-        scrollBarView.visibleRatio = totalDur > 0 ? CGFloat(visDur / totalDur) : 1.0
+        // UI-042: 留白态可见比例可 > 1，滚动条口径钳到 1（全显）
+        scrollBarView.visibleRatio = totalDur > 0 ? CGFloat(min(1.0, visDur / totalDur)) : 1.0
 
         let scrollableRange = totalDur - visDur
         scrollBarView.scrollPosition = scrollableRange > 0
