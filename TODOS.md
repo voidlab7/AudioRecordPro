@@ -59,7 +59,7 @@
 | FIX-020    | 编辑器拖音量线后播放声音大小无变化：新一轮播放不应用当前增益（playerNode 重建回默认 1.0）+ 升益 >0dB 被 playerNode.volume 钳 1.0 + clipGain 内部上限 2.0 与 UI +20dB 标尺不一致 | P1 | done ✅ | 2026-10-31 老板交付验收（「验收通过」）；master fa93ded（worktree loop/FIX-020 fe085be cherry-pick）；需求审核=老板 10-31「开始修复」（反馈 2026-10-30）；三因修复交付（回放链 EQ globalGain 化+建链即应用+GainScale 单一来源，playerNode.volume 双路径全删）；build 0/SDK 119/119/lite 12/12；⚠️ macOS 26 SDK 移除 AVAudioUnitDynamicsProcessor，过载走需求单备选「接受削波」与导出 ±1 同口径（限幅器组件仍在、async 预热可做后续单）；worktree loop/FIX-020 fe085be；证据 docs/证据/2026-10-31-FIX020-回放增益三因修复-硬验证.md；正文迁归档 |
 | UI-041     | 编辑器波形逐列真峰值渲染（分辨率随缩放）：安静区放大呈自然波纹（对照剪映），替代预降采样桶复制的死平带 | P2 | done ✅ | 2026-10-31 老板交付验收（「符合预期。验收通过」）；master f1e556e（worktree loop/UI-041 0d5358c cherry-pick）；R1 轮一次过：Kit WaveformViewportPeaks（判定+逐列真峰值+stride 护栏+门限保留，单测 8 例）+ View 持 buffer/视口缓存/放大态分流（精细层不平滑保留波纹）；三关卡 build 0 / SDK 127/127（+8）/ lite 13/13（fine_peaks 真实录音 peak_range=0.138）；正文迁归档 |
 | FIX-021    | 麦克风混录三连缺：①mic 混入在峰值回调之后——波形/DB表/无效守卫永远只看到系统侧峰值，mic 声音进文件但不进任何 UI/守卫 ②录音中切麦克风设备不生效（AUHAL 拒换设备，UI 无提示） ③失效聚合设备（历史会话残留 #376234/#60274）可被选中且静默降级 | P1 | todo（待需求审核） | 老板 2026-10-30 20:21 实录（「录制没有声音」）：开录 2.7s 后才开混录开关 → 注入引擎起（MacBook mic 首帧 peak=0.016）→ 录音中连切 6 次麦设备（unit 不换、只改 UI）→ 停止后守卫按回调峰值 0.0 判无效删除；代码证据 AudioCallbackHandler.swift:68（calculateAndReportLevel 在原始 buffer 上）早于 :71（writeAudioData 内部才混 mic）；日志证据 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」；正文见节 |
-| UI-042     | 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定，对标剪映） | P2 | todo（待需求审核） | 老板 2026-10-31 提出（「拖动边框的时候，轨道不用动，轨道的标尺不用动」）；10-31 代码核实：主窗口 resizable（AppDelegate.swift:298），拖边框→宽度变化→波形重排+标尺步长档位跳变（TimeRulerView.swift:92-94 chooseNiceStep）；修向=缩放锁定（pixelsPerSecond 恒定）；正文见节 |
+| UI-042     | 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定，对标剪映） | P2 | ready-for-review | 老板 2026-10-31 提出（「拖动边框的时候，轨道不用动，轨道的标尺不用动」）+ 10-31「开始开发」=需求审核通过；R1 轮交付（worktree loop/UI-042 57d810c，3 commits）：Kit ViewportResizeLock 纯函数（锁定 pps+锚左缘保守档+右端 clamp+全显留白态）+ EditorWaveformView.applyResizeLock/layout 接线 + 显示层钳制 + lite 第 15 步 resize_lock（steps 14→15）；R1 首跑钓出 lastLaidOutWidth 过期基准（rel_wide=42.86%=3/7 分数形状定位）→ defer 无条件记录修复；build 0 / SDK 142/142（基线 133+9）/ lite 15/15+space_record+UITest2 全 PASS；⚠️ 形态对照（拖边框跟手/留白观感/fitAll 回位）并入验收实机看；证据 docs/证据/2026-10-31-UI042-resize映射锁定-硬验证.md；R18 战报 |
 | UI-043     | 麦克风选择器去「跟随系统默认」伪行：展开直接列设备，默认勾选系统默认设备 | P2 | todo（待需求审核） | 老板 2026-10-31 发截图提出（「打开的时候直接看到几个麦克风输入设备，默认勾选，系统默认那个不用再单独起一行」）；跟随语义保留为 nil 投影、不写死 UID；正文见节 |
 | REL-005    | i18n R3：主界面漏网站点收尾（中英混排修复，语言全量跟随系统） | P1 | done ✅ | 2026-10-30 老板实机交付验收（merge 03d44e6）；11 处接线+en 字典 5 条，实机全中文；i18n 三期（R1+R2+R3）闭环；正文迁归档 |
 | FIX-018    | 录音态波纹电平高度不稳定：突发大声后 running max 抬高并回溯重映射，前面已画出的条整体变矮，用户看到的整体电平标尺中途改变 | P2 | done ✅ | 2026-10-30 老板交付验收（merge 030b229，方案A固定满刻度）；SDK 93/93 / lite 6/6 / build 0；实拍对照留老板实机（截屏 TCC 缺）；正文迁归档 |
@@ -130,7 +130,7 @@
 
 ---
 
-### UI-042 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定） | P2 | S | [todo · 待需求审核 2026-10-31]
+### UI-042 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定） | P2 | S | [ready-for-review 2026-10-31]
 
 > 来源：老板 2026-10-31「需求入池，拖动边框的时候，轨道不用动。就是 轨道的标尺不用动。」
 > 现状核实（10-31）：主窗口 `.resizable`（AppDelegate.swift:298），拖动窗口左右边框 → 轨道区宽度实时变化 → ①波形按新宽度重排（横向拉伸/压缩，老板感知「轨道动了」）②TimeRulerView 每次重绘按「80px 一主刻度」自适应重算步长（TimeRulerView.swift:92-94 → chooseNiceStep），宽度变化会触发刻度档位跳变（如 5s↔10s↔15s）+ 全部刻度重新分布（老板感知「标尺动了」）。
@@ -142,12 +142,12 @@
 3. 波形像素形态不拉伸、不重排（随锁定映射保持形状，仅可视范围增减）
 4. 现有显式缩放入口（Cmd+滚轮 / 双指捏合 / fitAll / 工具栏缩放控件）行为不变
 
-**验收标准**（起草）：
-- [ ] 拖动窗口左/右缘：波形像素形态与标尺刻度间距保持稳定（刻度档位无 5s↔10s 跳变，波形不横向拉伸）
-- [ ] 拖动中与松手后一致；多次 resize 后 fitAll / Cmd 缩放仍正常
-- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS
+**验收标准**（起草→自验）：
+- [x] 拖动窗口左/右缘：波形像素形态与标尺刻度间距保持稳定（刻度档位无 5s↔10s 跳变，波形不横向拉伸）——lite resize_lock：0.7x/1.2x 两轮 pps 与基准**精确相等**（340.93×3）+ step_stable=true + Kit 单测 9 例（档位/pps/锚点/clamp/留白态全覆盖）；形态像素对照并入验收实机看
+- [x] 拖动中与松手后一致；多次 resize 后 fitAll / Cmd 缩放仍正常——锁定映射纯函数即时收敛无中间态；lite 三轮连续 resize 后 fitAll 复位正常；显式缩放入口（Cmd 滚轮/捏合/fitAll/工具栏）代码零改动
+- [x] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS——build 两轮 exit 0 / SDK 142/142（基线 133+9）/ lite 15/15 + space_record + UITest2 全 PASS
 
-**预估**：S ｜ **证据**：（开工后附）
+**预估**：S ｜ **证据**：docs/证据/2026-10-31-UI042-resize映射锁定-硬验证.md（四样全）+ docs/LoopBuddy/R18-2026-10-31-战报.md；worktree loop/UI-042（57d810c 实现 + 5e32799 证据 + 231561b 战报）；⚠️ 实机验收项：真实拖边框跟手表现 / 拉宽越过全音频的右端留白观感 / 窄窗多次 resize 后 fitAll 回位体感
 
 ---
 
