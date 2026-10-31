@@ -255,7 +255,10 @@ class EditorViewController {
         NSLayoutConstraint.activate([
 
             // UI-019: 滚动条贴轨道区底部（原锚 toolbar，现动作栏移到分栏下方）
-            scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
+            // UI-042 验收修正（老板 10-31「滚动条超过头部了」）：leading 跳过 88px 轨道头列，
+            // 与轨道内容区（波形/标尺刻度区）左缘对齐——滚动条只代表内容区的横向滚动
+            scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor,
+                                                   constant: EditorTrackRowView.headerWidth + IndustrialSpacing.md),
             scrollBarView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor, constant: -IndustrialSpacing.md),
             scrollBarView.bottomAnchor.constraint(equalTo: transcriptPanel.topAnchor, constant: -IndustrialSpacing.xs),
             scrollBarHeightConstraint,
@@ -744,9 +747,118 @@ class EditorViewController {
                 "resume_toggle_works": resumeToggleWorks,
                 "first_responder": frDesc, "key_window": keyWin])
 
+        // 10) UI-042 + 老板 10-31 实机补充（「轨道头都不动，像文档的冻结首行」）：
+        // 真实窗口 setFrame 驱动（触发完整 Auto Layout → EditorWaveformView.layout() 全真实
+        // 路径，替代此前手动调 applyResizeLock 的模拟口径）。断言四件：
+        // ①pps 恒定（波形不拉伸）②非零起点锚左缘保持 ③niceStep 档位不变
+        // ④轨道头列冻结——行内波形左缘恒为 headerWidth(88)，窗口伸缩不侵占头列（冻结首列实证）。
+        // 锚点数学：fitAll→2x zoom→滚到 0.2dur 后，0.8x（0.2+0.4dur）/1.25x（0.2+0.5dur）
+        // 两轮 start+duration 均未越尾，锚定断言有区分度。
+        // 抗干扰：实机验收期老板触控板/鼠标事件会污染 viewport（捏合改 zoom、双指平移改
+        // start，R2 实锤 v0 被外部事件改写）——探针失败自动重摆重试一次（随机干扰不连续命中）。
+        var resizeOK = false
+        var resizeDetail: [String: Any] = ["skipped": "no-resizable-window"]
+        if let win = editorView.window, win.styleMask.contains(.resizable) {
+            let f0 = win.frame
+            // 先归一化窗口到当前 frame（消除历史布局状态/lastLaidOutWidth 的不确定性），
+            // 再摆 viewport——保证后续 narrow/wide 两轮的锁定推导链条完全确定
+            win.setFrame(f0, display: true)
+            win.contentView?.layoutSubtreeIfNeeded()
+            let w0 = waveformView.bounds.width
+            if w0 > 40, f0.width > 200 {
+                func niceStep(forPPS p: Double) -> TimeInterval {
+                    let raw = 80.0 / max(p, 0.001)
+                    for s: TimeInterval in [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600] {
+                        if s >= raw { return s }
+                    }
+                    return 600
+                }
+
+                // 单轮探针：摆 viewport → 真实 resize 两轮 → 断言四件 → 还原窗口复位。
+                // 视口基准一律用 waveformView.totalDuration（lite 顶层 dur 是 undo 后全长，
+                // 而 redo 停在删除态 → total=一半，错用会令锚点数学全错，R2 实锤）。
+                // wide 轮回到 f0 原宽（0.8×1.0）：0.2+0.5total 未越尾，无 clamp 干扰锚点断言。
+                func runResizeProbe(attempt: Int) -> (Bool, [String: Any]) {
+                    let total = waveformView.totalDuration
+                    waveformView.fitAll()
+                    waveformView.setZoomLevel(2)
+                    waveformView.setScrollOffset(total * 0.2)
+                    let v0 = waveformView.currentVisibleDuration
+                    let start0 = waveformView.currentVisibleStartTime
+                    let pps0 = ViewportResizeLock.pixelsPerSecond(viewWidth: w0, visibleDuration: v0)
+                    let headerX0 = trackContainerView.trackRows.first?.waveformView.frame.origin.x ?? -1
+
+                    func performRealResize(_ scale: CGFloat) -> (pps: Double, start: TimeInterval, w: CGFloat, headerX: CGFloat) {
+                        win.setFrame(NSRect(origin: f0.origin,
+                                            size: NSSize(width: f0.width * scale, height: f0.height)),
+                                     display: true)
+                        win.contentView?.layoutSubtreeIfNeeded()  // 强制同步 Auto Layout pass（真实 layout 链）
+                        let w = waveformView.bounds.width
+                        let pps = ViewportResizeLock.pixelsPerSecond(viewWidth: w, visibleDuration: waveformView.currentVisibleDuration)
+                        return (pps, waveformView.currentVisibleStartTime, w,
+                                trackContainerView.trackRows.first?.waveformView.frame.origin.x ?? -1)
+                    }
+
+                    let narrow = performRealResize(0.8)
+                    let wide = performRealResize(1.0)  // 回原宽：锁映射下 v 应精确还原 v0
+                    win.setFrame(f0, display: true)    // 还原窗口（自验零副作用）
+                    win.contentView?.layoutSubtreeIfNeeded()
+
+                    let relNarrow = pps0 > 0 ? abs(narrow.pps - pps0) / pps0 : 1
+                    let relWide = pps0 > 0 ? abs(wide.pps - pps0) / pps0 : 1
+                    let ppsStable = relNarrow < 0.02 && relWide < 0.02
+                    let stepStable = niceStep(forPPS: pps0) == niceStep(forPPS: narrow.pps)
+                        && niceStep(forPPS: pps0) == niceStep(forPPS: wide.pps)
+                    let anchorHeld = abs(narrow.start - start0) < 0.001 && abs(wide.start - start0) < 0.001
+                    // 冻结首列：波形行内左缘 == headerWidth(88)，两轮真实 resize 后不动
+                    let headerFrozen = abs(narrow.headerX - headerX0) < 0.5
+                        && abs(wide.headerX - headerX0) < 0.5
+                        && abs(headerX0 - EditorTrackRowView.headerWidth) < 0.5
+                    let ok = ppsStable && stepStable && anchorHeld && headerFrozen
+                    waveformView.fitAll()  // 复位概览态
+                    let detail: [String: Any] = [
+                        "ok": ok,
+                        "real_window_resize": true,
+                        "attempt": attempt,
+                        "w0": (w0 * 10).rounded() / 10,
+                        "total": (total * 1000).rounded() / 1000,
+                        "v0": (v0 * 1000).rounded() / 1000,
+                        "pps0": (pps0 * 100).rounded() / 100,
+                        "pps_narrow": (narrow.pps * 100).rounded() / 100,
+                        "pps_wide": (wide.pps * 100).rounded() / 100,
+                        "rel_narrow_pct": (relNarrow * 10000).rounded() / 100,
+                        "rel_wide_pct": (relWide * 10000).rounded() / 100,
+                        "step_stable": stepStable,
+                        "anchor_start0": (start0 * 1000).rounded() / 1000,
+                        "anchor_narrow": (narrow.start * 1000).rounded() / 1000,
+                        "anchor_wide": (wide.start * 1000).rounded() / 1000,
+                        "header_x0": (headerX0 * 10).rounded() / 10,
+                        "header_x_narrow": (narrow.headerX * 10).rounded() / 10,
+                        "header_x_wide": (wide.headerX * 10).rounded() / 10,
+                        "header_frozen": headerFrozen,
+                    ]
+                    return (ok, detail)
+                }
+
+                let first = runResizeProbe(attempt: 1)
+                if first.0 {
+                    resizeOK = true
+                    resizeDetail = first.1
+                } else {
+                    let second = runResizeProbe(attempt: 2)
+                    resizeOK = second.0
+                    resizeDetail = second.1
+                    if !second.0 { resizeDetail["first_attempt_also_failed"] = true }
+                }
+            } else {
+                resizeDetail = ["skipped": "window-too-small"]
+            }
+        }
+        report("resize_lock", resizeOK, resizeDetail)
+
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 14 - failures.count])
+                                          "steps": 15 - failures.count])
     }
 
     /// FEAT-007: 文件 SHA256 十六进制摘要（自验「原始文件永不覆盖」判据）
@@ -1609,13 +1721,15 @@ extension EditorViewController {
         let maxZoom = waveformView.maxZoomLevel
 
         zoomControls.maxZoomLevel = maxZoom
-        zoomControls.zoomLevel = currentZoom
+        // UI-042: 全显+右端留白态（resize 拉宽越过全音频）zoomLevel < 1——控件量表从 1 起，钳显示值
+        zoomControls.zoomLevel = max(1.0, currentZoom)
         zoomControls.isAtMinZoom = currentZoom <= 1.0
         zoomControls.isAtMaxZoom = currentZoom >= maxZoom
 
         let totalDur = waveformView.totalDuration
         let visDur = waveformView.visibleDuration
-        scrollBarView.visibleRatio = totalDur > 0 ? CGFloat(visDur / totalDur) : 1.0
+        // UI-042: 留白态可见比例可 > 1，滚动条口径钳到 1（全显）
+        scrollBarView.visibleRatio = totalDur > 0 ? CGFloat(min(1.0, visDur / totalDur)) : 1.0
 
         let scrollableRange = totalDur - visDur
         scrollBarView.scrollPosition = scrollableRange > 0

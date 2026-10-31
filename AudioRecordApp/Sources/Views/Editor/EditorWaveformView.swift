@@ -39,6 +39,9 @@ class EditorWaveformView: NSView {
     private(set) var visibleDuration: TimeInterval = 0
     private(set) var zoomLevel: CGFloat = 1.0
 
+    /// UI-042: 上一次布局宽度——resize 锁定映射的 oldWidth 基准（layout() 维护）
+    private var lastLaidOutWidth: CGFloat = 0
+
     /// 当前可见时间起点（只读 getter — 供外部 ruler 同步）
     var currentVisibleStartTime: TimeInterval { visibleStartTime }
     /// 当前可见时间长度（只读 getter — 供外部 ruler 同步）
@@ -354,6 +357,41 @@ class EditorWaveformView: NSView {
         if useTileMode { requestVisibleTiles() } else { needsDisplay = true }
         delegate?.editorWaveformViewDidChangeViewport(self)
     }
+
+    // MARK: - UI-042 Resize 映射锁定
+
+    /// 窗口/容器宽度变化时保持时间-像素映射（pixelsPerSecond）恒定：
+    /// 波形不拉伸、标尺档位不跳变，宽度变化只改变可见时间范围（锚左缘）。
+    /// layout() 与 lite 自验共用同一条路径；纯计算在 Kit ViewportResizeLock（单测覆盖）。
+    func applyResizeLock(newWidth: CGFloat) {
+        // 宽度事实无条件记录（含无效输入早退路径）——连续多轮锁定推导的 oldWidth 基准
+        defer { lastLaidOutWidth = newWidth }
+        guard totalDuration > 0,
+              let next = ViewportResizeLock.resolve(
+                oldWidth: lastLaidOutWidth,
+                newWidth: newWidth,
+                visibleStartTime: visibleStartTime,
+                visibleDuration: visibleDuration,
+                totalDuration: totalDuration)
+        else { return }
+        visibleStartTime = next.start
+        visibleDuration = next.duration
+        // 保持不变式 visibleDuration = totalDuration / zoomLevel；
+        // 全显+留白态（拉宽越过全音频）zoomLevel < 1 属合法状态（UI 显示层钳制在控制器侧）
+        zoomLevel = totalDuration / visibleDuration
+        if useTileMode { requestVisibleTiles() }
+        needsDisplay = true
+        delegate?.editorWaveformViewDidChangeViewport(self)
+    }
+
+    override func layout() {
+        super.layout()
+        let newWidth = bounds.width
+        if newWidth != lastLaidOutWidth {
+            applyResizeLock(newWidth: newWidth)
+        }
+    }
+
     
     func setSelection(start: TimeInterval, end: TimeInterval) {
         selectionStart = start
