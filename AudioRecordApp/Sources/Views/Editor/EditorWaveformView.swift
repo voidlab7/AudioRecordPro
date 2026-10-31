@@ -22,6 +22,11 @@ class EditorWaveformView: NSView {
     private var sampleRate: Double = 48000
     private(set) var totalDuration: TimeInterval = 0
     private var channelCount: Int = 2
+
+    // UI-041: 放大态精细层——持有 PCM buffer（编辑重载时随 loadAudio 替换，仅引用不复制数据）
+    // + 单槽视口缓存（增益拖拽等高频重绘命中缓存零开销；滚动/缩放/换 buffer 自动失效）
+    private var fineBuffer: AVAudioPCMBuffer?
+    private var fineCache: (id: ObjectIdentifier, start: TimeInterval, duration: TimeInterval, width: Int, peaks: [Float])?
     
     // Tile mode (V2.0 virtual timeline)
     private var useTileMode: Bool = false
@@ -177,6 +182,10 @@ class EditorWaveformView: NSView {
         audioAsset = nil
         loadError = nil
 
+        // UI-041: 精细层换源——旧 buffer 引用随替换释放（编辑 undo/redo/delete 走此处重载）
+        fineBuffer = buffer
+        fineCache = nil
+
         self.sampleRate = sampleRate
         self.channelCount = Int(buffer.format.channelCount)
         let totalFrames = Int(buffer.frameLength)
@@ -272,6 +281,8 @@ class EditorWaveformView: NSView {
         loadError = nil
         allSamples = []
         currentTiles = []
+        fineBuffer = nil
+        fineCache = nil
         needsDisplay = true
     }
 
@@ -656,6 +667,20 @@ class EditorWaveformView: NSView {
         // UI-025 R2: 剪映式实心剪影（老板 10-25 深夜对比图打回柱状——回改连续填充包络，
         // 底版=原 P0-1 填充波形，加 FIX-004 静音基线与包络平滑）；UI-034 R1 起改单边向上
         let pixelCount = max(2, Int(waveformRect.width))
+
+        // UI-041: 放大态（桶复制）切逐列真峰值精细层——底噪/弱信号列间起伏得以呈现（对照剪映波纹）。
+        // 粗预览（allSamples 固定桶）保留给概览态；平滑只在粗路径做——精细层再做平滑会把刚找回的
+        // 波纹重新抹平。缓存命中（同 buffer/视口/宽度）零开销，miss 现算（stride 护栏防大文件卡顿）。
+        if let buffer = fineBuffer,
+           let chData = buffer.floatChannelData,
+           WaveformViewportPeaks.needsFinePath(allSamplesCount: allSamples.count,
+                                               totalDuration: totalDuration,
+                                               visibleDuration: visibleDuration,
+                                               pixelCount: pixelCount) {
+            drawFineColumnPeaks(buffer: buffer, channelData: chData, pixelCount: pixelCount, drawHeight: drawHeight)
+            return
+        }
+
         let startSampleIndex = Int(Double(allSamples.count) * visibleStartTime / totalDuration)
         let endSampleIndex = min(allSamples.count, Int(Double(allSamples.count) * (visibleStartTime + visibleDuration) / totalDuration))
         let sampleRange = max(1, endSampleIndex - startSampleIndex)
@@ -692,6 +717,60 @@ class EditorWaveformView: NSView {
         smoothEnvelope(&points)
         drawGainAwareEnvelope(points: points)
         // 选区外遮罩已由 drawSelectionOverlay 处理，这里不重复
+    }
+
+    /// UI-041: 精细层绘制——视口逐列真峰值（缓存优先），不做平滑（保留列间自然起伏）。
+    /// 幅度口径与粗路径一致：WaveformAmplitudeMapper.normalized(referenceMax: 1.0) 已在 Kit 层完成，
+    /// FIX-004 静音基线 1.5pt 与增益映射由 drawGainAwareEnvelope 承担。
+    private func drawFineColumnPeaks(buffer: AVAudioPCMBuffer,
+                                     channelData: UnsafePointer<UnsafeMutablePointer<Float>>,
+                                     pixelCount: Int,
+                                     drawHeight: CGFloat) {
+        let id = ObjectIdentifier(buffer)
+        let peaks: [Float]
+        if let c = fineCache, c.id == id,
+           abs(c.start - visibleStartTime) < 1e-9,
+           abs(c.duration - visibleDuration) < 1e-9,
+           c.width == pixelCount {
+            peaks = c.peaks
+        } else {
+            peaks = WaveformViewportPeaks.columnPeaks(
+                channelData: channelData,
+                channels: Int(buffer.format.channelCount),
+                totalFrames: Int(buffer.frameLength),
+                sampleRate: sampleRate,
+                visibleStart: visibleStartTime,
+                visibleDuration: visibleDuration,
+                pixelCount: pixelCount)
+            fineCache = (id, visibleStartTime, visibleDuration, pixelCount, peaks)
+        }
+        let points = peaks.enumerated().map { (i, v) -> (x: CGFloat, amp: CGFloat) in
+            let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
+            return (x: x, amp: max(1.5, CGFloat(v) * drawHeight))
+        }
+        drawGainAwareEnvelope(points: points)
+    }
+
+    /// UI-041 自验口（lite 第 13 步）：当前视口精细层状态与逐列峰值。只读，不改缓存。
+    /// fineActive=false 表示概览态走粗路径（peaks 为空）。
+    func debugFineLayerState() -> (fineActive: Bool, peaks: [Float], pixelCount: Int)? {
+        guard let buffer = fineBuffer, let chData = buffer.floatChannelData else { return nil }
+        let pixelCount = max(2, Int(waveformRect.width))
+        guard WaveformViewportPeaks.needsFinePath(allSamplesCount: allSamples.count,
+                                                  totalDuration: totalDuration,
+                                                  visibleDuration: visibleDuration,
+                                                  pixelCount: pixelCount) else {
+            return (fineActive: false, peaks: [], pixelCount: pixelCount)
+        }
+        let peaks = WaveformViewportPeaks.columnPeaks(
+            channelData: chData,
+            channels: Int(buffer.format.channelCount),
+            totalFrames: Int(buffer.frameLength),
+            sampleRate: sampleRate,
+            visibleStart: visibleStartTime,
+            visibleDuration: visibleDuration,
+            pixelCount: pixelCount)
+        return (fineActive: true, peaks: peaks, pixelCount: pixelCount)
     }
 
     private func drawSelectionHandles(in rect: NSRect) {

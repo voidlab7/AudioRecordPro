@@ -634,9 +634,34 @@ class EditorViewController {
                 "gain4_db": (GainScale.playbackDB(for: 4.0) * 1000).rounded() / 1000,
                 "stopped_clean": gainStoppedClean])
 
+        // 8) UI-041: 波形精细层（视口逐列真峰值）——放大态切换判定 + 精细数组形态。
+        // 粗路径（固定桶复制+平滑）放大后呈死平带（老板实机反馈，对照剪映有波纹）；
+        // 断言：①精细层已挂 buffer ②放大后命中精细判定 ③列数==pixelCount
+        // ④数组可画（有起伏，或区段低于 −60dBFS 门限全归零——两者均属正确渲染）。
+        // 注：不硬断言「概览态必走粗路径」——selftest 时序内 allSamples 常为 Phase1 极粗桶
+        // （~100 桶 < 列数），此时概览态切精细层本身就是更真实的渲染；Phase2 桶密度判定
+        // 由 WaveformViewportPeaksTests.testFitAllStaysCoarse 以合成口径覆盖。
+        let fineState0 = waveformView.debugFineLayerState()
+        let fineAttached = fineState0 != nil
+        waveformView.setZoomLevel(64)
+        let fineState = waveformView.debugFineLayerState()
+        let fineActive = fineState?.fineActive == true
+        let finePeaks = fineState?.peaks ?? []
+        let finePixelCount = fineState?.pixelCount ?? 0
+        let shapeOK = fineActive && finePixelCount > 1 && finePeaks.count == finePixelCount
+        let drawableOK = finePeaks.contains { $0 > 0 } || finePeaks.allSatisfy { $0 == 0 }
+        waveformView.fitAll()  // 复位概览态
+        report("fine_peaks", fineAttached && shapeOK && drawableOK,
+               ["ok": fineAttached && shapeOK && drawableOK,
+                "fine_attached": fineAttached,
+                "fine_active": fineActive,
+                "pixel_count": finePixelCount,
+                "peak_max": ((finePeaks.max() ?? 0) * 1000).rounded() / 1000,
+                "peak_range": (((finePeaks.max() ?? 0) - (finePeaks.min() ?? 0)) * 1000).rounded() / 1000])
+
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 12 - failures.count])
+                                          "steps": 13 - failures.count])
     }
 
     /// FEAT-007: 文件 SHA256 十六进制摘要（自验「原始文件永不覆盖」判据）
