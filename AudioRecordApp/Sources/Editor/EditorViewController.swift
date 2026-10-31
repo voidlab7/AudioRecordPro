@@ -255,7 +255,10 @@ class EditorViewController {
         NSLayoutConstraint.activate([
 
             // UI-019: 滚动条贴轨道区底部（原锚 toolbar，现动作栏移到分栏下方）
-            scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor, constant: IndustrialSpacing.md),
+            // UI-042 验收修正（老板 10-31「滚动条超过头部了」）：leading 跳过 88px 轨道头列，
+            // 与轨道内容区（波形/标尺刻度区）左缘对齐——滚动条只代表内容区的横向滚动
+            scrollBarView.leadingAnchor.constraint(equalTo: editorView.leadingAnchor,
+                                                   constant: EditorTrackRowView.headerWidth + IndustrialSpacing.md),
             scrollBarView.trailingAnchor.constraint(equalTo: editorView.trailingAnchor, constant: -IndustrialSpacing.md),
             scrollBarView.bottomAnchor.constraint(equalTo: transcriptPanel.topAnchor, constant: -IndustrialSpacing.xs),
             scrollBarHeightConstraint,
