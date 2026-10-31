@@ -1984,3 +1984,30 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 **预估**：S ｜ **证据**：R17 战报（docs/LoopBuddy/R17-2026-10-31-战报.md）
 
 **验收注**：老板 2026-10-31 实机验收通过（「验收通过」）。R1 轮一次过（排障 3 轮均在自验期内：R3 轮 isKeyWindow 实锤上移监视器层）；master @ 578610d。方案升级要点与排障全记录见 docs/LoopBuddy/R17-2026-10-31-战报.md。
+
+### UI-040 主界面空格键开始/停止录音 | P2 | S | [done ✅ 2026-10-31 老板交付验收（「可以 merge」）→ master 723da5d]
+
+> 来源：老板 2026-10-30「需求入池，空格键开始录音」，附剪映截图（REC 页「Press record or hit Space to start」）。
+> 现状核实（10-30）：主界面（MainViewController）**无 keyDown 处理**（grep 零命中），空格键零冲突，但主界面键盘链路需从零建；`startRecording()` 可作统一入口。
+> 与 UI-039 的关系：编辑器窗口空格=播放/暂停（UI-039），主窗口空格=开始/停止录音（本单），分态分派互不干扰。
+
+**需求细项**（10-31 需求审核通过）：
+1. 主窗口聚焦 + 待录制态：空格 = 开始录音（复用红钮同一入口，不另起录音逻辑）✅ toggle 复用 toggleRecordingFromMenu()=与红钮/菜单同一对入口
+2. 录音中：空格 = 停止录音（同一停止入口，toggle 语义，对标剪映）✅ 同上
+3. 输入框等文本控件为 firstResponder 时空格保持正常输入（不误触）✅ 响应链语义：field editor 持有字符事件，keyDown 到不了主视图
+4. 长按不连发（忽略 keyRepeat）✅ isARepeat 直接吞
+5. 系统面板持有焦点时空格不触发录音 ✅ NSAlert runModal/TCC 弹窗/sheet 均模态接管或主窗口非 key，天然隔离
+
+**验收标准**：
+- [x] 空格：待录制→开始录音；录音中→停止；界面状态与点红钮完全一致（lite space_record：started/repeat_ignored/stopped 三断言全过；同入口结构性保证）
+- [x] 输入框聚焦时键入空格不触发录音（响应链语义隔离；与 UI-039 同款 lite 边界）
+- [x] 入口指示文案：**未加常驻提示**（保守档）——idle 态 accessibilityHelp 既有「按空格键或点击录制按钮开始录制」本单兑现；剪映式常驻提示是否上加视觉裁决，随时可 S 级微调
+- [x] `build-app.sh` exit 0；SDK 单测基线不回退（127/127→合并态 133/133）；lite PASS
+
+**实施要点**（R1 轮，worktree `loop/UI-040` 99f082e，4 文件 +129/-18）：
+- MainWindowView keyDown 链从零建：acceptsFirstResponder + viewDidMoveToWindow 抢焦 + 空格分支（keyCode 49+修饰键全无+isARepeat 吞）+ 编辑态守卫（放行编辑器空格链）+ hideEditor 焦点恢复（「编辑器返回→空格再录」）
+- toggle 复用 toggleRecordingFromMenu()（与红钮/菜单同一对入口，零新录音逻辑）
+- lite space_record 步骤（触发器 `10 mix uitest space`）：**mock 态同步断言零产物**——真录音短文件会 finalize 后 0.3s 自动进编辑器错位抢素材，故走 pendingSpaceSelftest 模拟状态机，三断言主线程同步零轮询
+- 修饰键判定不用 subtracting 白名单（合成事件非标准 flag 位污染，UI-039 同款规避）
+
+**验收注**：老板 2026-10-31 交付验收（「可以 merge」）。merge 时与并行合入的 UI-039 终版（局部事件监视器方案）冲突合流（lite 脚本注释块手工合并）；合并态回归全绿：build 0 / SDK 133/133 / lite PASS（space_record + 编辑器 14 步含 space_toggle + UITest2 草稿段，双空格链路共存实测无冲突）。方案备注：UI-039 终版定调监视器方案（keyDown 链焦点漂移风险），本单主界面场景按键为按钮语义为主、keyDown 链+双时机抢焦可工作，若实机发现焦点漂移断链场景，可按 UI-039 同构模板（updateSpaceKeyMonitor + SpaceKeyPolicy）开 S 级对齐单。证据：docs/证据/2026-10-31-UI040-主界面空格键录音toggle-硬验证.md。

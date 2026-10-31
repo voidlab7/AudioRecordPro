@@ -52,7 +52,7 @@
 | UI-038     | 录制态灰色默认线与绿色点行不重合（看起来两条线）：对齐为同一条线，保持「灰→变绿→起波纹」 | P2 | done ✅ | 2026-10-30 老板交付验收（「验收通过，解决了跳变问题」；merge 见 git log「验收 UI-038」，worktree loop/UI-038 200268b）；R1 轮：centerlineY 单一基准 + 方案②录制中虚线让位；R2 轮（验收反馈「点击录制会闪一下灰线才变绿」）：根因=三处门控挂「已有波形数据」、首条数据要等引擎启动数百 ms，修法=条带层常显满宽静音点行 +灰虚线让位去 isEmpty 门控，点击瞬间整条变绿、从右往左推进——老板认可该交互（「什么都没有，直接就是绿色的线过来」）；合并态回归 build 0 / SDK 105/105 / lite PASS；正文迁归档 |
 | REL-006    | 商店对齐：砍 ffmpeg 导出链（导出面收敛 WAV/M4A，bundle −77MB） | P1 | todo（待需求审核） | 老板 2026-10-30 拍板「导出砍掉，ffmpeg 不进需求」；审计依据：逆向对标已上架 Audio Capture Pro（零内嵌二进制、导出面仅 M4A/WAV），Loocap Resources/ffmpeg 77MB = Resources 内可执行文件审核风险 + GPL 静态链接风险；ProcessTap/转写面均已对齐无上架障碍；FLAC 是否走 CoreAudio 原生保留待需求审核定；正文见节 |
 | UI-039     | 编辑器空格键播放/暂停切换（toggle；输入框聚焦不误触） | P2 | done ✅ | 2026-10-31 老板交付验收（「验收通过」）；master 578610d（worktree loop/UI-039 d61ffbf cherry-pick）；R1 轮交付：局部事件监视器方案（keyDown 链无焦点保障=旧 R10 实锤不可靠）+ SpaceKeyPolicy 三态纯函数（Kit 单测 6 例，显式位判定固化 R10 坑1 回归）+ 初始焦点收归 + lite 第 14 步 space_toggle 六断言（真窗口文本焦点隔离闭环 R10 遗留实机项）；R1→R3 排障：isKeyWindow 上移监视器层（跑批主窗口非 key 属常态）；build 0/SDK 133/133/lite 14/14；正文迁归档 |
-| UI-040     | 主界面空格键开始/停止录音（对标剪映「Press record or hit Space」；输入框聚焦不误触） | P2 | ready-for-review | 老板 2026-10-30 提出并附剪映截图，10-31 需求审核通过；R1 轮交付（worktree loop/UI-040 99f082e）：MainWindowView keyDown 链（编辑态守卫/isARepeat 吞/修饰键全无）+toggleRecordingFromMenu 同入口+焦点抢/恢复（编辑器返回可空格再录）+lite space_record 步骤（mock 态零产物）；build 0 / SDK 127/127 / lite PASS（space_record started/repeat_ignored/stopped 全过+编辑器 13 步回归全绿）；实机验收项见证据文档（真机手感/输入框隔离/文案裁决）；证据 docs/证据/2026-10-31-UI040-主界面空格键录音toggle-硬验证.md；正文见节 |
+| UI-040     | 主界面空格键开始/停止录音（对标剪映「Press record or hit Space」；输入框聚焦不误触） | P2 | done ✅ | 2026-10-31 老板交付验收（「可以 merge」；merge 723da5d，worktree loop/UI-040 99f082e）；R1 轮交付：MainWindowView keyDown 链（编辑态守卫/isARepeat 吞/修饰键全无）+toggleRecordingFromMenu 同入口+焦点抢/恢复（编辑器返回可空格再录）+lite space_record 步骤（mock 态零产物）；与并行合入的 UI-039 监视器方案冲突合流，合并态回归 build 0 / SDK 133/133 / lite PASS（双空格链路共存实测无冲突）；文案未加常驻提示（保守档，随时 S 级微调）；正文迁归档 |
 | FIX-019    | 单轨场景移除 clip 选中态青绿边框（选中描边整体退役）：点击/拖拽不再出青绿框 | P3 | todo（待需求审核） | 老板 2026-10-30 发截图：「现在只有一个轨道，就不要选中态了吧。去掉这个边框绿色的。加入需求 fix」；演进自 UI-029 拍板 a（选中保留细描边）与 UI-036 细项 6；时间选区高亮不动；正文见节 |
 | UI-037     | 编辑页时间标尺贴轨道区顶部 + 播放头从标尺顶贯穿到轨道区底部（轨道带仍居中） | P2 | done ✅ | 2026-10-30 老板交付验收（merge 712d952，worktree loop/UI-037 7d0387a）；R1 轮一次过：标尺贴顶/播放头贯穿全高/轨道带居中/空白区 seek 实机全过；build 0 / SDK 93/93 / lite 7/7（含 seek_align 往返零误差）；正文迁归档 |
 | FEAT-007   | 非破坏编辑模型（剪映式）：原始录音永不覆盖+草稿自动保存+撤销全程+导出=渲染编辑结果 | P1 | done ✅ | 2026-10-30 老板交付验收（「不太好验，直接就验收通过」；merge c00aa5f，worktree loop/FEAT-007 9c7ea82）；R16 轮交付：finalizeEdit/save 覆盖链路物理删除、草稿=命令栈 JSON 随编辑自动落盘+重开重放恢复（防双放）、导出=原始+草稿渲染（增益默认进导出）；合并态回归 build 0 / SDK 105/105 / lite 11 步全 PASS（草稿三断言+UI-037 seek_align 合并态合计）+ UITest2 draft_restored 219648==219648；⚠️ 验收期两肉眼项（重开 App 恢复/真机导出时长）老板免验，逻辑由 EditDraftTests 单测+lite 硬断言承载；正文迁归档 |
@@ -60,6 +60,7 @@
 | UI-041     | 编辑器波形逐列真峰值渲染（分辨率随缩放）：安静区放大呈自然波纹（对照剪映），替代预降采样桶复制的死平带 | P2 | done ✅ | 2026-10-31 老板交付验收（「符合预期。验收通过」）；master f1e556e（worktree loop/UI-041 0d5358c cherry-pick）；R1 轮一次过：Kit WaveformViewportPeaks（判定+逐列真峰值+stride 护栏+门限保留，单测 8 例）+ View 持 buffer/视口缓存/放大态分流（精细层不平滑保留波纹）；三关卡 build 0 / SDK 127/127（+8）/ lite 13/13（fine_peaks 真实录音 peak_range=0.138）；正文迁归档 |
 | FIX-021    | 麦克风混录三连缺：①mic 混入在峰值回调之后——波形/DB表/无效守卫永远只看到系统侧峰值，mic 声音进文件但不进任何 UI/守卫 ②录音中切麦克风设备不生效（AUHAL 拒换设备，UI 无提示） ③失效聚合设备（历史会话残留 #376234/#60274）可被选中且静默降级 | P1 | todo（待需求审核） | 老板 2026-10-30 20:21 实录（「录制没有声音」）：开录 2.7s 后才开混录开关 → 注入引擎起（MacBook mic 首帧 peak=0.016）→ 录音中连切 6 次麦设备（unit 不换、只改 UI）→ 停止后守卫按回调峰值 0.0 判无效删除；代码证据 AudioCallbackHandler.swift:68（calculateAndReportLevel 在原始 buffer 上）早于 :71（writeAudioData 内部才混 mic）；日志证据 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」；正文见节 |
 | UI-042     | 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定，对标剪映） | P2 | todo（待需求审核） | 老板 2026-10-31 提出（「拖动边框的时候，轨道不用动，轨道的标尺不用动」）；10-31 代码核实：主窗口 resizable（AppDelegate.swift:298），拖边框→宽度变化→波形重排+标尺步长档位跳变（TimeRulerView.swift:92-94 chooseNiceStep）；修向=缩放锁定（pixelsPerSecond 恒定）；正文见节 |
+| UI-043     | 麦克风选择器去「跟随系统默认」伪行：展开直接列设备，默认勾选系统默认设备 | P2 | todo（待需求审核） | 老板 2026-10-31 发截图提出（「打开的时候直接看到几个麦克风输入设备，默认勾选，系统默认那个不用再单独起一行」）；跟随语义保留为 nil 投影、不写死 UID；正文见节 |
 | REL-005    | i18n R3：主界面漏网站点收尾（中英混排修复，语言全量跟随系统） | P1 | done ✅ | 2026-10-30 老板实机交付验收（merge 03d44e6）；11 处接线+en 字典 5 条，实机全中文；i18n 三期（R1+R2+R3）闭环；正文迁归档 |
 | FIX-018    | 录音态波纹电平高度不稳定：突发大声后 running max 抬高并回溯重映射，前面已画出的条整体变矮，用户看到的整体电平标尺中途改变 | P2 | done ✅ | 2026-10-30 老板交付验收（merge 030b229，方案A固定满刻度）；SDK 93/93 / lite 6/6 / build 0；实拍对照留老板实机（截屏 TCC 缺）；正文迁归档 |
 | FIX-017    | 录制中可改源：侧边栏未锁，录制开始后点选应用只改 selectedPIDs 不影响正在跑的管线，用户以为在录 A 实际录 B | P1 | todo | 2026-10-28 22:39 实证：Ready 态点录制时侧边栏仍为默认「系统混音」（启动不恢复上次选中），录制开始 1.6s 后才点 TencentMeeting → 整场录的是 systemMixdown；修法候选：①录制期间禁用源选择 ②启动恢复上次选中源 ③顶栏「Selected Source」与实际管线源一致 |
@@ -104,6 +105,31 @@
 
 ## 活跃单
 
+### UI-043 麦克风选择器去「跟随系统默认」伪行：展开直接列设备，默认勾选系统默认设备 | P2 | S | [todo · 待需求审核 2026-10-31]
+
+> 来源：老板 2026-10-31 发侧边栏截图（「同时录入麦克风」展开态：✓跟随系统默认·MacBook Pro 麦克风 / MacBook Pro 麦克风 / 聚合设备 #1405）：「这个逻辑改一下。打开的时候，直接看到几个麦克风输入设备。然后默认勾选。系统默认设置的那一个麦克风输入就不用再单独起一行系统默认。加入需求 loop。」
+> 现状核实（10-31）：`SidebarView.refreshMicDeviceList()`（SidebarView.swift:223-266）展开态恒注入第 0 项伪行「跟随系统默认」（uid=nil，副标=当前实际设备名），伪行与设备列表间另有分隔线（`IndustrialMicDeviceSelectorView.rebuildList` idx==1 分支）；无显式偏好时勾选落在伪行上——用户要多读一行、多理解一层「跟随」概念。
+> 语义边界（防误伤）：`preferredDeviceUID=nil`（跟随态）在录音链是**动态跟随**——`MicDeviceManager.resolvedPreferredDevice()` 返回 nil 时运行时用系统默认输入（FEAT-004R2 链路）。本单把「跟随」从显式行改为默认勾选投影，**不得**在首次打开时把系统默认设备 UID 悄悄写死（否则用户在系统里切 AirPods 后 App 仍钉在内建麦）。
+
+**需求细项**（起草，待老板需求审核）：
+1. 删除展开态第 0 项「跟随系统默认」伪行与分隔线；展开态直接罗列全部麦克风输入设备
+2. 勾选默认落点=当前系统默认输入设备（`isSystemDefault`）；折叠行显示名同步为该设备（UI-027「设备名去重」逻辑随伪行删除重验：折叠名与勾选行同名时的表现）
+3. 跟随态保持 nil 语义：无显式偏好时勾选/折叠名只是「当前系统默认设备」的投影，不写 UserDefaults；系统默认切换后投影跟随跳转（复用既有 `onDevicesChanged` 刷新链）
+4. 点击设备行=显式钉选（preferredDeviceUID=uid，重启保留）；已钉选后系统默认变化不挪勾
+5. （审核拍板项）钉选后是否保留回到「跟随」的口子：a) 再点当前已勾选行=取消钉选回跟随（toggle） b) 不提供（跟随仅对从未选择的用户生效）
+6. L10n 清理：en.lproj「跟随系统默认」key（Localizable.strings:270）随实现删除；空态「未检测到」保留
+7. 关联不动：FIX-021（录音中切麦/失效设备过滤）另单处理，本单不碰录音 unit 链
+
+**验收标准**（起草）：
+- [ ] 展开选择器：只见实际设备列表（无「跟随系统默认」行、无分隔线），系统默认设备带勾选
+- [ ] 从未选择过：折叠行=系统默认设备名；系统切默认设备后勾选与折叠名跟随，UserDefaults 无新增 preferredMicDeviceUID 写入
+- [ ] 点击设备行：钉选持久化（重启保留），录音走所选设备（FEAT-004R2 不回归）
+- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS
+
+**预估**：S ｜ **证据**：（开工后附）
+
+---
+
 ### UI-042 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定） | P2 | S | [todo · 待需求审核 2026-10-31]
 
 > 来源：老板 2026-10-31「需求入池，拖动边框的时候，轨道不用动。就是 轨道的标尺不用动。」
@@ -143,32 +169,9 @@
 
 **预估**：S（纯删减）｜ **证据**：（开工后附）
 
-### UI-040 主界面空格键开始/停止录音 | P2 | S | [todo · 待需求审核 2026-10-30]
+### UI-040 主界面空格键开始/停止录音 | P2 | S | [done ✅ 2026-10-31 老板交付验收（「可以 merge」）→ 正文见 `docs/归档/TODOS-done-2026-10.md`]
 
-> 来源：老板 2026-10-30「需求入池，空格键开始录音」，附剪映截图（REC 页「Press record or hit Space to start」）。
-> 现状核实（10-30）：主界面（MainViewController）**无 keyDown 处理**（grep 零命中），空格键零冲突，但主界面键盘链路需从零建（与编辑器 UI-039 复用 EditorRootView 链不同）；`startRecording()` 在 MainViewController.swift:263，可作统一入口。
-> 与 UI-039 的关系：编辑器窗口空格=播放/暂停（UI-039），主窗口空格=开始/停止录音（本单），分窗分派互不干扰。
-
-**需求细项**（起草，待老板需求审核）：
-1. 主窗口聚焦 + 待录制态：空格 = 开始录音（复用红钮同一入口 `startRecording()`，不另起录音逻辑）
-2. 录音中：空格 = 停止录音（与红钮同一停止入口，toggle 语义，对标剪映）
-3. 输入框等文本控件为 firstResponder 时空格保持正常输入（不误触）
-4. 长按不连发（忽略 keyRepeat，只响应首个 keyDown）
-5. 系统面板（权限弹窗等）持有焦点时空格不触发录音
-
-**验收标准**（起草）：
-- [ ] 空格：待录制→开始录音；录音中→停止；界面状态与点红钮完全一致
-- [ ] 输入框聚焦时键入空格不触发录音
-- [ ] 入口指示文案可对标剪映（「Press record or hit Space to start」，是否上文案待审核定）
-- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS
-
-**预估**：S（新增主窗口 keyDown 链）｜ **证据**：docs/证据/2026-10-31-UI040-主界面空格键录音toggle-硬验证.md
-
-**R1 轮交付**（2026-10-31，worktree `loop/UI-040` 99f082e，待老板实机验收）：
-- 实现四件：①MainWindowView keyDown 链从零建（acceptsFirstResponder+viewDidMoveToWindow 抢焦、空格分支 keyCode 49+修饰键全无+isARepeat 吞、编辑态守卫放行 UI-039 链、hideEditor 焦点恢复覆盖「编辑器返回→空格再录」）；②toggle 复用 `toggleRecordingFromMenu()`=与红钮/菜单同一对入口（细项 1/2 结构性满足）；③不误触三条全走响应链语义（文本 field editor/系统模态面板/Cmd+空格 均天然隔离）；④无新增用户文案——idle 态 accessibilityHelp 既有「按空格键或点击录制按钮开始录制」本单兑现，剪映式常驻提示是否加留验收裁决
-- lite space_record 步骤（触发器 `10 mix uitest space`）：**mock 态同步断言零产物**——真录音短文件会 finalize 后 0.3s 自动进编辑器错位抢素材，故 space 步骤走 pendingSpaceSelftest 模拟状态机；三断言 started/repeat_ignored/stopped 全过
-- 三关卡：build 0 / SDK 127/127（基线不回退）/ lite PASS（space_record+编辑器 13 步+UITest2 草稿段全绿）
-- 留实机验收：真机按键手感（点红钮一致性）、输入框聚焦隔离、编辑器返回焦点链、文案裁决
+---
 
 ### LOOP-05 XCUITest 11 个失败修复（mock 注入失效） | P1 | [blocked] ≡INFRA-001
 
