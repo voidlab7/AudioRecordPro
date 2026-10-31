@@ -39,6 +39,8 @@ class EditorViewController {
     private var previewStartHostTime: UInt64 = 0
     /// FIX-003: 预览代际 token——stop() 触发的旧 buffer completion 不得误杀新一轮播放
     private var previewGeneration = 0
+    /// UI-039: 空格键局部事件监视器（随 editorView 挂/摘窗口挂撤）
+    private var spaceKeyMonitor: Any?
     
     // 编辑器视图组件
     private let navigationBar = EditorNavigationBar()
@@ -166,6 +168,15 @@ class EditorViewController {
         cleanupTempFiles()
         // V2.0: 清理加密编辑会话（临时 .m4a 文件）
         editSession?.cleanup()
+        // UI-039: 兜底撤监视器（正常路径 viewDidMoveToWindow(nil) 已撤，此处防泄漏）
+        if let monitor = spaceKeyMonitor {
+            if Thread.isMainThread {
+                NSEvent.removeMonitor(monitor)
+            } else {
+                DispatchQueue.main.sync { NSEvent.removeMonitor(monitor) }
+            }
+            spaceKeyMonitor = nil
+        }
     }
     
     // MARK: - Setup
@@ -175,6 +186,10 @@ class EditorViewController {
         editorView.layer?.backgroundColor = IndustrialColors.surfaceContainerLowest.cgColor
         editorView.translatesAutoresizingMaskIntoConstraints = false
         editorView.keyHandler = self
+        // UI-039: 空格键监视器随编辑器视图的窗口存在性挂/撤
+        editorView.windowPresenceChanged = { [weak self] present in
+            self?.updateSpaceKeyMonitor(present: present)
+        }
 
         navigationBar.translatesAutoresizingMaskIntoConstraints = false
         trackContainerView.translatesAutoresizingMaskIntoConstraints = false
@@ -659,9 +674,79 @@ class EditorViewController {
                 "peak_max": ((finePeaks.max() ?? 0) * 1000).rounded() / 1000,
                 "peak_range": (((finePeaks.max() ?? 0) - (finePeaks.min() ?? 0)) * 1000).rounded() / 1000])
 
+        // 9) UI-039: 空格键 toggle 播放/暂停——合成空格 keyDown 走 handleSpaceKeyEvent
+        //    同一分发路径（监视器与 lite 共用，SpaceKeyPolicy 三态判定 SpaceKeyPolicyTests
+        //    单测覆盖）。断言六件：toggle→播放；再 toggle→暂停且 playhead 原位（暂停语义
+        //    不归零）；keyRepeat 帧不切换；Cmd+Space 组合放行不切换（R10 坑1 显式位判定
+        //    回归）；文本输入框聚焦时不触发播放（真窗口 makeFirstResponder 隔离断言，
+        //    R10 遗留「留实机确认」项的确定性闭环）；收尾 stopPreview 清场。
+        func synthSpace(isARepeat: Bool, command: Bool = false) -> NSEvent? {
+            guard let cg = CGEvent(keyboardEventSource: nil, virtualKey: 49, keyDown: true) else { return nil }
+            cg.keyboardSetUnicodeString(stringLength: 1, unicodeString: [0x20])  // 空格字符：charactersIgnoringModifiers guard 需要（R10 坑2）
+            cg.setIntegerValueField(.keyboardEventAutorepeat, value: isARepeat ? 1 : 0)
+            if command {
+                cg.flags = .maskCommand
+            }
+            return NSEvent(cgEvent: cg)
+        }
+        let spaceStart = dur * 0.5
+        editorWaveformView(waveformView, didSeekTo: spaceStart)  // 摆非零起点：暂停后必须原位（暂停语义=不归零）
+        let evPlay = synthSpace(isARepeat: false).flatMap { handleSpaceKeyEvent($0) }
+        let nowPlaying = isPreviewPlaying
+        let evPause = synthSpace(isARepeat: false).flatMap { handleSpaceKeyEvent($0) }
+        let nowPaused = !isPreviewPlaying
+        // 同步连发下 cursor timer（33ms）一帧未跑，暂停后 playhead 应精确停在起点（stopPreview 不动 playhead）
+        let playheadKept = abs(waveformView.currentPlayheadPosition - spaceStart) < 0.1
+        let evRepeat = synthSpace(isARepeat: true).flatMap { handleSpaceKeyEvent($0) }
+        let repeatSwallowed = !isPreviewPlaying   // repeat 帧吞掉但不得把播放拉起
+        let evCmd = synthSpace(isARepeat: false, command: true).flatMap { handleSpaceKeyEvent($0) }
+        let cmdPassed = evCmd == false && !isPreviewPlaying   // Cmd+Space 放行且不切换
+        // 文本焦点隔离：真窗口挂临时输入框并置为 firstResponder（field editor 语义与
+        // 选区读数三框/搜索框一致），空格必须放行（不消费、不切换），随后恢复并断言恢复后可 toggle
+        var textFocusIsolated = false
+        var resumeToggleWorks = false
+        if let window = editorView.window {
+            let scratchField = NSTextField(frame: NSRect(x: -200, y: -200, width: 10, height: 10))
+            scratchField.isEditable = true
+            editorView.addSubview(scratchField)
+            window.makeFirstResponder(scratchField)
+            let isolated = Self.textEntryFirstResponder(in: window)
+            let evWhileFocused = synthSpace(isARepeat: false).flatMap { handleSpaceKeyEvent($0) }
+            textFocusIsolated = isolated && evWhileFocused == false && !isPreviewPlaying
+            window.makeFirstResponder(nil)
+            scratchField.removeFromSuperview()
+            if let evResume = synthSpace(isARepeat: false).flatMap({ handleSpaceKeyEvent($0) }), evResume {
+                resumeToggleWorks = isPreviewPlaying   // 恢复后空格再触发播放
+            }
+        }
+        stopPreview()  // 清场：无论断言成败不外溢播放
+        let spaceOK = (evPlay == true) && nowPlaying && (evPause == true) && nowPaused
+            && playheadKept && (evRepeat == true) && repeatSwallowed && cmdPassed
+            && textFocusIsolated && resumeToggleWorks
+        let frDesc: String
+        let keyWin: Bool
+        if let window = editorView.window {
+            frDesc = String(describing: type(of: window.firstResponder))
+            keyWin = window.isKeyWindow
+        } else {
+            frDesc = "no-window"
+            keyWin = false
+        }
+        report("space_toggle", spaceOK,
+               ["toggle_play": nowPlaying, "toggle_pause": nowPaused,
+                "ev_play": evPlay == true, "ev_pause": evPause == true,
+                "ev_repeat": evRepeat == true, "repeat_swallowed": repeatSwallowed,
+                "ev_cmd": evCmd == false, "cmd_passed": cmdPassed,
+                "playhead_kept": playheadKept,
+                "playhead_start": (spaceStart * 100).rounded() / 100,
+                "playhead_after": (waveformView.currentPlayheadPosition * 100).rounded() / 100,
+                "text_focus_isolated": textFocusIsolated,
+                "resume_toggle_works": resumeToggleWorks,
+                "first_responder": frDesc, "key_window": keyWin])
+
         UXEventLog.shared.module("UITest", "done", ok: failures.isEmpty,
                                  detail: ["failures": failures.joined(separator: ","),
-                                          "steps": 13 - failures.count])
+                                          "steps": 14 - failures.count])
     }
 
     /// FEAT-007: 文件 SHA256 十六进制摘要（自验「原始文件永不覆盖」判据）
@@ -1091,11 +1176,7 @@ extension EditorViewController: TrackContainerViewSeekDelegate {
 // MARK: - EditorToolbarDelegate
 extension EditorViewController: EditorToolbarDelegate {
     func editorToolbarDidTapPreviewPlay(_ toolbar: EditorToolbar) {
-        if isPreviewPlaying {
-            stopPreview()
-        } else {
-            startPreview()
-        }
+        togglePlayback()   // UI-039: 空格键与播放按钮收敛为同一控制入口
     }
     
     func editorToolbarDidTapPreviewStop(_ toolbar: EditorToolbar) {
@@ -1246,6 +1327,93 @@ extension EditorViewController: TranscriptPanelDelegate {
 
 // MARK: - Preview Playback
 extension EditorViewController {
+
+    /// UI-039: 空格键播放/暂停切换。暂停复用 stopPreview（FIX-003 保留 playhead 位置
+    /// = 暂停语义），再按 startPreview 从暂停处续播——与工具栏播放按钮同一控制入口，
+    /// 不另起播放逻辑。
+    func togglePlayback() {
+        if isPreviewPlaying {
+            stopPreview()
+        } else {
+            startPreview()
+        }
+    }
+
+    // MARK: 空格键局部监视器（UI-039）
+
+    /// 编辑器激活期间拦截空格键（编辑器窗口聚焦 + firstResponder 非文本编辑视图）。
+    /// 为什么用局部监视器而不是 EditorRootView.keyDown：工程无焦点保障链（无
+    /// makeFirstResponder 调用），编辑器打开后 firstResponder 可能是 toolbar 输入框
+    /// 或窗口自身，「打开编辑器直接按空格」在 keyDown 方案下不可靠；监视器 +
+    /// firstResponder 文本判定把需求细项 2 的隔离变成显式可断言规则，且点击按钮
+    /// 后空格仍触发播放（剪映同款行为，不随按钮聚焦失效）。UI-040（主界面空格
+    /// 录音）可用同构机制分派，两单天然正交。
+    /// 线程约定：viewDidMoveToWindow 与 NSEvent 分发均主线程（同 UXEventLog 先例）。
+    private func updateSpaceKeyMonitor(present: Bool) {
+        if present, spaceKeyMonitor == nil {
+            spaceKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self else { return event }
+                // 编辑器窗口聚焦（需求细项 1）在窗口分发层判定：局部监视器只收本 app
+                // 事件，非 key 窗口时正常键盘事件本就进不来，此 guard 防的是 CGEvent
+                // 注入等合成边缘；lite 直调 handleSpaceKeyEvent 测逻辑分发，不受
+                // 「哪个 app 在前台」污染（R3 实锤：无人值守跑批时主窗口非 key 属常态）。
+                guard let window = self.editorView.window, window.isKeyWindow,
+                      self.handleSpaceKeyEvent(event) else { return event }
+                return nil   // 消费：事件不再进入后续分发（防双触发）
+            }
+            // 初始焦点收归：编辑器挂载时 keyViewLoop 可能把初始焦点分配给可编辑控件
+            // （搜索框/选区读数框），用户未点击输入框时空格会打进输入框而非播放
+            // （lite 第 14 步实锤：全序列 textFocus=true → 空格全部 passthrough）。
+            // 收归到窗口自身 = 空格直接可播；用户显式点击输入框时焦点自然进入（显式
+            // 意图不受影响，未提交内容走 textDidEndEditing 正常 commit）。
+            // 延迟一拍：等 AppKit 完成初始 firstResponder 分配再做判定。
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let window = self.editorView.window,
+                      Self.textEntryFirstResponder(in: window) else { return }
+                window.makeFirstResponder(nil)
+            }
+        } else if !present, let monitor = spaceKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            spaceKeyMonitor = nil
+        }
+    }
+
+    /// 空格键逻辑分发（lite 第 14 步以合成事件走同一路径）。
+    /// 窗口级判定（编辑器挂载/isKeyWindow）在监视器闭包；此处只管事件语义。
+    /// 返回 true = 事件已消费。
+    func handleSpaceKeyEvent(_ event: NSEvent) -> Bool {
+        guard let window = editorView.window else { return false }   // 编辑器已摘出窗口
+        // 修饰键 rawValue 先过 deviceIndependentFlagsMask 交集（与既有 handleKeyDown 同口径），
+        // 判定委托 SpaceKeyPolicy（Kit 纯函数，SpaceKeyPolicyTests 单测覆盖）
+        let rawModifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).rawValue
+        let textFocus = Self.textEntryFirstResponder(in: window)
+        switch SpaceKeyPolicy.decide(keyCode: event.keyCode,
+                                     rawModifiers: rawModifiers,
+                                     isARepeat: event.isARepeat,
+                                     textEntryFocus: textFocus) {
+        case .passthrough:
+            return false
+        case .swallowRepeat:
+            return true   // 长按连发帧吞掉但不切换
+        case .toggle:
+            UXEventLog.shared.module("Editor", "space_toggle", ok: true,
+                                     detail: ["wasPlaying": isPreviewPlaying,
+                                              "text_focus": textFocus])
+            togglePlayback()
+            return true
+        }
+    }
+
+    /// 窗口 firstResponder 是否文本编辑视图（需求细项 2：输入框聚焦时空格保持正常输入）。
+    /// - NSTextView 全覆盖输入路径：可编辑 field editor（选区读数三框/搜索框编辑态）
+    ///   与只读可选文稿视图（TranscriptTextView）都是 NSTextView → 一律放行（不误触优先）。
+    /// - 可编辑 NSTextField 兜底（field editor 尚未接管的理论窗口期）。
+    static func textEntryFirstResponder(in window: NSWindow) -> Bool {
+        let firstResponder = window.firstResponder
+        if firstResponder is NSTextView { return true }
+        if let textField = firstResponder as? NSTextField, textField.isEditable { return true }
+        return false
+    }
 
     func startPreview() {
         guard let buffer = audioBuffer, let format = audioFormat else { return }
@@ -1512,8 +1680,17 @@ extension EditorViewController: HorizontalScrollBarDelegate {
 /// 编辑器根视图 — 支持键盘快捷键处理
 class EditorRootView: NSView {
     weak var keyHandler: EditorKeyboardHandler?
+    /// UI-039: 挂载状态变化回调（挂进窗口 = 编辑器激活，摘出 = 退出）。
+    /// 空格键局部监视器随此挂/撤（addLocalMonitorForEvents 是 app 级拦截，
+    /// 生命周期必须跟随编辑器视图的窗口存在性，否则主界面空格被误拦）。
+    var windowPresenceChanged: ((Bool) -> Void)?
 
     override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        windowPresenceChanged?(window != nil)
+    }
 
     override func keyDown(with event: NSEvent) {
         if keyHandler?.handleKeyDown(event) == true {

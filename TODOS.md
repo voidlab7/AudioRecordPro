@@ -51,7 +51,7 @@
 | UI-036     | 轨道设计再优化（参考剪映）+承接 UI-026/034：轨道头只留静音喇叭+去截断文字+轨道边框+过载仅顶部变红+工具栏剪映风随单对照 | P2 | done ✅ | 2026-10-30 老板交付验收（随批吸收 026+034，merge 见 git log「验收 UI-036」）；R15 交付 + R15b-i 八轮实机返工（溢出段红/删圆点删暗轮廓/右端截断映射修复/dB 气泡/橙高亮/0dB 水位 38%/+20dB/基线对齐边框）；合并态回归 build 0 / SDK 92/92 / lite PASS；正文迁归档；遗留小项：轨道头编号/电平条去留未裁决（不阻塞，随时 S 级微调） |
 | UI-038     | 录制态灰色默认线与绿色点行不重合（看起来两条线）：对齐为同一条线，保持「灰→变绿→起波纹」 | P2 | done ✅ | 2026-10-30 老板交付验收（「验收通过，解决了跳变问题」；merge 见 git log「验收 UI-038」，worktree loop/UI-038 200268b）；R1 轮：centerlineY 单一基准 + 方案②录制中虚线让位；R2 轮（验收反馈「点击录制会闪一下灰线才变绿」）：根因=三处门控挂「已有波形数据」、首条数据要等引擎启动数百 ms，修法=条带层常显满宽静音点行 +灰虚线让位去 isEmpty 门控，点击瞬间整条变绿、从右往左推进——老板认可该交互（「什么都没有，直接就是绿色的线过来」）；合并态回归 build 0 / SDK 105/105 / lite PASS；正文迁归档 |
 | REL-006    | 商店对齐：砍 ffmpeg 导出链（导出面收敛 WAV/M4A，bundle −77MB） | P1 | todo（待需求审核） | 老板 2026-10-30 拍板「导出砍掉，ffmpeg 不进需求」；审计依据：逆向对标已上架 Audio Capture Pro（零内嵌二进制、导出面仅 M4A/WAV），Loocap Resources/ffmpeg 77MB = Resources 内可执行文件审核风险 + GPL 静态链接风险；ProcessTap/转写面均已对齐无上架障碍；FLAC 是否走 CoreAudio 原生保留待需求审核定；正文见节 |
-| UI-039     | 编辑器空格键播放/暂停切换（toggle；输入框聚焦不误触） | P2 | todo（待需求审核） | 老板 2026-10-30 提出；10-30 代码核实：空格键（keyCode 49）未绑定无冲突，EditorRootView 键盘链现成；正文见节 |
+| UI-039     | 编辑器空格键播放/暂停切换（toggle；输入框聚焦不误触） | P2 | ready-for-review | 需求审核=老板 10-31「审核通过，开始开发」；R1 轮交付（worktree loop/UI-039）：局部事件监视器方案（keyDown 链无焦点保障=旧 R10 方案实锤不可靠）+ SpaceKeyPolicy 三态纯函数（Kit 单测 6 例）+ 初始焦点收归 + lite 第 14 步 space_toggle 六断言（含真窗口文本焦点隔离）；build 0/SDK 133/133/lite 14/14；R1→R3 轮排障：isKeyWindow guard 误挡逻辑分发（无人值守跑批主窗口非 key 属常态）→上移监视器层；正文见节 |
 | UI-040     | 主界面空格键开始/停止录音（对标剪映「Press record or hit Space」；输入框聚焦不误触） | P2 | ready-for-review | 老板 2026-10-30 提出并附剪映截图，10-31 需求审核通过；R1 轮交付（worktree loop/UI-040 99f082e）：MainWindowView keyDown 链（编辑态守卫/isARepeat 吞/修饰键全无）+toggleRecordingFromMenu 同入口+焦点抢/恢复（编辑器返回可空格再录）+lite space_record 步骤（mock 态零产物）；build 0 / SDK 127/127 / lite PASS（space_record started/repeat_ignored/stopped 全过+编辑器 13 步回归全绿）；实机验收项见证据文档（真机手感/输入框隔离/文案裁决）；证据 docs/证据/2026-10-31-UI040-主界面空格键录音toggle-硬验证.md；正文见节 |
 | FIX-019    | 单轨场景移除 clip 选中态青绿边框（选中描边整体退役）：点击/拖拽不再出青绿框 | P3 | todo（待需求审核） | 老板 2026-10-30 发截图：「现在只有一个轨道，就不要选中态了吧。去掉这个边框绿色的。加入需求 fix」；演进自 UI-029 拍板 a（选中保留细描边）与 UI-036 细项 6；时间选区高亮不动；正文见节 |
 | UI-037     | 编辑页时间标尺贴轨道区顶部 + 播放头从标尺顶贯穿到轨道区底部（轨道带仍居中） | P2 | done ✅ | 2026-10-30 老板交付验收（merge 712d952，worktree loop/UI-037 7d0387a）；R1 轮一次过：标尺贴顶/播放头贯穿全高/轨道带居中/空白区 seek 实机全过；build 0 / SDK 93/93 / lite 7/7（含 seek_align 往返零误差）；正文迁归档 |
@@ -143,23 +143,29 @@
 
 **预估**：S（纯删减）｜ **证据**：（开工后附）
 
-### UI-039 编辑器空格键播放/暂停切换 | P2 | S | [todo · 待需求审核 2026-10-30]
+### UI-039 编辑器空格键播放/暂停切换 | P2 | S | [ready-for-review · 2026-10-31 R1 轮]
 
-> 来源：老板 2026-10-30「新增需求 支持空格键播放暂停」。
+> 来源：老板 2026-10-30「新增需求 支持空格键播放暂停」；需求审核=老板 10-31「审核通过，开始开发」。
 > 现状核实（10-30）：编辑器键盘表（EditorViewController.handleKeyDown）已绑 Cmd 组合（缩放/fit）与 ←/→/Home/End/切分，**空格键（keyCode 49）未绑定，零冲突**；EditorRootView.keyDown → EditorKeyboardHandler 链路现成。
+> ⚠️ 旧 R10 轮（10-30 21:08，未验收即弃）走 EditorRootView.keyDown 链——本轮开发前核实：工程无任何焦点保障（零 makeFirstResponder），编辑器打开后 firstResponder 落点不可控，「打开编辑器直接按空格」在 keyDown 方案下不可靠。本轮改用局部事件监视器方案。
 
-**需求细项**（起草，待老板需求审核）：
-1. 编辑器窗口聚焦时，空格键 = 播放/暂停切换（toggle，复用播放按钮同一控制入口，不另起播放逻辑）
-2. 选区读数等文本输入框聚焦时，空格保持正常输入（firstResponder 隔离，验证不误触）
-3. 长按不连发（忽略 keyRepeat，或只响应首个 keyDown）
+**需求细项**（10-31 需求审核通过）：
+1. 编辑器窗口聚焦时，空格键 = 播放/暂停切换（toggle，复用播放按钮同一控制入口，不另起播放逻辑）✅ togglePlayback() 与播放按钮 delegate 收敛同一入口
+2. 选区读数等文本输入框聚焦时，空格保持正常输入（firstResponder 隔离，验证不误触）✅ SpaceKeyPolicy 文本焦点判定 + lite 真窗口 makeFirstResponder 隔离断言（比「留实机确认」强）
+3. 长按不连发（忽略 keyRepeat，或只响应首个 keyDown）✅ .swallowRepeat 三态
 
-**验收标准**（起草）：
-- [ ] 空格：未播放→播放；播放中→暂停；再按继续
-- [ ] 输入框聚焦时键入空格不触发播放
-- [ ] 现有快捷键（Cmd 缩放/fit、方向键、切分）行为不变
-- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS
+**验收标准**：
+- [x] 空格：未播放→播放；播放中→暂停；再按继续（lite space_toggle：toggle_play/toggle_pause/playhead_kept 全 true，暂停=stopPreview 保留 playhead 的 FIX-003 语义）
+- [x] 输入框聚焦时键入空格不触发播放（lite text_focus_isolated=true：真窗口临时 field editor + makeFirstResponder，断言 passthrough；恢复后 resume_toggle_works=true）
+- [x] 现有快捷键（Cmd 缩放/fit、方向键、切分）行为不变（空格为独立监视器路径，不触碰 handleKeyDown 既有分支；lite 既有 13 步全 PASS）
+- [x] `build-app.sh` exit 0；SDK 单测基线不回退（127→133，+6 全为新用例）；lite PASS（14/14 + UITest2 草稿恢复段 PASS）
 
-**预估**：S ｜ **证据**：（开工后附）
+**实施要点**（R1 轮，3 文件）：
+- Kit `SpaceKeyPolicy.swift`：三态纯函数（toggle/swallowRepeat/passthrough），显式位判定不受合成事件非标准 flag 位污染（R10 坑1 回归固化进单测）
+- EditorViewController：局部事件监视器随 editorView 挂/摘窗口挂撤（UXEventLog 同款先例）；isKeyWindow 判定在监视器分发层（R3 轮实锤：无人值守跑批主窗口非 key 属常态，逻辑分发层不做窗口检查）；初始焦点收归（编辑器挂载时焦点若误落文本控件，一拍 async 收归窗口——空格直接可播，用户显式点击输入框时焦点自然进入）
+- lite 第 14 步：合成 CGEvent（unicodeString 避 R10 坑2 + autorepeat 位）走 handleSpaceKeyEvent 同一分发路径，六断言 + firstResponder/key_window 观测字段
+
+**预估**：S ｜ **证据**：R17 战报（docs/LoopBuddy/R17-2026-10-31-战报.md）
 
 ### UI-040 主界面空格键开始/停止录音 | P2 | S | [todo · 待需求审核 2026-10-30]
 
