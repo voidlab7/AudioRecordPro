@@ -1944,3 +1944,18 @@ git revert -m 1 980cacf   # 撤销整个 merge（代码回退，历史保留）
 - 与 FEAT-007 关系：FEAT-007 已拍板「增益默认进导出」，导出渲染需同一套增益定义；本单把「增益 dB→线性」抽成单一来源（GainScale），供预览与未来导出共用。
 
 **验收注**：老板 2026-10-31 实机验收通过（「验收通过」）。R1 轮一次过；master @ fa93ded（worktree loop/FIX-020 fe085be cherry-pick）。验收期衍生 UI-041（波形安静区放大死平带 → 逐列真峰值渲染）已另立单。
+
+---
+
+### UI-041 编辑器波形逐列真峰值渲染（分辨率随缩放） | P2 | S–M | [done ✅ 2026-10-31 老板交付验收]
+
+> 来源：老板 2026-10-31 编辑器实机反馈（FIX-020 验收期）：「放大后为什么有一些是完全平的？这里没有声音就应该没有波纹吧」；追问对照：「剪映也不是全平的，看起来有一些波纹」。
+> 取证定性：**非数据/门限问题，是渲染精度伪影**——`drawWaveformBars`（EditorWaveformView.swift）读预降采样固定峰值数组（全文件 ~W/3.4 桶），放大后每桶值复制铺满 + `smoothEnvelope` 3 点平滑 → 底噪区呈恒定死平带；剪映逐列取原始音频真峰值，底噪列间起伏自然呈现波纹。数据本身没问题（当天 16:48 录音解密实测：静音区底噪 −38~−45dBFS 恒定，波形成分在，只是画不出来）。
+
+**R1 轮交付（2026-10-31，worktree loop/UI-041 0d5358c → master f1e556e）**：
+- Kit 新增 `WaveformViewportPeaks`（无状态纯函数，单测 8 例）：`needsFinePath`（视口桶密度 < 列密度 = 桶复制态）+ `columnPeaks`（列 i = 可视时间窗全部帧多通道峰值；stride 护栏 4096 帧/列防大文件卡滚动；归一口径 `WaveformAmplitudeMapper.normalized(referenceMax: 1.0)`，−60dBFS 门限保留）
+- View 持 `AVAudioPCMBuffer` 强引用（编辑重载随 loadAudio 替换，仅引用不复制）+ 单槽视口缓存（同 buffer/视口/宽度命中零开销，拖增益等高频重绘免费；滚动/缩放/换 buffer 自动失效）
+- `drawWaveformBars` 放大态自动分流精细层，**精细层不做 smoothEnvelope**（保留列间自然起伏=波纹本体），FIX-004 基线与增益映射走原 `drawGainAwareEnvelope` 不变；概览态粗路径零变化
+- 硬验证：build 0 / SDK 127/127（基线 119+8：判定边界/脉冲列定位/波纹存在性数值化/stride 护栏/门限/边界 clamp）/ lite 13/13+UITest2（新步 fine_peaks：放大态 fine_active=true、851 列、真实录音 peak_range=0.138）
+
+**验收注**：老板 2026-10-31 实机验收通过（「符合预期。验收通过」）。R1 轮一次过；master @ f1e556e。同日与 FIX-020 双单闭环（FIX-020 验收期衍生本单，同日入池→交付→验收）。
