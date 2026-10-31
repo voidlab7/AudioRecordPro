@@ -34,6 +34,10 @@ class TrackContainerView: NSView {
     /// x 坐标与 ruler 共享同一公式（精准卡住时间刻度）
     private let playheadOverlay = PlayheadOverlayView()
 
+    /// UI-042 R4: 轨道头列整体背景块（标尺左段+带头+行间空隙连续底色，右缘分隔线）
+    private let headerColumnView = NSView()
+    private let headerColumnSeparator = NSView()
+
     /// UI-037: 轨道带的可用区间（ruler 下沿 ↔ 容器底部），stack 在其间垂直居中
     private let trackBandArea = NSLayoutGuide()
 
@@ -70,6 +74,21 @@ class TrackContainerView: NSView {
         // UI-037: 容器高度不再由内容 intrinsic 决定（父视图钉满轨道区）；
         // 内部分两层——ruler+playhead overlay（顶锚、铺满全高）与轨道行 stack（居中）。
 
+        // UI-042 验收 R4（老板 10-31 发剪映参考图「有一个整体的布局块」）：
+        // 左侧轨道头列整体背景块——从容器顶（含标尺左段）贯通到容器底，右缘 0.5px
+        // 分隔线贯穿全高，使「轨道头列」与「时间线内容区」形成两个视觉分区（对标剪映）。
+        // 覆盖范围 = 标尺左段 + 轨道行 header + 行间空隙 + 轨道带上下留白的 x<88 区域。
+        // z 序最底（最先 addSubview），行内 headerView 同色叠加形成行间横线（剪映同款）。
+        headerColumnView.wantsLayer = true
+        headerColumnView.layer?.backgroundColor = IndustrialColors.surfaceContainer.cgColor
+        headerColumnView.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(headerColumnView)
+
+        headerColumnSeparator.wantsLayer = true
+        headerColumnSeparator.layer?.backgroundColor = IndustrialColors.outlineVariant.cgColor
+        headerColumnSeparator.translatesAutoresizingMaskIntoConstraints = false
+        headerColumnView.addSubview(headerColumnSeparator)
+
         // P0-B: 横向贯通的时间刻度尺（位于 stackView 顶部之上、轨道头列之外）
         rulerView.translatesAutoresizingMaskIntoConstraints = false
         rulerView.headerWidth = EditorTrackRowView.headerWidth  // 跳过轨道头列
@@ -103,6 +122,18 @@ class TrackContainerView: NSView {
         stackCentered.priority = NSLayoutConstraint.Priority(500)
 
         NSLayoutConstraint.activate([
+            // UI-042 R4: 轨道头列整体背景块——左缘贴容器、全高、宽=headerWidth；
+            // 右缘分隔线 0.5px 贯穿全高（含标尺左段）
+            headerColumnView.leadingAnchor.constraint(equalTo: leadingAnchor),
+            headerColumnView.topAnchor.constraint(equalTo: topAnchor),
+            headerColumnView.bottomAnchor.constraint(equalTo: bottomAnchor),
+            headerColumnView.widthAnchor.constraint(equalToConstant: EditorTrackRowView.headerWidth),
+
+            headerColumnSeparator.trailingAnchor.constraint(equalTo: headerColumnView.trailingAnchor),
+            headerColumnSeparator.topAnchor.constraint(equalTo: headerColumnView.topAnchor),
+            headerColumnSeparator.bottomAnchor.constraint(equalTo: headerColumnView.bottomAnchor),
+            headerColumnSeparator.widthAnchor.constraint(equalToConstant: 0.5),
+
             // 横向贯通时间刻度尺：贯通整个容器宽度（含轨道头列），贴顶
             rulerView.leadingAnchor.constraint(equalTo: leadingAnchor),
             rulerView.trailingAnchor.constraint(equalTo: trailingAnchor),
