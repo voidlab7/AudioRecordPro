@@ -58,7 +58,7 @@
 | FEAT-007   | 非破坏编辑模型（剪映式）：原始录音永不覆盖+草稿自动保存+撤销全程+导出=渲染编辑结果 | P1 | done ✅ | 2026-10-30 老板交付验收（「不太好验，直接就验收通过」；merge c00aa5f，worktree loop/FEAT-007 9c7ea82）；R16 轮交付：finalizeEdit/save 覆盖链路物理删除、草稿=命令栈 JSON 随编辑自动落盘+重开重放恢复（防双放）、导出=原始+草稿渲染（增益默认进导出）；合并态回归 build 0 / SDK 105/105 / lite 11 步全 PASS（草稿三断言+UI-037 seek_align 合并态合计）+ UITest2 draft_restored 219648==219648；⚠️ 验收期两肉眼项（重开 App 恢复/真机导出时长）老板免验，逻辑由 EditDraftTests 单测+lite 硬断言承载；正文迁归档 |
 | FIX-020    | 编辑器拖音量线后播放声音大小无变化：新一轮播放不应用当前增益（playerNode 重建回默认 1.0）+ 升益 >0dB 被 playerNode.volume 钳 1.0 + clipGain 内部上限 2.0 与 UI +20dB 标尺不一致 | P1 | done ✅ | 2026-10-31 老板交付验收（「验收通过」）；master fa93ded（worktree loop/FIX-020 fe085be cherry-pick）；需求审核=老板 10-31「开始修复」（反馈 2026-10-30）；三因修复交付（回放链 EQ globalGain 化+建链即应用+GainScale 单一来源，playerNode.volume 双路径全删）；build 0/SDK 119/119/lite 12/12；⚠️ macOS 26 SDK 移除 AVAudioUnitDynamicsProcessor，过载走需求单备选「接受削波」与导出 ±1 同口径（限幅器组件仍在、async 预热可做后续单）；worktree loop/FIX-020 fe085be；证据 docs/证据/2026-10-31-FIX020-回放增益三因修复-硬验证.md；正文迁归档 |
 | UI-041     | 编辑器波形逐列真峰值渲染（分辨率随缩放）：安静区放大呈自然波纹（对照剪映），替代预降采样桶复制的死平带 | P2 | done ✅ | 2026-10-31 老板交付验收（「符合预期。验收通过」）；master f1e556e（worktree loop/UI-041 0d5358c cherry-pick）；R1 轮一次过：Kit WaveformViewportPeaks（判定+逐列真峰值+stride 护栏+门限保留，单测 8 例）+ View 持 buffer/视口缓存/放大态分流（精细层不平滑保留波纹）；三关卡 build 0 / SDK 127/127（+8）/ lite 13/13（fine_peaks 真实录音 peak_range=0.138）；正文迁归档 |
-| FIX-021    | 麦克风混录三连缺：①mic 混入在峰值回调之后——波形/DB表/无效守卫永远只看到系统侧峰值，mic 声音进文件但不进任何 UI/守卫 ②录音中切麦克风设备不生效（AUHAL 拒换设备，UI 无提示） ③失效聚合设备（历史会话残留 #376234/#60274）可被选中且静默降级 | P1 | todo（待需求审核） | 老板 2026-10-30 20:21 实录（「录制没有声音」）：开录 2.7s 后才开混录开关 → 注入引擎起（MacBook mic 首帧 peak=0.016）→ 录音中连切 6 次麦设备（unit 不换、只改 UI）→ 停止后守卫按回调峰值 0.0 判无效删除；代码证据 AudioCallbackHandler.swift:68（calculateAndReportLevel 在原始 buffer 上）早于 :71（writeAudioData 内部才混 mic）；日志证据 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」；正文见节 |
+| FIX-021    | 麦克风混录三连缺：①mic 混入在峰值回调之后——波形/DB表/无效守卫永远只看到系统侧峰值，mic 声音进文件但不进任何 UI/守卫 ②录音中切麦克风设备不生效（AUHAL 拒换设备，UI 无提示） ③失效聚合设备（历史会话残留 #376234/#60274）可被选中且静默降级 | P1 | done ✅ | 2026-11-02 老板交付验收（「验收通过」；master 73d5b3e = merge loop/FIX-021，worktree db4aa19）；需求审核=老板 10-31 复测催修放行+拍板「切麦=生效」；R17 轮三因全修（电平取样与写盘同源/录音中切麦重建注入引擎/列表过滤 Tap 聚合+死设备）；build 0/SDK 111/111（+6）/lite 验收期补跑后老板实机过；证据 docs/证据/2026-10-31-FIX021-交付证据.md；战报 docs/LoopBuddy/R17-FIX021-2026-10-31-战报.md（与 UI-039 同日 R17 撞名分立）；正文迁归档（TODOS-done-2026-11.md） |
 | UI-042     | 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定，对标剪映） | P2 | done ✅ | 2026-11-01 老板交付验收（「验收通过」；master 807467d = merge loop/UI-042）；R1 轮交付 + R2-R4 验收期演进（冻结首列实证/lite 真实窗口 resize/滚动条对齐内容区/轨道头列整体布局块）；合并态回归 build 0 / SDK 142/142 / lite 15/15（合并态 lite 待 App 空闲补跑，worktree 终版 15/15）；正文迁归档（TODOS-done-2026-11.md）；遗留小项：留白态（拖宽超全显）zoomLevel<1 的显示钳制已做，无未决项 |
 | UI-043     | 麦克风选择器去「跟随系统默认」伪行：展开直接列设备，默认勾选系统默认设备 | P2 | todo（待需求审核） | 老板 2026-10-31 发截图提出（「打开的时候直接看到几个麦克风输入设备，默认勾选，系统默认那个不用再单独起一行」）；跟随语义保留为 nil 投影、不写死 UID；正文见节 |
 | REL-005    | i18n R3：主界面漏网站点收尾（中英混排修复，语言全量跟随系统） | P1 | done ✅ | 2026-10-30 老板实机交付验收（merge 03d44e6）；11 处接线+en 字典 5 条，实机全中文；i18n 三期（R1+R2+R3）闭环；正文迁归档 |
@@ -531,48 +531,6 @@
 ---
 
 ### UI-041 编辑器波形逐列真峰值渲染（分辨率随缩放） | P2 | S–M | [done ✅ 2026-10-31 老板交付验收 → 正文见 `docs/归档/TODOS-done-2026-10.md`]
-
----
-
-### FIX-021 麦克风混录三连缺：mic 不进波形/电平表/无效守卫 + 录音中切麦不生效 + 失效聚合设备可选 | P1 | M | [ready-for-review · 已审核 2026-10-31]
-
-> 来源：老板 2026-10-30 20:21 实录反馈「录制没有声音」（截图：REC 页波形贴中线圆点行、DB 表无动作、计时 15s）。
-> **需求审核通过（2026-10-31）**：老板复测仍无声音（截图：选源 QQMusic + 混录开 + AirPods Pro，波形直线，REC 7.8s）并发「这个还是没声音」催修=审核放行。截图新增实锤：**聚合设备泄漏累积**（麦列表躺 #89802 / #81333 两个历史残留，每次崩溃/未清理会话新增一只）。需求台拍板：验收标准 2 的二选一取「**切麦=生效**」（运行时重建注入引擎，非仅提示）。
-> 排障定论：**与 FIX-018 无关**（该轮为固定满刻度映射改动，数学上不可能把有信号压成零；本次是峰值回调流里根本没有信号）。
-
-**需求台分析（日志 + 代码双证据，日志 audiorecord_2026-10-30.log 20:21:46–20:22:24）**：
-
-时间线：20:21:46.4 点录制（`开始多音源录制 - 麦克风:false`，此时混录开关未开）→ 20:21:49.1 老板开「同时录入麦克风」→ 注入引擎启动（MacBook Pro 麦克风，unit 首帧 peak=0.016 ≈ 环境底噪，老板戴 AirPods 未对 Mac 说话）→ 20:21:51.7–57.9 老板录音中连切 6 次麦设备（AirPods→默认→AirPods→#376234→MacBook→#60274）→ 20:22:04 停止，守卫按峰值 0.0 判无效删除 → 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」。
-
-三层缺陷：
-
-1. **mic 混入晚于峰值取样（代码 bug，本单主刀）**：`AudioCallbackHandler.swift:68` `calculateAndReportLevel(from: bufferList)` 对**原始系统 buffer** 算峰值/电平，`:71` `writeAudioData` 内部（`:254-283` FIX-007 注入分支）才把 mic 按 40% 混入后写文件。后果：波形（updatePeakLevel）、DB 表（onLevel）、BUG-1 无效录音守卫（maxPeakDuringRecording）**永远只看系统侧**——mic 独响时三者全零，守卫还会把「只有麦克风声音」的正常录音误删（本例实锤：文件 798208 帧被删）。
-2. **录音中切麦不生效（FIX-017 同族）**：注入引擎 MicCaptureUnit（AUHAL）启动后不响应设备切换（FEAT-004 已知「installTap 后 AUHAL 拒换设备」），`micDeviceSelected` 6 连点只改 UI 状态与 MicDeviceManager 偏好，跑着的 unit 照旧采启动时设备；UI 无任何「已选设备在本场录音中不生效」提示。
-3. **失效聚合设备可选（设备列表卫生）**：历史会话残留聚合设备（#376234 已死、#60274 停止后即失效）出现在麦克风列表可被选中，选中后静默降级（20:22:24 才回退且仅日志）。
-
-**做什么（草案，待需求审核裁剪）**：
-1. 峰值/电平取样移到混音之后（或 calculateAndReportLevel 增加混音后 buffer 口径）——波形/DB 表/守卫与用户听到的内容同源；守卫判「无效」前须以写盘内容峰值复核（防误删 mic-only 录音）
-2. 录音中麦设备切换：要么运行时重挂（AUHAL 换设备受限则重建 unit，防双开），要么明确提示「本场录音将沿用启动时设备」；与 FIX-017 一并定「锁 vs 提示」口径
-3. 麦克风列表过滤失效设备（kAudioDevicePropertyDeviceIsAlive/`isAlive` 探测），选中失效设备时 UI 即时提示并回退
-
-**边缘情况**：mic-only 录音（系统静音+只录麦）是合法场景，守卫不得误杀；聚合设备 #60274 恰为本实例 PID 命名空间产物，列表刷新时序待查（App 自建聚合不应出现在麦列表）。
-
-**验收标准（草案）**：
-- [ ] 系统静音 + MacBook 麦克风说话：波形实时出条、DB 表动作、录音可保存（不再被守卫误删）
-- [ ] 录音中切麦：要么生效要么 UI 明示不生效（二选一，需求台拍板）
-- [ ] 失效设备不出现在麦列表或选中即提示
-- [ ] build 0 / SDK 基线不回退 / lite 6/6
-
-**预估**：M（回调链重排 + 守卫复核 + 设备列表探测）｜ **证据**：docs/证据/2026-10-31-FIX021-交付证据.md
-
-**R17 轮交付（2026-10-31，worktree `loop/FIX-021`）**：三因全修——
-1. **电平取样同源化**（AudioCallbackHandler）：回调顺序改「先写后取样」；writeAudioData 拆出 `mixMicIfNeeded`，混音结果真实写盘时暂存 `lastMixedSamples`，calculateAndReportLevel 优先消费（一次性清空，无消费者不滞留）；AudioUtils 新增 `calculateAudioLevel(fromSamples:)` 与 AudioBufferList 版口径一致——波形/DB 表/BUG-1 无效守卫看到的即用户听到的，mic-only 录音不再全零、不再被守卫误删
-2. **录音中切麦=生效**（CoreAudioProcessTapRecorder + MainViewController + MicDeviceManager）：新增 `restartMicCaptureForDeviceChange()`（停掉在跑 unit→按新偏好重建，未开混录 no-op）；MicDeviceManager.preferredDeviceUID 变更即广播 `onPreferredDeviceChanged`，MainViewController 订阅后录音中重建+状态条提示「麦克风已切换，本次录制即时生效」（i18n en 已补）
-3. **设备列表卫生**（MicDeviceManager.listMicrophones）：过滤本 App 自建 Tap 聚合（名字恒 "Tap-<UUID>"，含跨会话泄漏残留——10-31 截图 #89802/#81333 实锤）+ `kAudioDevicePropertyDeviceIsAlive` 探测过滤死设备（查询失败保守放行）
-
-**机器门禁**：build 0（14 条告警全为既有文件行号偏移，零新增）/ SDK 111/111（新增 6 条：混音口径 40%/口径一致性/mic-only 非零/provider 关闭不注入/峰值回调报告混音值/消费后清空）/ lite 真机回归**让路未跑**（老板实例 PID 81333 占用独占资源，验收期补）。⚠️ 已知边界：实时转写旁路仍吃系统侧原始 buffer（mic 人声不进转写），与 FEAT-001 联动另开单。
-
----
 
 ### REL-006 商店对齐：砍 ffmpeg 导出链（导出面收敛系统原生格式） | P1 | M | [todo · 待需求审核]
 

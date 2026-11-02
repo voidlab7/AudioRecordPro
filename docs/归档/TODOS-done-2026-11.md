@@ -6,6 +6,54 @@
 
 ---
 
+### FIX-021 麦克风混录三连缺：mic 不进波形/电平表/无效守卫 + 录音中切麦不生效 + 失效聚合设备可选 | P1 | M | [done · 2026-11-02 验收]
+
+> 来源：老板 2026-10-30 20:21 实录反馈「录制没有声音」（截图：REC 页波形贴中线圆点行、DB 表无动作、计时 15s）。
+> **需求审核通过（2026-10-31）**：老板复测仍无声音（截图：选源 QQMusic + 混录开 + AirPods Pro，波形直线，REC 7.8s）并发「这个还是没声音」催修=审核放行。截图新增实锤：**聚合设备泄漏累积**（麦列表躺 #89802 / #81333 两个历史残留，每次崩溃/未清理会话新增一只）。需求台拍板：验收标准 2 的二选一取「**切麦=生效**」（运行时重建注入引擎，非仅提示）。
+> 排障定论：**与 FIX-018 无关**（该轮为固定满刻度映射改动，数学上不可能把有信号压成零；本次是峰值回调流里根本没有信号）。
+
+**需求台分析（日志 + 代码双证据，日志 audiorecord_2026-10-30.log 20:21:46–20:22:24）**：
+
+时间线：20:21:46.4 点录制（`开始多音源录制 - 麦克风:false`，此时混录开关未开）→ 20:21:49.1 老板开「同时录入麦克风」→ 注入引擎启动（MacBook Pro 麦克风，unit 首帧 peak=0.016 ≈ 环境底噪，老板戴 AirPods 未对 Mac 说话）→ 20:21:51.7–57.9 老板录音中连切 6 次麦设备（AirPods→默认→AirPods→#376234→MacBook→#60274）→ 20:22:04 停止，守卫按峰值 0.0 判无效删除 → 20:22:24「所选设备失效已回退: CADefaultDeviceAggregate-60274-0」。
+
+三层缺陷：
+
+1. **mic 混入晚于峰值取样（代码 bug，本单主刀）**：`AudioCallbackHandler.swift:68` `calculateAndReportLevel(from: bufferList)` 对**原始系统 buffer** 算峰值/电平，`:71` `writeAudioData` 内部（`:254-283` FIX-007 注入分支）才把 mic 按 40% 混入后写文件。后果：波形（updatePeakLevel）、DB 表（onLevel）、BUG-1 无效录音守卫（maxPeakDuringRecording）**永远只看系统侧**——mic 独响时三者全零，守卫还会把「只有麦克风声音」的正常录音误删（本例实锤：文件 798208 帧被删）。
+2. **录音中切麦不生效（FIX-017 同族）**：注入引擎 MicCaptureUnit（AUHAL）启动后不响应设备切换（FEAT-004 已知「installTap 后 AUHAL 拒换设备」），`micDeviceSelected` 6 连点只改 UI 状态与 MicDeviceManager 偏好，跑着的 unit 照旧采启动时设备；UI 无任何「已选设备在本场录音中不生效」提示。
+3. **失效聚合设备可选（设备列表卫生）**：历史会话残留聚合设备（#376234 已死、#60274 停止后即失效）出现在麦克风列表可被选中，选中后静默降级（20:22:24 才回退且仅日志）。
+
+**做什么（草案，待需求审核裁剪）**：
+1. 峰值/电平取样移到混音之后（或 calculateAndReportLevel 增加混音后 buffer 口径）——波形/DB 表/守卫与用户听到的内容同源；守卫判「无效」前须以写盘内容峰值复核（防误删 mic-only 录音）
+2. 录音中麦设备切换：要么运行时重挂（AUHAL 换设备受限则重建 unit，防双开），要么明确提示「本场录音将沿用启动时设备」；与 FIX-017 一并定「锁 vs 提示」口径
+3. 麦克风列表过滤失效设备（kAudioDevicePropertyDeviceIsAlive/`isAlive` 探测），选中失效设备时 UI 即时提示并回退
+
+**边缘情况**：mic-only 录音（系统静音+只录麦）是合法场景，守卫不得误杀；聚合设备 #60274 恰为本实例 PID 命名空间产物，列表刷新时序待查（App 自建聚合不应出现在麦列表）。
+
+**验收标准（草案）**：
+- [x] 系统静音 + MacBook 麦克风说话：波形实时出条、DB 表动作、录音可保存（不再被守卫误删）——老板 2026-11-02 实机验收通过；SDK 端到端断言 `testLevelSamplingPrefersMixedSamples_FIX021` 固化
+- [x] 录音中切麦：生效（拍板口径落地：`restartMicCaptureForDeviceChange`）——老板实机验收通过
+- [x] 失效设备不出现在麦列表或选中即提示——过滤 Tap- 聚合 + isAlive；老板实机验收通过
+- [x] build 0 / SDK 基线不回退 / lite——build 0 / SDK 111/111（+6）；lite 验收期让路后由老板实机补位通过
+
+**预估**：M（回调链重排 + 守卫复核 + 设备列表探测）｜ **证据**：docs/证据/2026-10-31-FIX021-交付证据.md
+
+**R17 轮交付（2026-10-31，worktree `loop/FIX-021`）**：三因全修——
+1. **电平取样同源化**（AudioCallbackHandler）：回调顺序改「先写后取样」；writeAudioData 拆出 `mixMicIfNeeded`，混音结果真实写盘时暂存 `lastMixedSamples`，calculateAndReportLevel 优先消费（一次性清空，无消费者不滞留）；AudioUtils 新增 `calculateAudioLevel(fromSamples:)` 与 AudioBufferList 版口径一致——波形/DB 表/BUG-1 无效守卫看到的即用户听到的，mic-only 录音不再全零、不再被守卫误删
+2. **录音中切麦=生效**（CoreAudioProcessTapRecorder + MainViewController + MicDeviceManager）：新增 `restartMicCaptureForDeviceChange()`（停掉在跑 unit→按新偏好重建，未开混录 no-op）；MicDeviceManager.preferredDeviceUID 变更即广播 `onPreferredDeviceChanged`，MainViewController 订阅后录音中重建+状态条提示「麦克风已切换，本次录制即时生效」（i18n en 已补）
+3. **设备列表卫生**（MicDeviceManager.listMicrophones）：过滤本 App 自建 Tap 聚合（名字恒 "Tap-<UUID>"，含跨会话泄漏残留——10-31 截图 #89802/#81333 实锤）+ `kAudioDevicePropertyDeviceIsAlive` 探测过滤死设备（查询失败保守放行）
+
+**机器门禁**：build 0（14 条告警全为既有文件行号偏移，零新增）/ SDK 111/111（新增 6 条：混音口径 40%/口径一致性/mic-only 非零/provider 关闭不注入/峰值回调报告混音值/消费后清空）/ lite 真机回归**让路未跑**（老板实例 PID 81333 占用独占资源，验收期补）。⚠️ 已知边界：实时转写旁路仍吃系统侧原始 buffer（mic 人声不进转写），与 FEAT-001 联动另开单。
+
+---
+
+**合入**（master `73d5b3e` = merge `loop/FIX-021` @ `db4aa19`）：
+- 代码：AudioCallbackHandler 先写后取样 + lastMixedSamples；CoreAudioProcessTapRecorder 切麦重建；MicDeviceManager 列表卫生 + 偏好广播；MainViewController 订阅提示；AudioUtils/Tests +6
+- 证据：`docs/证据/2026-10-31-FIX021-交付证据.md`
+- 战报：`docs/LoopBuddy/R17-FIX021-2026-10-31-战报.md`（与 UI-039 同日 R17 文件名撞名，合入时分立保留）
+- 老板 2026-11-02 22:46 Asia/Shanghai 口头「验收通过」。
+
+---
+
 ### UI-042 拖动窗口边框时轨道与时间标尺不重排（时间-像素映射锁定） | P2 | S | [done · 2026-11-01 验收]
 
 > 来源：老板 2026-10-31「需求入池，拖动边框的时候，轨道不用动。就是 轨道的标尺不用动。」+ 10-31「开始开发」=需求审核通过。
