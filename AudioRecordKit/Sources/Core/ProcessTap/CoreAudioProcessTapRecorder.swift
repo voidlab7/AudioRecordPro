@@ -54,6 +54,25 @@ final class CoreAudioProcessTapRecorder: BaseAudioRecorder {
         }
     }
 
+    /// FIX-021: 录音中切换麦克风设备——AUHAL unit 启动后不响应设备变更（FEAT-004 已知），
+    /// 停掉在跑的注入引擎并按新偏好设备重建。未开混录或引擎未跑时 no-op
+    /// （下次开混录 startMicEngineIfNeeded 自然使用新设备）。返回是否发生了重建。
+    @discardableResult
+    func restartMicCaptureForDeviceChange() -> Bool {
+        micStateLock.lock()
+        let enabled = micMixEnabled
+        let running = micEngine != nil || micCaptureUnit != nil
+        micStateLock.unlock()
+        guard enabled, running else {
+            logger.info("🎤 [FIX021] 设备切换时注入引擎未在跑（enabled=\(enabled), running=\(running)），跳过重建")
+            return false
+        }
+        logger.info("🎤 [FIX021] 录音中麦克风设备切换 → 重建注入引擎")
+        stopMicEngineIfNeeded()
+        startMicEngineIfNeeded()
+        return true
+    }
+
     /// IO 回调线程调用：取一帧 interleaved 立体声麦克风数据；未开启/数据不足时按 hold 补偿（仅开启时）
     private func takeMicSamples(frameCount: UInt32) -> [Float]? {
         micStateLock.lock()

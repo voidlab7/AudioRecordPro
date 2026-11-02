@@ -128,7 +128,7 @@ final class AudioUtilsTests: XCTestCase {
     }
 
     // MARK: - Process Tap Constants Tests
-    
+
     func testProcessTapConstantsExist() {
         // 验证常量存在且非零（这些是 CoreAudio 选择器，类型为 UInt32/Int32，直接比较即可）
         XCTAssertNotEqual(AudioUtils.kAudioTapPropertyUID, 0)
@@ -137,5 +137,142 @@ final class AudioUtilsTests: XCTestCase {
         XCTAssertNotEqual(AudioUtils.kAudioTapErrorNotAvailable, 0)
         XCTAssertNotEqual(AudioUtils.kAudioTapErrorAlreadyExists, 0)
         XCTAssertNotEqual(AudioUtils.kAudioAggregateDevicePropertyTapAutoStart, 0)
+    }
+
+    // MARK: - FIX-021: 混音后样本电平取样
+
+    func testCalculateAudioLevelFromSamplesSilence() {
+        let result = AudioUtils.calculateAudioLevel(fromSamples: [Float](repeating: 0, count: 1024))
+        XCTAssertEqual(result.maxLevel, 0, accuracy: 1e-6)
+        XCTAssertEqual(result.rmsLevel, 0, accuracy: 1e-6)
+        XCTAssertEqual(result.normalizedLevel, 0, accuracy: 1e-6)
+    }
+
+    func testCalculateAudioLevelFromSamplesMicOnlySignal() {
+        // mic-only 场景（老板 10-30/10-31 两轮实测）：系统侧全零 + mic 混入样本有信号
+        // → maxLevel/normalizedLevel 必须非零。修复前电平只看系统侧全零，
+        // 波形贴中线、DB 表不动、录音还被无效守卫误删
+        var samples = [Float](repeating: 0, count: 1024)
+        for i in stride(from: 0, to: 1024, by: 2) {
+            samples[i] = 0.5
+            samples[i + 1] = -0.5
+        }
+        let result = AudioUtils.calculateAudioLevel(fromSamples: samples)
+        XCTAssertEqual(result.maxLevel, 0.5, accuracy: 1e-6)
+        XCTAssertGreaterThan(result.normalizedLevel, 0)
+    }
+
+    func testCalculateAudioLevelFromSamplesMatchesBufferListVersion() {
+        // FIX-021 两个口径必须一致：同一份数据，fromSamples 与 AudioBufferList 版结果相同
+        var samples = [Float](repeating: 0, count: 512)
+        for i in 0..<512 { samples[i] = sin(Float(i) * 0.1) * 0.3 }
+        let fromSamples = AudioUtils.calculateAudioLevel(fromSamples: samples)
+        let byteSize = samples.count * MemoryLayout<Float>.size
+        let frameCount = samples.count / 2
+        samples.withUnsafeMutableBytes { raw in
+            guard let base = raw.baseAddress else {
+                XCTFail("样本缓冲指针为空")
+                return
+            }
+            let bufferList = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(
+                    mNumberChannels: 2,
+                    mDataByteSize: UInt32(byteSize),
+                    mData: base))
+            let fromList = AudioUtils.calculateAudioLevel(from: bufferList, frameCount: UInt32(frameCount))
+            XCTAssertEqual(fromSamples.maxLevel, fromList.maxLevel, accuracy: 1e-6)
+            XCTAssertEqual(fromSamples.normalizedLevel, fromList.normalizedLevel, accuracy: 1e-6)
+        }
+    }
+
+    func testMixMicIfNeededInjectsAtFortyPercent_FIX021() {
+        // 混音口径回归：0 系统 + 0.6 mic → 0.6×0.4=0.24；0.5 系统 + 0 mic → 0.3
+        guard #available(macOS 14.4, *) else {
+            XCTFail("AudioCallbackHandler 要求 macOS 14.4+")
+            return
+        }
+        let handler = AudioCallbackHandler()
+        handler.setMicMixProvider { _ in
+            [Float](repeating: 0.6, count: 8)
+        }
+        var sys = [Float](repeating: 0.5, count: 8)
+        let byteSize = sys.count * MemoryLayout<Float>.size
+        sys.withUnsafeMutableBytes { raw in
+            guard let base = raw.baseAddress else {
+                XCTFail("系统缓冲指针为空")
+                return
+            }
+            let bufferList = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(
+                    mNumberChannels: 2,
+                    mDataByteSize: UInt32(byteSize),
+                    mData: base))
+            guard let mixed = handler.mixMicIfNeeded(from: bufferList, frameCount: 4) else {
+                XCTFail("provider 就绪时应产出混音样本")
+                return
+            }
+            XCTAssertEqual(mixed.count, 8)
+            XCTAssertEqual(mixed[0], 0.5 * 0.6 + 0.6 * 0.4, accuracy: 1e-6)
+            // 混音峰值高于纯系统侧峰值（0.5）——mic-only 守卫误删的根因场景
+            XCTAssertGreaterThan(mixed.map { abs($0) }.max() ?? 0, 0.5)
+        }
+    }
+
+    func testMixMicIfNeededNilWhenProviderOff_FIX021() {
+        guard #available(macOS 14.4, *) else {
+            XCTFail("AudioCallbackHandler 要求 macOS 14.4+")
+            return
+        }
+        let handler = AudioCallbackHandler()
+        // 未设置 provider（开关关/引擎未跑）→ 本帧不注入
+        var sys = [Float](repeating: 0.5, count: 8)
+        let byteSize = sys.count * MemoryLayout<Float>.size
+        sys.withUnsafeMutableBytes { raw in
+            guard let base = raw.baseAddress else { return }
+            let bufferList = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(
+                    mNumberChannels: 2,
+                    mDataByteSize: UInt32(byteSize),
+                    mData: base))
+            XCTAssertNil(handler.mixMicIfNeeded(from: bufferList, frameCount: 4))
+        }
+    }
+
+    func testLevelSamplingPrefersMixedSamples_FIX021() {
+        // 端到端：本帧有混音缓存时，峰值回调必须报告混音后峰值（0.8），而非系统侧全零
+        guard #available(macOS 14.4, *) else {
+            XCTFail("AudioCallbackHandler 要求 macOS 14.4+")
+            return
+        }
+        let handler = AudioCallbackHandler()
+        var receivedPeak: Float?
+        let reported = expectation(description: "peak reported")
+        handler.setPeakLevelCallback { peak in
+            receivedPeak = peak
+            reported.fulfill()
+        }
+        var sys = [Float](repeating: 0, count: 8)
+        let byteSize = sys.count * MemoryLayout<Float>.size
+        sys.withUnsafeMutableBytes { raw in
+            guard let base = raw.baseAddress else {
+                XCTFail("系统缓冲指针为空")
+                return
+            }
+            let bufferList = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(
+                    mNumberChannels: 2,
+                    mDataByteSize: UInt32(byteSize),
+                    mData: base))
+            handler.lastMixedSamples = [Float](repeating: 0.8, count: 8)
+            handler.calculateAndReportLevel(from: bufferList, frameCount: 4)
+            // 一次性消费后清空
+            XCTAssertNil(handler.lastMixedSamples)
+        }
+        waitForExpectations(timeout: 2)
+        XCTAssertEqual(receivedPeak ?? 0, 0.8, accuracy: 1e-6)
     }
 }
