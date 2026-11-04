@@ -4,6 +4,12 @@ import AudioToolbox
 import AppKit
 import UniformTypeIdentifiers
 
+/// FLAC 四字符码（'flac'）。macOS 26 SDK 的 Swift overlay 未导出 kAudioFormatFlac 常量，
+/// 但 CoreAudio 库层完整支持 FLAC 编解码（afconvert -f flac 同款链路，实测产物 afinfo 可识别）。
+/// 注意：AVAudioFile 的产物 finalize 发生在对象 deinit（26 SDK 已移除 ExtAudioFileClose 链接符号，
+/// 无法手动 finalize）——转码写块必须用独立作用域，释放后再读产物/日志（REL-006）。
+private let kAudioFormatFlac: AudioFormatID = 0x666C_6163 // 'f'=0x66 'l'=0x6C 'a'=0x61 'c'=0x63
+
 /// 导出服务 (V2.0 → FEAT-007)
 /// 导出 = 解密 .arlock → 临时 .m4a → 转码为目标格式 → NSSavePanel 写入
 /// FEAT-007: 草稿存在时，导出 = 「原始文件 + 草稿」渲染编辑结果（剪映模型）——
@@ -146,23 +152,14 @@ class ExportService {
         return url.deletingPathExtension().appendingPathExtension(format.fileExtension)
     }
     
-    /// 音频转码（AVAudioFile 解码 + 重编码 / ffmpeg MP3/FLAC/OGG）
+    /// 音频转码（AVAudioFile 解码 + 重编码——REL-006 后导出面全为系统原生格式，无外部进程）
     private func transcode(inputURL: URL, outputURL: URL, format: AudioExportFormat) throws {
         ensureParentDirectory(outputURL)
         removeIfExists(outputURL)
-        
-        // MP3/FLAC/OGG: 走 ffmpeg 路径（App 内置 ffmpeg，含 libmp3lame MP3 编码器）
-        // 注：系统 ExtAudioFile 的 Apple MP3 编码器在 macOS 26 已不可用（'fmt?'），
-        // 统一由 ffmpeg 负责这三种格式。
-        if format == .mp3 || format == .flac || format == .ogg {
-            try transcodeWithFFmpeg(inputURL: inputURL, outputURL: outputURL, format: format)
-            return
-        }
 
         let inputFile = try AVAudioFile(forReading: inputURL)
         let inputFormat = inputFile.processingFormat
-        
-        // M4A/WAV/AIFF: 走 AVAudioFile 路径
+
         let outputSettings: [String: Any]
         switch format {
         case .m4a:
@@ -181,6 +178,14 @@ class ExportService {
                 AVLinearPCMIsFloatKey: false,
                 AVLinearPCMIsBigEndianKey: false
             ]
+        case .flac:
+            // REL-006: FLAC 走 CoreAudio 原生编码（原为 App 内置外部转码器，该链路已整体移除）
+            // 注：无 AVEncoderBitRateKey——FLAC 无码率概念，CoreAudio 自动按源精度选 16/24bit
+            outputSettings = [
+                AVFormatIDKey: kAudioFormatFlac,
+                AVSampleRateKey: inputFormat.sampleRate,
+                AVNumberOfChannelsKey: inputFormat.channelCount
+            ]
         case .aiff:
             outputSettings = [
                 AVFormatIDKey: kAudioFormatLinearPCM,
@@ -190,20 +195,22 @@ class ExportService {
                 AVLinearPCMIsFloatKey: false,
                 AVLinearPCMIsBigEndianKey: true
             ]
-        default:
-            throw ExportError.transcodeFailed("不支持的导出格式: %@".localized(format.displayName))
         }
-        
-        let outputFile = try AVAudioFile(forWriting: outputURL, settings: outputSettings, commonFormat: inputFormat.commonFormat, interleaved: inputFormat.isInterleaved)
-        
-        let frameCapacity = AVAudioFrameCount(inputFile.length)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: frameCapacity) else {
-            throw ExportError.transcodeFailed("无法创建 PCM buffer".localized)
+
+        // 写块独立作用域：AVAudioFile 的 finalize（含 FLAC STREAMINFO 总帧数回写）发生在 deinit，
+        // 必须先让对象释放，再读产物（do 块结束即释放；否则产物是 "length unknown" 的未收尾流）
+        do {
+            let outputFile = try AVAudioFile(forWriting: outputURL, settings: outputSettings, commonFormat: inputFormat.commonFormat, interleaved: inputFormat.isInterleaved)
+
+            let frameCapacity = AVAudioFrameCount(inputFile.length)
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: frameCapacity) else {
+                throw ExportError.transcodeFailed("无法创建 PCM buffer".localized)
+            }
+
+            try inputFile.read(into: buffer)
+            try outputFile.write(from: buffer)
         }
-        
-        try inputFile.read(into: buffer)
-        try outputFile.write(from: buffer)
-        
+
         logComplete(outputURL, format: format)
     }
     
@@ -226,94 +233,6 @@ class ExportService {
             countStyle: .file
         )
         logger.info("转码完成: \(format.displayName) → \(sizeStr)")
-    }
-    
-    // MARK: - ffmpeg
-    
-    /// 检查 ffmpeg 是否可用（公开方法，供 UI 层用）
-    static func hasFFmpeg() -> Bool {
-#if DEBUG
-        return _privateHasFFmpeg()
-#else
-        return _privateHasFFmpeg()
-#endif
-    }
-    
-    private static func _privateHasFFmpeg() -> Bool {
-        // 1. App Bundle Resources
-        if let bundled = Bundle.main.url(forResource: "ffmpeg", withExtension: ""),
-           FileManager.default.isExecutableFile(atPath: bundled.path) { return true }
-        // 2. 系统路径
-        let paths = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"]
-        return paths.contains { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-    
-    /// 查找 ffmpeg 路径：App Bundle Resources → 系统路径
-    private func findFFmpegPath() -> String? {
-        // 1. App Bundle Resources（内置 ffmpeg）
-        if let bundled = Bundle.main.url(forResource: "ffmpeg", withExtension: ""),
-           FileManager.default.isExecutableFile(atPath: bundled.path) {
-            logger.info("使用内置 ffmpeg: \(bundled.path)")
-            return bundled.path
-        }
-        // 2. Homebrew (Apple Silicon)
-        let hb = "/opt/homebrew/bin/ffmpeg"
-        if FileManager.default.isExecutableFile(atPath: hb) { return hb }
-        // 3. Homebrew (Intel)
-        let hb2 = "/usr/local/bin/ffmpeg"
-        if FileManager.default.isExecutableFile(atPath: hb2) { return hb2 }
-        // 4. 系统默认
-        let sys = "/usr/bin/ffmpeg"
-        if FileManager.default.isExecutableFile(atPath: sys) { return sys }
-        return nil
-    }
-    
-    /// ffmpeg 转码（MP3/FLAC/OGG）
-    private func transcodeWithFFmpeg(inputURL: URL, outputURL: URL, format: AudioExportFormat) throws {
-        guard let ffmpeg = findFFmpegPath() else {
-            throw ExportError.transcodeFailed("""
-                %@ 导出需要 ffmpeg。
-                方式一: brew install ffmpeg
-                方式二: 将 ffmpeg 二进制放入 App/Contents/Resources/
-                """.localized(format.displayName))
-        }
-        
-        ensureParentDirectory(outputURL)
-        removeIfExists(outputURL)
-        
-        let codec: String
-        switch format {
-        case .mp3:  codec = "libmp3lame"
-        case .flac: codec = "flac"
-        case .ogg:  codec = "libvorbis"
-        default:    throw ExportError.transcodeFailed("不支持的 ffmpeg 格式".localized)
-        }
-        
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: ffmpeg)
-        process.arguments = [
-            "-i", inputURL.path,
-            "-vn",            // no video
-            "-codec:a", codec,
-            "-y",             // overwrite
-            outputURL.path
-        ]
-        
-        let pipe = Pipe()
-        process.standardError = pipe
-        process.standardOutput = FileHandle.nullDevice
-        
-        try process.run()
-        process.waitUntilExit()
-        
-        guard process.terminationStatus == 0 else {
-            let errData = pipe.fileHandleForReading.readDataToEndOfFile()
-            let errMsg = String(data: errData, encoding: .utf8) ?? "未知错误".localized
-            // ffmpeg 错误关键信息在 stderr 末尾（开头是版本头），取末尾 500 字符
-            throw ExportError.transcodeFailed("ffmpeg 转码失败: %@".localized(String(errMsg.suffix(500))))
-        }
-        
-        logComplete(outputURL, format: format)
     }
 }
 

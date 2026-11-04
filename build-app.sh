@@ -70,26 +70,8 @@ if [ -d "$ROOT_DIR/AudioRecordApp/Sources/L10n" ]; then
   echo "   ✅ 本地化资源 (lproj) → App Resources"
 fi
 
-# V2.0: 复制 ffmpeg 到 App Resources（优先用 Resources 里的完整版）
-echo "🎬 检查 ffmpeg..."
-FFMPEG_SRC=""
-# 1. 项目 Resources 目录（完整静态编译版，77MB）
-if [ -x "$ROOT_DIR/AudioRecordApp/Resources/ffmpeg" ]; then
-  FFMPEG_SRC="$ROOT_DIR/AudioRecordApp/Resources/ffmpeg"
-# 2. Homebrew（可能只是 wrapper，检查是否足够大）
-elif [ -x "/opt/homebrew/bin/ffmpeg" ] && [ "$(stat -f %z /opt/homebrew/bin/ffmpeg 2>/dev/null || echo 0)" -gt 1000000 ]; then
-  FFMPEG_SRC="/opt/homebrew/bin/ffmpeg"
-elif [ -x "/usr/local/bin/ffmpeg" ] && [ "$(stat -f %z /usr/local/bin/ffmpeg 2>/dev/null || echo 0)" -gt 1000000 ]; then
-  FFMPEG_SRC="/usr/local/bin/ffmpeg"
-fi
-if [ -n "$FFMPEG_SRC" ]; then
-  cp "$FFMPEG_SRC" "$RESOURCES_DIR/ffmpeg"
-  chmod +x "$RESOURCES_DIR/ffmpeg"
-  echo "   ✅ ffmpeg → App Resources"
-else
-  echo "   ⚠️  未找到 ffmpeg，FLAC/OGG 导出将不可用"
-  echo "   安装: brew install ffmpeg"
-fi
+# REL-006: 外部转码器打包链路已移除——导出面收敛系统原生格式（WAV/M4A/FLAC/AIFF），
+# bundle 不再携带任何三方可执行文件（App Store 对齐：Resources 内可执行文件是拒审项）
 
 echo "🏷️  注入版本号..."
 # 版本体系：CFBundleShortVersionString = <营销版本>.<build 号>（如 1.1.42，关于面板显示）；

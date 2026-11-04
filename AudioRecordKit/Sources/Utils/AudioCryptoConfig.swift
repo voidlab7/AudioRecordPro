@@ -120,34 +120,30 @@ struct AudioCryptoConfig {
 // MARK: - 音频导出格式枚举
 /// 导出格式（供 ExportService 使用）
 public enum AudioExportFormat: String, CaseIterable, Sendable {
+    // REL-006: 导出面收敛系统原生格式——MP3/OGG 随外部转码链移除
+    //（macOS 26 无 Apple MP3 编码器；CoreAudio 无 Vorbis）；FLAC 保留走 CoreAudio 原生编码
     case m4a = "m4a"
     case wav = "wav"
-    case mp3 = "mp3"
     case flac = "flac"
     case aiff = "aiff"
-    case ogg = "ogg"
-    
+
     public var displayName: String {
         switch self {
         case .m4a: return "M4A (AAC)"
         case .wav: return "WAV (PCM)"
-        case .mp3: return "MP3"
         case .flac: return "FLAC"
         case .aiff: return "AIFF"
-        case .ogg: return "OGG"
         }
     }
-    
+
     public var fileExtension: String { rawValue }
-    
+
     public var utTypeIdentifier: String {
         switch self {
         case .m4a: return "com.apple.m4a-audio"
         case .wav: return "com.microsoft.waveform-audio"
-        case .mp3: return "public.mp3"
         case .flac: return "org.xiph.flac"
         case .aiff: return "public.aiff-audio"
-        case .ogg: return "org.xiph.ogg-audio"
         }
     }
 }

@@ -203,22 +203,8 @@ class ExportCardWindowController: NSWindowController {
     // MARK: - Actions
     
     @objc private func formatChanged() {
-        let idx = formatPopup.indexOfSelectedItem
-        guard idx >= 0 && idx < AudioExportFormat.allCases.count else { return }
-        let format = AudioExportFormat.allCases[idx]
-        
-        // FLAC/OGG 仅在 ffmpeg 不可用时显示警告
-        if format == .flac || format == .ogg {
-            let hasFFmpeg = ExportService.hasFFmpeg()
-            if !hasFFmpeg {
-                statusLabel.stringValue = "⚠️ %@ 需要 ffmpeg (brew install ffmpeg)".localized(format.displayName)
-                statusLabel.textColor = NSColor.systemOrange
-            } else {
-                statusLabel.stringValue = ""
-            }
-        } else {
-            statusLabel.stringValue = ""
-        }
+        // REL-006: 导出面已全收敛系统原生格式（MP3/OGG/外部转码链路移除），切换格式无需警告
+        statusLabel.stringValue = ""
     }
     
     @objc private func chooseLocation() {
