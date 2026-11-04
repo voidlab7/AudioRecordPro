@@ -86,3 +86,31 @@
 **排障记录**（R1 lastLaidOutWidth 过期基准 = 3/7 分数形状定位；R2 三轮皆测试数学错位：redo 删除态 totalDuration 错位一半 / f0 基准越尾 clamp，App 实现零改动即正确——方法论：lite 断言期望值必须取被测视图实时状态）。
 
 **实机验收项**：老板 10-31/11-01 实机拖边框+滚动条+布局块逐项看毕，「验收通过」（11-01）。合并态回归 build 0 / SDK 142/142；合并态 lite 待 App 空闲补跑（worktree 终版已 15/15）。
+
+---
+
+### REL-006 商店对齐：砍 ffmpeg 导出链（导出面收敛系统原生格式） | P1 | M | [done · 2026-11-04 验收]
+
+> 来源：老板 2026-10-30 会话拍板「导出可以砍掉，不要 ffmpeg 加入需求」。
+> 背景：2026-10-30 App Store 对齐审计（逆向对标已上架基准 Audio Capture Pro）：ACP 零内嵌二进制、零三方编解码库，导出面仅 M4A/WAV（系统原生）；Loocap `Contents/Resources/ffmpeg`（77MB 静态二进制，ExportService 探测链 Bundle→homebrew）是三重问题叠加——①「Resources 内可执行文件」常见拒审项 ②静态链接 GPL 组件与 App Store 分发条款冲突 ③体积负担。审计同时确认其余产物面已全部对齐——**唯一硬伤即 ffmpeg**。
+
+**做什么**：
+1. `ExportService.swift` 移除 ffmpeg 转码路径（MP3/FLAC/OGG 三格式），导出面收敛：**WAV + M4A**（系统原生）；FLAC 是否以 CoreAudio 原生编码保留由需求审核拍板
+2. `ExportCardWindowController` 导出选项 UI 同步收敛
+3. `build-app.sh` 移除 ffmpeg 探测与拷贝段（bundle −77MB）
+4. i18n 字符串清理：en base / zh-Hans lproj 中 MP3/OGG/ffmpeg 相关条目
+
+**不做什么**：不做「系统/ffmpeg 双后端抽象」（老板 2026-10-30 明确否掉）；不动录制/转写/编辑链路。
+
+**验收标准**（全部实测达成，见证据文档）：
+- [x] 全仓 `grep -ri ffmpeg`（源码+脚本+资源）零命中；`find build/Loocap.app -type f -perm +111` 仅主二进制
+- [x] 导出 WAV / M4A 实测出文件，`afinfo` 校验格式与时长正确（老板实机四格式验收通过）
+- [x] bundle 体积记录（5.6M，无内嵌二进制）
+- [x] `build-app.sh` exit 0；SDK 单测基线不回退（148/148）；lite 全 PASS
+
+**交付与验收记录**（2026-11-04）：
+- 需求审核：老板「这个需求审核通过，可以开发了」
+- 交付：loop/REL-006 49b4b89（7 文件 +55/−177）；FLAC 决策=验证可行即保留——CoreAudio 原生编码（'flac' 四字符码，26 SDK Swift 层缺 `kAudioFormatFlac` 常量自建；finalize 在 AVAudioFile deinit，写块独立作用域），比 ACP 多一项无损格式
+- 附带修正：菜单「导出 MP3」→「导出」（行为一直是开导出卡片）；主仓残留 80MB 二进制 + 17MB 源码 7z 已 mv 废纸篓
+- 验收：老板实机导出四格式 afinfo 校验通过，「验收通过」；master 51ca9c9 = merge loop/REL-006；worktree 清树
+- 证据：`docs/证据/2026-11-04-REL006-砍外部转码器导出链-交付证据.md`
