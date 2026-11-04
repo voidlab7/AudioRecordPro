@@ -28,7 +28,8 @@ class TrackContainerView: NSView {
     /// UI-037: ruler 固定贴轨道区顶部（navigationBar 正下方），不再随轨道带居中；
     ///       左侧 88px 轨道头不绘制刻度（喇叭按钮所在列保持纯净）
     private let rulerView = TimeRulerView()
-    private let rulerHeight: CGFloat = 22
+    // UI-045: 时间标尺高度对齐参考图 22→36
+    private let rulerHeight: CGFloat = 36
 
     /// 播放头/游标线 overlay — 覆盖整个轨道区（ruler 顶 → 容器底），
     /// x 坐标与 ruler 共享同一公式（精准卡住时间刻度）

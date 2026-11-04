@@ -19,8 +19,8 @@ class PlayheadOverlayView: NSView {
     /// 左侧轨道头宽度 — 跳过此区域（与 TimeRulerView 保持一致）
     var headerWidth: CGFloat = 80
 
-    /// ruler 高度（U 形手柄骑在 ruler 行内）
-    var rulerHeight: CGFloat = 22
+    /// ruler 高度（U 形手柄骑在 ruler 行内；UI-045 默认值随标尺加高 22→36）
+    var rulerHeight: CGFloat = 36
 
     /// 当前可见时间起点（秒）
     var visibleStartTime: TimeInterval = 0 {

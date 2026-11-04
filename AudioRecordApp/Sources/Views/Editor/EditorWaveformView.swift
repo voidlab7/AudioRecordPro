@@ -430,7 +430,8 @@ class EditorWaveformView: NSView {
     }
     
     /// 上下留白（用于 clip 标签 + 视觉呼吸感）
-    private let clipInsetVertical: CGFloat = 25
+    // UI-045: clip 上下边距对齐参考图 25→10（clip 占轨道 64%→~86%）
+    private let clipInsetVertical: CGFloat = 10
 
     /// Clip 块矩形（"被吸附"的内容区）— 居中、占轨道行约 64% 高度
     /// 轨道是 140px 容器，clip 块 = 90px，clip 块上下各 25px 留白给标签和呼吸感
@@ -1242,36 +1243,36 @@ extension EditorWaveformView {
         guard let name = clipName, !name.isEmpty else { return }
         guard waveformRect.width > 16, waveformRect.height > 16 else { return }
 
-        // 1) 文字属性（剪映风格：白字 + 10pt medium）
-        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        // 1) 文字属性（UI-045: 字号 10→12 对齐参考图观感）
+        let font = NSFont.systemFont(ofSize: 12, weight: .medium)
         let textAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.white
         ]
 
         // 2) 截断（避免超出波形块宽度）
-        let maxWidth = waveformRect.width - 24  // 两侧各留 8px inset
+        let maxWidth = waveformRect.width - 28  // UI-045: 两侧各留 14px 余量
         let truncated = truncate(name: name, font: font, maxWidth: maxWidth)
         let textSize = truncated.size(withAttributes: textAttrs)
 
-        // 3) chip 几何：clip 块左上角内 8px，圆角 4px，padding 6x3
+        // 3) chip 几何：clip 块左上角内 10px，圆角 6px，padding 10x6（UI-045 放大对齐参考图）
         let chipRect = NSRect(
-            x: waveformRect.minX + 8,
-            y: waveformRect.maxY - textSize.height - 12,  // macOS Y 向上，maxY 是顶部
-            width: textSize.width + 12,
-            height: textSize.height + 6
+            x: waveformRect.minX + 10,
+            y: waveformRect.maxY - textSize.height - 16,  // macOS Y 向上，maxY 是顶部
+            width: textSize.width + 20,
+            height: textSize.height + 12
         )
         guard chipRect.maxX <= waveformRect.maxX - 4 else { return }  // 超出波形右边界不画
 
         // 4) chip 背景：黑色半透明 55% 圆角
-        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 4, yRadius: 4)
+        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 6, yRadius: 6)
         NSColor.black.withAlphaComponent(0.55).setFill()
         chipPath.fill()
 
         // 5) 文字绘制（chip 内居中）
         let textPoint = NSPoint(
-            x: chipRect.minX + 6,
-            y: chipRect.minY + 3
+            x: chipRect.minX + 10,
+            y: chipRect.minY + 6
         )
         truncated.draw(at: textPoint, withAttributes: textAttrs)
     }

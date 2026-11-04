@@ -94,13 +94,20 @@ class TimeRulerView: NSView {
         let step: TimeInterval = overrideStep ?? Self.chooseNiceStep(rawStep)
         let subSteps = Self.chooseSubSteps(step: step)
 
-        // 3) 字体与颜色（UI-044: 文字/刻度线对齐设计稿）
+        // 3) 字体与颜色（UI-044: 文字/刻度线对齐设计稿；UI-045: 字号 9→12）
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular),
             .foregroundColor: IndustrialColors.editorRulerText
         ]
         let tickColor = IndustrialColors.editorRulerTick
         tickColor.setStroke()
+
+        // UI-045: 刻度从标尺顶部向下长（参考图语义），标签垂直居中
+        let topY = bounds.height
+        let mainTickLen: CGFloat = 22
+        let subTickLen: CGFloat = 10
+        let textHeight = ("0:00" as NSString).size(withAttributes: attrs).height
+        let labelY = (bounds.height - textHeight) / 2
 
         // 4) 绘制主刻度 + 时间标签 + 子刻度
         let firstTick = ceil(visibleStartTime / step) * step
@@ -112,16 +119,16 @@ class TimeRulerView: NSView {
                 continue
             }
 
-            // 主刻度线（向下短）
+            // 主刻度线（自顶部向下贯穿约 60%）
             let mainPath = NSBezierPath()
             mainPath.lineWidth = 1
-            mainPath.move(to: NSPoint(x: x, y: 6))
-            mainPath.line(to: NSPoint(x: x, y: 0))
+            mainPath.move(to: NSPoint(x: x, y: topY - 2))
+            mainPath.line(to: NSPoint(x: x, y: topY - 2 - mainTickLen))
             mainPath.stroke()
 
-            // 时间标签（紧贴主刻度右侧）
+            // 时间标签（紧贴主刻度右侧，垂直居中）
             let label = Self.formatLabel(time: t, step: step)
-            label.draw(at: NSPoint(x: x + 2, y: 8), withAttributes: attrs)
+            label.draw(at: NSPoint(x: x + 3, y: labelY), withAttributes: attrs)
 
             // 子刻度线（更短）
             let subStep = step / Double(subSteps)
@@ -132,8 +139,8 @@ class TimeRulerView: NSView {
                     if subX >= rulerRect.minX && subX <= rulerRect.maxX {
                         let subPath = NSBezierPath()
                         subPath.lineWidth = 1
-                        subPath.move(to: NSPoint(x: subX, y: 3))
-                        subPath.line(to: NSPoint(x: subX, y: 0))
+                        subPath.move(to: NSPoint(x: subX, y: topY - 2))
+                        subPath.line(to: NSPoint(x: subX, y: topY - 2 - subTickLen))
                         subPath.stroke()
                     }
                 }

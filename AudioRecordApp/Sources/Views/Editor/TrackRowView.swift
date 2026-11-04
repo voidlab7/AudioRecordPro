@@ -15,11 +15,13 @@ class EditorTrackRowView: NSView {
 
     // MARK: - Constants
     /// UI-019: 88px（80→88，容纳颜色条与音量滑块，规格表 §1.3）
-    static let headerWidth: CGFloat = 88
+    // UI-045: 轨道头列宽对齐参考图 88→96
+    static let headerWidth: CGFloat = 96
     /// 轨道行高度 = 140（容器），其中 clip 块占 ~90px（居中 64%），
     /// 上下各 25px 留白给 clip 标签和呼吸感。
     /// 体现"轨道是容器，clip 是被吸附内容"的设计意图。
-    static let rowHeight: CGFloat = 140
+    // UI-045: 轨道行高对齐参考图 140→150
+    static let rowHeight: CGFloat = 150
 
     // MARK: - Properties
     weak var delegate: EditorTrackRowViewDelegate?
@@ -134,8 +136,9 @@ class EditorTrackRowView: NSView {
             // UI-034 R3: 音量滑条移除——静音按钮直接上移贴编号行
             muteButton.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
             muteButton.topAnchor.constraint(equalTo: trackMetaLabel.bottomAnchor, constant: 7),
-            muteButton.widthAnchor.constraint(equalToConstant: 16),
-            muteButton.heightAnchor.constraint(equalToConstant: 16),
+            // UI-045: 喇叭 16→18 对齐参考图观感
+            muteButton.widthAnchor.constraint(equalToConstant: 18),
+            muteButton.heightAnchor.constraint(equalToConstant: 18),
 
             levelTrack.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
             levelTrack.widthAnchor.constraint(equalToConstant: levelTrackWidth),
