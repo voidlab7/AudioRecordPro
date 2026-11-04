@@ -651,9 +651,10 @@ class EditorWaveformView: NSView {
     /// 这是常显底色层，选中态覆盖层 drawSelectionOverlay 保留既有语义）
     private func drawClipSurface(in rect: NSRect) {
         let clipRect = waveformRect.insetBy(dx: 1, dy: 8)
+        // UI-045: 圆角对齐 mockup 6（3:199 cornerRadius 6）
         let path = NSBezierPath(roundedRect: clipRect,
-                                xRadius: IndustrialSpacing.editorClipSelectionRadius,
-                                yRadius: IndustrialSpacing.editorClipSelectionRadius)
+                                xRadius: 6,
+                                yRadius: 6)
         IndustrialColors.editorClipSurface.setFill()
         path.fill()
         IndustrialColors.editorClipStroke.setStroke()
@@ -1243,36 +1244,36 @@ extension EditorWaveformView {
         guard let name = clipName, !name.isEmpty else { return }
         guard waveformRect.width > 16, waveformRect.height > 16 else { return }
 
-        // 1) 文字属性（UI-045: 字号 10→12 对齐参考图观感）
-        let font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        // 1) 文字属性（UI-045: mockup 3:204 字号 9 ×1.111 → 10，SemiBold）
+        let font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         let textAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.white
         ]
 
         // 2) 截断（避免超出波形块宽度）
-        let maxWidth = waveformRect.width - 28  // UI-045: 两侧各留 14px 余量
+        let maxWidth = waveformRect.width - 8  // UI-045: mockup 标签距 clip 边 ~2px
         let truncated = truncate(name: name, font: font, maxWidth: maxWidth)
         let textSize = truncated.size(withAttributes: textAttrs)
 
-        // 3) chip 几何：clip 块左上角内 10px，圆角 6px，padding 10x6（UI-045 放大对齐参考图）
+        // 3) chip 几何：mockup 3:203——clip 内 inset (2,3)、padding 左右 6(→7)、高 15(→17)、圆角 3
         let chipRect = NSRect(
-            x: waveformRect.minX + 10,
-            y: waveformRect.maxY - textSize.height - 16,  // macOS Y 向上，maxY 是顶部
-            width: textSize.width + 20,
-            height: textSize.height + 12
+            x: waveformRect.minX + 2,
+            y: waveformRect.maxY - textSize.height - 3 - 2,  // macOS Y 向上：顶距 3 + chip 内上 padding 2
+            width: textSize.width + 14,
+            height: textSize.height + 4
         )
-        guard chipRect.maxX <= waveformRect.maxX - 4 else { return }  // 超出波形右边界不画
+        guard chipRect.maxX <= waveformRect.maxX - 2 else { return }  // 超出波形右边界不画
 
-        // 4) chip 背景：黑色半透明 55% 圆角
-        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 6, yRadius: 6)
-        NSColor.black.withAlphaComponent(0.55).setFill()
+        // 4) chip 背景：mockup #0F2120@70% 圆角 3
+        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 3, yRadius: 3)
+        NSColor(hex: "#0F2120").withAlphaComponent(0.7).setFill()
         chipPath.fill()
 
         // 5) 文字绘制（chip 内居中）
         let textPoint = NSPoint(
-            x: chipRect.minX + 10,
-            y: chipRect.minY + 6
+            x: chipRect.minX + 7,
+            y: chipRect.minY + 2
         )
         truncated.draw(at: textPoint, withAttributes: textAttrs)
     }
