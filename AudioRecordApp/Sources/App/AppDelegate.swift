@@ -199,9 +199,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         togglePlayItem.keyEquivalentModifierMask = []
         recordMenu.addItem(togglePlayItem)
         
-        // Cmd+E — 导出
+        // Cmd+E — 打开导出卡片（REL-006: 文案纠正——原「导出 MP3」误导，实际行为一直是开导出卡片选格式）
         let exportItem = NSMenuItem(
-            title: "导出 MP3".localized,
+            title: "导出".localized,
             action: #selector(exportCurrentFile),
             keyEquivalent: "e"
         )

@@ -6,19 +6,16 @@
 "%d 字 · %@ · %@" = "%d chars · %@ · %@";
 "SpeechTranscriber 在此设备不可用（需要 macOS 26+）" = "SpeechTranscriber is not available on this device (requires macOS 26+)";
 "Tap UUID未设置" = "Tap UUID not set";
-"ffmpeg 转码失败: %@" = "ffmpeg transcode failed: %@";
 "● 停止中" = "● Stopping";
 "● 准备中" = "● Preparing";
 "● 录制中" = "● Recording";
 "● 播放中" = "● Playing";
 "● 错误" = "● Error";
-"⚠️ %@ 需要 ffmpeg (brew install ffmpeg)" = "⚠️ %@ requires ffmpeg (brew install ffmpeg)";
 "⚠️ 请先点击「选择…」授权导出目录" = "⚠️ Click \"Choose…\" first to authorize an export folder";
 "✅ 导出成功：%@" = "✅ Export succeeded: %@";
 "❌ 文件名不能为空" = "❌ File name cannot be empty";
 "上次录制可能因异常中断，发现未保存的临时录音文件（%@，大小 %@）。是否恢复？" = "The last recording may have ended unexpectedly. An unsaved temp file was found (%@, %@). Recover it?";
 "下次转写: %@" = "Next transcription: %@";
-"不支持的 ffmpeg 格式" = "Unsupported ffmpeg format";
 "不支持的导出格式: %@" = "Unsupported export format: %@";
 "不支持的缓冲区数量: %@" = "Unsupported buffer count: %@";
 "不支持的音频格式" = "Unsupported audio format";
@@ -75,7 +72,6 @@
 "实时转写不可用: %@" = "Live transcription unavailable: %@";
 "容器版本 %@ 不受支持（当前 v%@）" = "Container version %@ unsupported (current v%@)";
 "导出" = "Export";
-"导出 MP3" = "Export MP3";
 "导出失败: %@" = "Export failed: %@";
 "导出已取消" = "Export canceled";
 "导出录音" = "Export Recording";
