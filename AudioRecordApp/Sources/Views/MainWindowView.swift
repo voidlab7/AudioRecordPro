@@ -342,6 +342,20 @@ class MainWindowView: NSView {
     func updateRecordingState(_ state: RecordingState) {
         Logger.shared.info("🖥️ UI 状态机: → \(state)")
         controlPanelView.updateRecordingState(state)
+        // FIX-017: 录制期间锁源——半成品 isRecordingLocked 接到录音态
+        // 锁: preparing/recording/stopping；解锁: idle/playing/error（可再改源）
+        // 不改写 selectedPIDs，进程退出监控仍盯本场源
+        let shouldLock: Bool
+        switch state {
+        case .preparing, .recording, .stopping:
+            shouldLock = true
+        case .idle, .playing, .error:
+            shouldLock = false
+        }
+        if sidebarView.isRecordingLocked != shouldLock {
+            sidebarView.isRecordingLocked = shouldLock
+            Logger.shared.info("🔒 FIX-017 侧边栏锁源: \(shouldLock ? "锁定" : "解锁") (state=\(state))")
+        }
         switch state {
         case .preparing:
             isCaptureRunning = false
