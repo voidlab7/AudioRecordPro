@@ -64,7 +64,7 @@
 | UI-043     | 麦克风选择器去「跟随系统默认」伪行：展开直接列设备，默认勾选系统默认设备 | P2 | todo（待需求审核） | 老板 2026-10-31 发截图提出（「打开的时候直接看到几个麦克风输入设备，默认勾选，系统默认那个不用再单独起一行」）；跟随语义保留为 nil 投影、不写死 UID；正文见节 |
 | REL-005    | i18n R3：主界面漏网站点收尾（中英混排修复，语言全量跟随系统） | P1 | done ✅ | 2026-10-30 老板实机交付验收（merge 03d44e6）；11 处接线+en 字典 5 条，实机全中文；i18n 三期（R1+R2+R3）闭环；正文迁归档 |
 | FIX-018    | 录音态波纹电平高度不稳定：突发大声后 running max 抬高并回溯重映射，前面已画出的条整体变矮，用户看到的整体电平标尺中途改变 | P2 | done ✅ | 2026-10-30 老板交付验收（merge 030b229，方案A固定满刻度）；SDK 93/93 / lite 6/6 / build 0；实拍对照留老板实机（截屏 TCC 缺）；正文迁归档 |
-| FIX-017    | 录制中可改源：侧边栏未锁，录制开始后点选应用只改 selectedPIDs 不影响正在跑的管线，用户以为在录 A 实际录 B | P1 | doing | 老板 2026-11-04「开工吧」需求审核通过；**本单范围=①录制期间锁源**（`SidebarView.isRecordingLocked` 接录音态）；②启动恢复上次源、③顶栏对齐管线另开单；规格 `docs/需求/FIX-017-录制中锁源.md`；正文见节；执行：CodeBuddy · worktree `.worktrees/FIX-017` / `loop/FIX-017` |
+| FIX-017    | 录制中可改源：侧边栏未锁，录制开始后点选应用只改 selectedPIDs 不影响正在跑的管线，用户以为在录 A 实际录 B | P1 | ready-for-review | 老板 2026-11-04「开工吧」需求审核通过；**本单范围=①录制期间锁源**（`SidebarView.isRecordingLocked` 接录音态）；②启动恢复上次源、③顶栏对齐管线另开单；规格 `docs/需求/FIX-017-录制中锁源.md`；正文见节；执行：CodeBuddy · worktree `.worktrees/FIX-017` / `loop/FIX-017`；自验全绿 be90171（build 0 / SDK 148/148；lite 让路）；证据 worktree `docs/证据/2026-11-04-FIX017-录制中锁源-交付证据.md`；待老板交付验收 |
 | FIX-016    | 静默进程 Tap 聚合设备 IO 不运转：tap/聚合设备/IOProc 全部成功，但被 tap 进程不出声时 0 回调，落盘 0 帧 | P0 | done ✅ | 2026-10-28 23:00 老板实机验收（22:56:57 起录，静默环境 IO 持续运转，2 分钟 2 万+ 回调）；⚠️ 本次实录走的是 systemMixdown 且麦克风关（开录后 1.5s 才选 TM，即 FIX-017），TM 进程源+麦克风混录组合留日常观察。根因（CLI 最小复现 /tmp/taprepro.swift 实证）：聚合设备 TapAutoStart=true 时只在被 tap 进程「正在输出」时跑 IO——腾讯会议/微信 tap 3s 0 回调 isRunning=0，正在出声的 afplay 86 回调/s；改 false 后静默进程同样 86 回调/s。下午能录=TM 恰好在出声。修复 AggregateDeviceManager.swift 描述 TapAutoStart→false + 删运行时设回 1 的死代码；App 静默环境 5s 自检写入 224256 帧=5.085s（修前同环境 0 帧）；进程源实机待老板复测；SilentOutputKeepAlive.retarget 无调用方待清理 |
 | FIX-015    | 麦克风混录 unit 路径首帧崩溃：环惰性初始化条件永假（micMaxRingSize 默认 192000≠0）致写空数组 EXC_BREAKPOINT | P0 | done ✅ | 2026-10-28 老板实测崩溃（Thread16 IO 线程，选择非默认麦克风+开「同时录入麦克风」）；修复 CoreAudioProcessTapRecorder.swift:114 条件改「容量≠环长重建」+sampleRate≤0 丢帧守卫；⚠️ 回归测试债：环逻辑 5 属性+共享锁内嵌私有闭包，抽 MicSampleRing 类型后才可单测，回池排期 |
 | FIX-014    | uitest 自验豁免 BUG-1 峰值拦截：深夜/系统静音下外放声源不可达，lite 连挂 4 次 | P1 | done ✅ | 2026-10-27 老板交付验收（merge 6e8c33f）：uitest 自验豁免 BUG-1 峰值拦截；同环境 4 连挂→lite 6/6 PASS；静音断链根治；正文见战报 docs/LoopBuddy/R7-2026-10-27-战报.md |
@@ -180,23 +180,14 @@
 
 **预估**：S（纯删减）｜ **证据**：（开工后附）
 
-### FIX-017 录制中锁源（侧边栏录音态禁用改源） | P1 | S | [doing 2026-11-04]
+### FIX-017 录制中锁源（侧边栏录音态禁用改源） | P1 | S | [ready-for-review 2026-11-04]
 
-> 来源：2026-10-28 22:39 实证——开录后点选应用只改 UI/`selectedPIDs`，管线仍为开录瞬间源（常为默认系统混音）。
-> 拍板：老板 2026-11-04「开工吧」→ **仅 ① 锁源**；②启动恢复上次源、③顶栏对齐管线、热切源重建管线均非本单。
-> 规格正本：`docs/需求/FIX-017-录制中锁源.md`（含代码事实、验收 a–f、进程退出监控注意、与 FIX-021「切麦」命名冲突说明）。
+> 执行：CodebuddyBot · worktree `loop/FIX-017` · commit `be90171`
+> 改动：`MainWindowView.updateRecordingState` 接通 `SidebarView.isRecordingLocked`（preparing/recording/stopping 锁；idle/playing/error 解锁）
+> 门禁：build exit=0；SDK 148/148；lite 让路（当时 REL-006 实例占用）
+> 证据：`.worktrees/FIX-017/docs/证据/2026-11-04-FIX017-录制中锁源-交付证据.md`（随 merge 进 master）
+> 规格：`docs/需求/FIX-017-录制中锁源.md`
 
-**需求细项**（已审核）：
-1. 录音态（preparing/recording/stopping）置 `SidebarView.isRecordingLocked=true`（或等价：点选不改 selectedPIDs、不触发源切换回调）
-2. idle/playing（及可再选源的 error→可交互）解锁
-3. 开录前可选源；本场管线仍按开录瞬间选源；不在本单做 Tap 热重建
-4. 实现时勿改写锁态下的 selectedPIDs，以免进程退出监控误伤
-
-**验收标准**：见规格 §四（锁/解锁/开录瞬间源/build/SDK/接线证据）。
-
-**预估**：S ｜ **证据**：（开工后附）
-
----
 
 ### UI-040 主界面空格键开始/停止录音 | P2 | S | [done ✅ 2026-10-31 老板交付验收（「可以 merge」）→ 正文见 `docs/归档/TODOS-done-2026-10.md`]
 
