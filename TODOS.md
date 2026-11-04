@@ -55,7 +55,7 @@
 | UI-044     | 编辑页配色对齐剪映参考图：菜单/轨道头/轨道颜色/电平背景/波纹颜色（波纹形态不动） | P2 | ready-for-review | 老板 11-04「开工」=需求审核通过；R18 轮交付 loop/UI-044 49754ce：五项配色全对齐+clip 常显青绿底新增，波形形态零改动；build 0/SDK 148/148/lite 15+2 全 PASS；⚠️ 颜色对照并入验收实机看；正文见节 |
 | UI-039     | 编辑器空格键播放/暂停切换（toggle；输入框聚焦不误触） | P2 | done ✅ | 2026-10-31 老板交付验收（「验收通过」）；master 578610d（worktree loop/UI-039 d61ffbf cherry-pick）；R1 轮交付：局部事件监视器方案（keyDown 链无焦点保障=旧 R10 实锤不可靠）+ SpaceKeyPolicy 三态纯函数（Kit 单测 6 例，显式位判定固化 R10 坑1 回归）+ 初始焦点收归 + lite 第 14 步 space_toggle 六断言（真窗口文本焦点隔离闭环 R10 遗留实机项）；R1→R3 排障：isKeyWindow 上移监视器层（跑批主窗口非 key 属常态）；build 0/SDK 133/133/lite 14/14；正文迁归档 |
 | UI-040     | 主界面空格键开始/停止录音（对标剪映「Press record or hit Space」；输入框聚焦不误触） | P2 | done ✅ | 2026-10-31 老板交付验收（「可以 merge」；merge 723da5d，worktree loop/UI-040 99f082e）；R1 轮交付：MainWindowView keyDown 链（编辑态守卫/isARepeat 吞/修饰键全无）+toggleRecordingFromMenu 同入口+焦点抢/恢复（编辑器返回可空格再录）+lite space_record 步骤（mock 态零产物）；与并行合入的 UI-039 监视器方案冲突合流，合并态回归 build 0 / SDK 133/133 / lite PASS（双空格链路共存实测无冲突）；文案未加常驻提示（保守档，随时 S 级微调）；正文迁归档 |
-| FIX-019    | 单轨场景移除 clip 选中态青绿边框（选中描边整体退役）：点击/拖拽不再出青绿框 | P3 | todo（待需求审核） | 老板 2026-10-30 发截图：「现在只有一个轨道，就不要选中态了吧。去掉这个边框绿色的。加入需求 fix」；演进自 UI-029 拍板 a（选中保留细描边）与 UI-036 细项 6；时间选区高亮不动；正文见节 |
+| FIX-019    | 单轨场景移除 clip 选中态青绿边框（选中描边整体退役）：点击/拖拽不再出青绿框 | P3 | ready-for-review | 老板 2026-10-30 入池 + 11-05「点击之后还有个多余的边框，这个边框就不要了」=需求审核通过开工；R1 轮交付（worktree loop/FIX-019 088cb4b）：删 drawSelectionOverlay 的 clip 选中亮框层（青绿 1.5pt+5% 白底，UI-029 拍板 a 产物退役），isClipInteracted 状态保留、时间选区遮罩零影响；build 0 / SDK 148/148 / lite PASS；纯视觉删除，形态对照（点击/拖拽不再出青绿框）实机看；证据 docs/证据/2026-11-05-FIX019-clip选中描边退役-硬验证.md |
 | UI-037     | 编辑页时间标尺贴轨道区顶部 + 播放头从标尺顶贯穿到轨道区底部（轨道带仍居中） | P2 | done ✅ | 2026-10-30 老板交付验收（merge 712d952，worktree loop/UI-037 7d0387a）；R1 轮一次过：标尺贴顶/播放头贯穿全高/轨道带居中/空白区 seek 实机全过；build 0 / SDK 93/93 / lite 7/7（含 seek_align 往返零误差）；正文迁归档 |
 | FEAT-007   | 非破坏编辑模型（剪映式）：原始录音永不覆盖+草稿自动保存+撤销全程+导出=渲染编辑结果 | P1 | done ✅ | 2026-10-30 老板交付验收（「不太好验，直接就验收通过」；merge c00aa5f，worktree loop/FEAT-007 9c7ea82）；R16 轮交付：finalizeEdit/save 覆盖链路物理删除、草稿=命令栈 JSON 随编辑自动落盘+重开重放恢复（防双放）、导出=原始+草稿渲染（增益默认进导出）；合并态回归 build 0 / SDK 105/105 / lite 11 步全 PASS（草稿三断言+UI-037 seek_align 合并态合计）+ UITest2 draft_restored 219648==219648；⚠️ 验收期两肉眼项（重开 App 恢复/真机导出时长）老板免验，逻辑由 EditDraftTests 单测+lite 硬断言承载；正文迁归档 |
 | FIX-020    | 编辑器拖音量线后播放声音大小无变化：新一轮播放不应用当前增益（playerNode 重建回默认 1.0）+ 升益 >0dB 被 playerNode.volume 钳 1.0 + clipGain 内部上限 2.0 与 UI +20dB 标尺不一致 | P1 | done ✅ | 2026-10-31 老板交付验收（「验收通过」）；master fa93ded（worktree loop/FIX-020 fe085be cherry-pick）；需求审核=老板 10-31「开始修复」（反馈 2026-10-30）；三因修复交付（回放链 EQ globalGain 化+建链即应用+GainScale 单一来源，playerNode.volume 双路径全删）；build 0/SDK 119/119/lite 12/12；⚠️ macOS 26 SDK 移除 AVAudioUnitDynamicsProcessor，过载走需求单备选「接受削波」与导出 ±1 同口径（限幅器组件仍在、async 预热可做后续单）；worktree loop/FIX-020 fe085be；证据 docs/证据/2026-10-31-FIX020-回放增益三因修复-硬验证.md；正文迁归档 |
@@ -203,7 +203,7 @@
 
 ---
 
-### FIX-019 单轨场景移除 clip 选中态青绿边框 | P3 | S | [todo · 待需求审核 2026-10-30]
+### FIX-019 单轨场景移除 clip 选中态青绿边框 | P3 | S | [ready-for-review 2026-11-05]
 
 > 来源：老板 2026-10-30 发编辑器截图（clip 被青绿圆角框框住）：「现在只有一个轨道，就不要选中态了吧。去掉这个边框绿色的。加入需求 fix」。
 > 演进关系：UI-029 拍板 a=「选中保留细描边（剪映同款）」→ UI-036 细项 6=「选中青绿保持」→ 本单：**单轨场景选中态无信息量，描边整体退役**（多轨场景未来若引入再议）。
@@ -214,10 +214,12 @@
 3. 时间选区（selection 区间高亮/遮罩）不动——那是选区不是 clip 选中态
 4. 播放头、音量线、波形渲染零影响
 
-**验收标准**（起草）：
-- [ ] 点击/拖拽波形：不再出现青绿圆角框（clip 视觉=纯波形+标签）
-- [ ] 时间选区高亮照常；undo/redo、切分等交互不受影响
-- [ ] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS
+**验收标准**（自验）：
+- [x] 点击/拖拽波形：不再出现青绿圆角框（clip 视觉=纯波形+标签）——绘制层已删，实机对照
+- [x] 时间选区高亮照常；undo/redo、切分等交互不受影响——遮罩代码零触碰，lite 全链 PASS
+- [x] `build-app.sh` exit 0；SDK 单测基线不回退；lite PASS——build 0 / SDK 148/148（基线 142+UI-043 六例）/ lite 15/15
+
+**预估**：S ｜ **证据**：docs/证据/2026-11-05-FIX019-clip选中描边退役-硬验证.md（四样全）
 
 **预估**：S（纯删减）｜ **证据**：（开工后附）
 
