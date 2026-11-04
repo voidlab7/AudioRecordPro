@@ -650,7 +650,9 @@ class EditorWaveformView: NSView {
     /// UI-044: 电平背景——clip 常显青绿底 + 细描边（对标参考图；与 FIX-019 选中描边退役无关，
     /// 这是常显底色层，选中态覆盖层 drawSelectionOverlay 保留既有语义）
     private func drawClipSurface(in rect: NSRect) {
-        let clipRect = waveformRect.insetBy(dx: 1, dy: 8)
+        // UI-045: clip 边距=waveformRect 自身的 clipInsetVertical(2)，不再二次 inset dy:8
+        // （此前沿选中框几何多收 8px，老板实机对照 mockup：clip 距行边界应恰为 2px）
+        let clipRect = waveformRect.insetBy(dx: 1, dy: 0)
         // UI-045: 圆角对齐 mockup 6（3:199 cornerRadius 6）
         let path = NSBezierPath(roundedRect: clipRect,
                                 xRadius: 6,
@@ -1071,7 +1073,9 @@ class EditorWaveformView: NSView {
     /// UI-034: 波形基线 y（clip 下缘对齐）
     /// UI-036 R15i（老板 10-30 实机）：对齐 clip 选中边框底线（inset dy:8）——旧值 minY+2 使波形底缘
     /// 突出边框底 6pt（「波纹比轨道低」）；对齐后波形贴边框底线，无缝无突出。
-    private var envelopeBaselineY: CGFloat { waveformRect.minY + 8 }
+    // UI-045: 波形基线贴 clip 底边（mockup 3:308 波形 Vector 贴 clip 底 y=76）；
+    // 原 +8 沿用选中框 inset dy:8 语义，clip 底改由 drawClipSurface 直接对齐 waveformRect 后移除
+    private var envelopeBaselineY: CGFloat { waveformRect.minY }
     /// UI-034: 波形最大渲染高度（触顶前上限）
     private var envelopeMaxAmp: CGFloat { waveformRect.height - 4 - Self.volumeLaneHeight }
     /// UI-034: 音量线 y
