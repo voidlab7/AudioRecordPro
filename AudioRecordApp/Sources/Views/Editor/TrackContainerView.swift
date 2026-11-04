@@ -117,9 +117,15 @@ class TrackContainerView: NSView {
 
         // 关键约束：
         // - ruler 贴容器顶（铺满宽）
-        // - UI-045: 单轨**填满**轨道带（对齐参考图——clip 上下仅小边距，无带级居中留白；
-        //   行内 clip 边距由 EditorWaveformView.clipInsetVertical 控制）。
-        //   行高下限 150 由 TrackRowView.heightAnchor(≥150) 保证；多轨行高分配待未来单再议。
+        // - UI-045 终版（老板 11-04 实机对照设计稿 mockup 定版）：轨道行**固定 88**（mockup 80
+        //   按 675→750 窗口等比），在 trackBandArea 内垂直居中（500）——mockup 里行上下
+        //   各留大片带级留白，clip 上下仅 2px 行内边距；多轨超高时 top≥(required) 贴 ruler
+        //   下沿、bottom≤(749) 放行溢出（与 UI-032 语义同构）
+        let stackBottomFits = stackView.bottomAnchor.constraint(lessThanOrEqualTo: trackBandArea.bottomAnchor)
+        stackBottomFits.priority = NSLayoutConstraint.Priority(749)
+        let stackCentered = stackView.centerYAnchor.constraint(equalTo: trackBandArea.centerYAnchor)
+        stackCentered.priority = NSLayoutConstraint.Priority(500)
+
         NSLayoutConstraint.activate([
             // UI-042 R4: 轨道头列整体背景块——左缘贴容器、全高、宽=headerWidth；
             // 右缘分隔线 0.5px 贯穿全高（含标尺左段）
@@ -148,8 +154,9 @@ class TrackContainerView: NSView {
             // stack：横向贯通；top≥ 区间顶（required）；居中(500)/溢出放行(749) 见上
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.topAnchor.constraint(equalTo: trackBandArea.topAnchor),
-            stackView.bottomAnchor.constraint(equalTo: trackBandArea.bottomAnchor),
+            stackView.topAnchor.constraint(greaterThanOrEqualTo: trackBandArea.topAnchor),
+            stackBottomFits,
+            stackCentered,
 
             // playhead overlay 覆盖整个容器（在 ruler 和 stackView 之上）——UI-037 竖线顶到底
             playheadOverlay.leadingAnchor.constraint(equalTo: leadingAnchor),

@@ -430,8 +430,8 @@ class EditorWaveformView: NSView {
     }
     
     /// 上下留白（用于 clip 标签 + 视觉呼吸感）
-    // UI-045: clip 上下边距对齐参考图 25→10（clip 占轨道 64%→~86%）
-    private let clipInsetVertical: CGFloat = 10
+    // UI-045: clip 上下边距对齐设计稿 mockup（2px，clip 占行 95%）
+    private let clipInsetVertical: CGFloat = 2
 
     /// Clip 块矩形（"被吸附"的内容区）— 居中、占轨道行约 64% 高度
     /// 轨道是 140px 容器，clip 块 = 90px，clip 块上下各 25px 留白给标签和呼吸感

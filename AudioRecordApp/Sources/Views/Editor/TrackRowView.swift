@@ -20,8 +20,8 @@ class EditorTrackRowView: NSView {
     /// 轨道行高度 = 140（容器），其中 clip 块占 ~90px（居中 64%），
     /// 上下各 25px 留白给 clip 标签和呼吸感。
     /// 体现"轨道是容器，clip 是被吸附内容"的设计意图。
-    // UI-045: 轨道行高对齐参考图 140→150
-    static let rowHeight: CGFloat = 150
+    // UI-045: 轨道行高对齐设计稿 mockup 80（按 675→750 窗口等比 → 88）
+    static let rowHeight: CGFloat = 88
 
     // MARK: - Properties
     weak var delegate: EditorTrackRowViewDelegate?
