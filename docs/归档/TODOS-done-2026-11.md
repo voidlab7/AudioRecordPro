@@ -6,6 +6,20 @@
 
 ---
 
+### FIX-017 录制中可改源：侧边栏未锁，录制中改选只改 UI 不影响管线 | P1 | S | [done · 2026-11-04 验收]
+
+> 老板 2026-11-04「开工吧」需求审核（仅①锁源）→ CodebuddyBot worktree `loop/FIX-017` → 自验 build 0 / SDK 148/148 → 老板「验收通过」。
+> master `32b3562` = merge(FIX-017)（worktree commit `be90171`）。
+> 规格：`docs/需求/FIX-017-录制中锁源.md`｜证据：`docs/证据/2026-11-04-FIX017-录制中锁源-交付证据.md`
+
+**做什么**：录音态接通已有 `SidebarView.isRecordingLocked`（preparing/recording/stopping 锁；idle/playing/error 解锁）；不重建 Tap；②③另开单。
+
+**改动**：`MainWindowView.updateRecordingState`（commit `be90171`）。
+
+**验收**：老板 2026-11-04 实机/交付验收通过。
+
+---
+
 ### FIX-021 麦克风混录三连缺：mic 不进波形/电平表/无效守卫 + 录音中切麦不生效 + 失效聚合设备可选 | P1 | M | [done · 2026-11-02 验收]
 
 > 来源：老板 2026-10-30 20:21 实录反馈「录制没有声音」（截图：REC 页波形贴中线圆点行、DB 表无动作、计时 15s）。
