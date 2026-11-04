@@ -199,8 +199,8 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         micDeviceRow.translatesAutoresizingMaskIntoConstraints = false
 
         micDeviceSelector.translatesAutoresizingMaskIntoConstraints = false
-        micDeviceSelector.onSelect = { [weak self] option in
-            self?.micDeviceSelected(option)
+        micDeviceSelector.onSelect = { [weak self] option, reselect in
+            self?.micDeviceSelected(option, reselect: reselect)
         }
         micDeviceRow.addSubview(micDeviceSelector)
 
@@ -217,26 +217,15 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
     }
 
-    /// 刷新设备列表：「跟随系统默认」为第 0 项（动态副标显示当前实际设备），
-    /// 其余设备按 MicDeviceManager 枚举顺序；不在重复标「（默认）」（UI-015 #3）。
-    /// 所选设备失效时，selector.isInvalid=true，selector 内回退至第 0 项并提示。
+    /// UI-043: 展开态只列实际麦克风；无钉选时勾选/折叠名投影到当前 `isSystemDefault` 设备，
+    /// **不**把系统默认 UID 写入 UserDefaults（保持 `preferredDeviceUID=nil` 动态跟随）。
+    /// 所选设备失效时清除钉选并提示。
     private func refreshMicDeviceList() {
         let devices = MicDeviceManager.shared.listMicrophones()
         let preferred = MicDeviceManager.shared.preferredDeviceUID
         let preferredValid = preferred == nil || devices.contains { $0.uid == preferred }
 
-        // 第 0 项：跟随系统默认
-        let sysDefaultDevice = devices.first { $0.isSystemDefault }
-        let sysDefaultName = sysDefaultDevice.map { MicDeviceManager.shared.displayName(for: $0) } ?? "未检测到".localized
-        var options: [IndustrialMicDeviceSelectorView.Option] = [
-            IndustrialMicDeviceSelectorView.Option(
-                uid: nil,
-                displayName: "跟随系统默认".localized,
-                subtitle: sysDefaultName,
-                isCurrent: sysDefaultDevice?.uid != nil
-            )
-        ]
-        // 其余设备行：不再标「（默认）」（UI-015 双「默认」歧义消除）
+        var options: [IndustrialMicDeviceSelectorView.Option] = []
         for d in devices {
             options.append(IndustrialMicDeviceSelectorView.Option(
                 uid: d.uid,
@@ -246,17 +235,20 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             ))
         }
 
-        var selectedIndex = 0
+        let systemDefaultIndex = devices.firstIndex(where: { $0.isSystemDefault }) ?? 0
+        var selectedIndex = systemDefaultIndex
         if let uid = preferred, let idx = devices.firstIndex(where: { $0.uid == uid }) {
-            selectedIndex = idx + 1
+            selectedIndex = idx
         }
         micDeviceSelector.configure(options: options, selectedIndex: selectedIndex)
 
-        // 失效处理：清除持久化 + selector 提示
+        // 失效处理：清除持久化 + selector 提示（回跟随，勾选落系统默认投影）
         if let uid = preferred, !preferredValid {
             MicDeviceManager.shared.preferredDeviceUID = nil
             micDeviceSelector.isInvalid = true
             logger.warning("🎤 [FEAT004] 所选设备失效已回退: uid=\(uid)")
+            // preferred 已清，按跟随语义重配勾选索引
+            micDeviceSelector.configure(options: options, selectedIndex: systemDefaultIndex)
         } else {
             micDeviceSelector.isInvalid = false
         }
@@ -265,14 +257,21 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         micDeviceSelector.emptyStateText = devices.isEmpty ? "未检测到".localized : nil
     }
 
-    private func micDeviceSelected(_ option: IndustrialMicDeviceSelectorView.Option) {
-        if let uid = option.uid, !uid.isEmpty {
-            MicDeviceManager.shared.preferredDeviceUID = uid
-            logger.info("🎤 [FEAT004] 麦克风设备 → \(option.displayName) (uid=\(uid))")
-        } else {
-            MicDeviceManager.shared.preferredDeviceUID = nil
-            logger.info("🎤 [FEAT004] 麦克风设备 → 跟随系统默认")
+    private func micDeviceSelected(_ option: IndustrialMicDeviceSelectorView.Option, reselect: Bool) {
+        guard let uid = option.uid, !uid.isEmpty else { return }
+        if reselect {
+            // UI-043 拍板 a：再点已勾选 → 有钉选则取消回跟随；已跟随则不写 UD
+            if MicDeviceManager.shared.preferredDeviceUID != nil {
+                MicDeviceManager.shared.preferredDeviceUID = nil
+                logger.info("🎤 [UI-043] 取消钉选 → 跟随系统默认")
+                refreshMicDeviceList()
+            } else {
+                logger.info("🎤 [UI-043] 已跟随系统默认，再点已勾选不写 UD")
+            }
+            return
         }
+        MicDeviceManager.shared.preferredDeviceUID = uid
+        logger.info("🎤 [FEAT004] 麦克风设备 → \(option.displayName) (uid=\(uid))")
     }
     
     private func setupRefreshButton() {
@@ -1348,24 +1347,25 @@ class IndustrialTableRowView: NSTableRowView {
 }
 
 // MARK: - IndustrialMicDeviceSelectorView
-/// UI-015: 自绘麦克风设备选择器（弃用 NSPopUpButton 原生菜单的「系统默认」歧义结构）。
-/// - 折叠态（行内可见）：当前选中设备的友好名 + ▼（验收 #3）
-/// - 展开态：第 0 项「跟随系统默认」+ 动态副标显示当前实际设备；其余设备项不再重复标「（默认）」（验收 #2、#3）
-/// - 选项 deviceName 由 MicDeviceManager.displayName(for:) 友好化处理（Aggregate 子设备解析）
+/// UI-015/UI-043: 自绘麦克风设备选择器（弃用 NSPopUpButton；UI-043 去掉「跟随系统默认」伪行）。
+/// - 折叠态（行内可见）：当前勾选设备的友好名 + ▼（无钉选时 = 系统默认投影）
+/// - 展开态：只列实际麦克风设备；再点已勾选行 → 取消钉选回跟随（`onSelect` 的 reselect=true）
+/// - 选项 displayName 由 MicDeviceManager.displayName(for:) 友好化处理（Aggregate 子设备解析）
 final class IndustrialMicDeviceSelectorView: NSView {
     /// 一个选项数据
     struct Option {
-        /// uid=nil = 跟随系统默认；其余为具体设备 UID
+        /// 具体设备 UID（UI-043 后列表无 uid=nil 伪行；跟随语义由 Sidebar 写 preferredDeviceUID=nil）
         let uid: String?
         /// 折叠态显示 + 展开态行内主标
         let displayName: String
-        /// 展开态行内副标（跟随系统默认项显示当前实际设备友好名；其余设备项为 nil）
+        /// 展开态行内副标（可选；设备行通常为 nil）
         let subtitle: String?
-        /// 该设备是否对应当前系统默认设备（用于行内对系统默认做识别 hint，可空）
+        /// 该设备是否对应当前系统默认设备（行内 hint）
         let isCurrent: Bool
     }
 
-    var onSelect: ((Option) -> Void)?
+    /// reselect=true：再点当前已勾选行（拍板 a：取消钉选回跟随）
+    var onSelect: ((Option, Bool) -> Void)?
 
     /// 所选设备失效时为 true（折叠态切换到警告文案）
     var isInvalid: Bool = false { didSet { updateAppearance() } }
@@ -1475,18 +1475,8 @@ final class IndustrialMicDeviceSelectorView: NSView {
             listStack.removeArrangedSubview(v)
             v.removeFromSuperview()
         }
+        // UI-043: 伪行删除后不再在 idx==1 插分隔线（否则会插进第二台真设备前）
         for (idx, opt) in options.enumerated() {
-            // UI-027: 「跟随系统默认」与硬件设备列表之间加分隔线（仅存在硬件设备时）
-            if idx == 1 {
-                let separator = NSView()
-                separator.wantsLayer = true
-                separator.layer?.backgroundColor = IndustrialColors.outlineVariant.cgColor
-                separator.translatesAutoresizingMaskIntoConstraints = false
-                listStack.addArrangedSubview(separator)
-                separator.heightAnchor.constraint(equalToConstant: 1).isActive = true
-                separator.leadingAnchor.constraint(equalTo: listStack.leadingAnchor, constant: 10).isActive = true
-                separator.trailingAnchor.constraint(equalTo: listStack.trailingAnchor, constant: -10).isActive = true
-            }
             let row = IndustrialMicDeviceOptionRowView(option: opt, isSelected: idx == self.selectedIndex)
             row.onClick = { [weak self] in
                 guard let self = self else { return }
@@ -1500,10 +1490,15 @@ final class IndustrialMicDeviceSelectorView: NSView {
 
     private func selected(at idx: Int) {
         guard idx >= 0 && idx < options.count else { return }
+        if idx == selectedIndex {
+            // UI-043 拍板 a：再点已勾选 → reselect=true，由 Sidebar 取消钉选（不写系统默认 UID）
+            onSelect?(options[idx], true)
+            return
+        }
         selectedIndex = idx
         rebuildList()
         updateAppearance()
-        onSelect?(options[idx])
+        onSelect?(options[idx], false)
     }
 
     @objc private func toggleExpanded() {

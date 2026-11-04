@@ -263,7 +263,6 @@
 "请选择至少一个音频源" = "Select at least one audio source";
 "请选择音频源" = "Choose audio sources";
 "读取 Tap 格式失败" = "Failed to read Tap format";
-"跟随系统默认" = "Follow System Default";
 "转写中…" = "Transcribing…";
 "转写失败: %@" = "Transcription failed: %@";
 "转写完成: %d 字" = "Transcription done: %d chars";
