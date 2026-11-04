@@ -229,8 +229,8 @@ struct IndustrialColors {
     static let editorDividerStrong = NSColor(hex: "#4A4F52")
     /// 工具栏图标/轨道头喇叭常态色
     static let editorIcon = NSColor(hex: "#C8CCCE")
-    /// 电平背景（clip 底色）
-    static let editorClipSurface = NSColor(hex: "#2E5E59")
+    /// 电平背景（clip 底色，半透明叠加对齐参考图；实机反馈 11-04 老板「再淡一点」）
+    static let editorClipSurface = NSColor(hex: "#2E5E59", alpha: 0.6)
     /// clip 细描边
     static let editorClipStroke = NSColor(hex: "#3D6B66")
     /// 音量线常态（0dB 水位线，浅青低存在感）
