@@ -123,10 +123,11 @@ class EditorWaveformView: NSView {
     
     private func setupView() {
         wantsLayer = true
-        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
+        // UI-044: 轨道颜色（clip 区底色）对齐设计稿
+        layer?.backgroundColor = IndustrialColors.editorTrackSurface.cgColor
         layer?.cornerRadius = IndustrialCornerRadius.sm
         layer?.borderWidth = 1
-        layer?.borderColor = IndustrialColors.outlineVariant.cgColor
+        layer?.borderColor = IndustrialColors.editorDivider.cgColor
     }
     
     // MARK: - Public API (Tile Mode)
@@ -476,6 +477,7 @@ class EditorWaveformView: NSView {
 
         // P0-B: 时间刻度尺由 TrackContainerView 顶部的 TimeRulerView 横向贯通绘制
         // （轨道头列跳过），这里不再调用 drawTimeRuler。
+        drawClipSurface(in: dirtyRect)         // UI-044: 电平背景（clip 常显青绿底+细描边）
         drawSegmentHighlight(in: dirtyRect)    // UI-021: 句区间高亮（波形下层）
         drawSelectionOverlay(in: dirtyRect)
         
@@ -644,6 +646,20 @@ class EditorWaveformView: NSView {
         centerLine.stroke()
     }
     
+    /// UI-044: 电平背景——clip 常显青绿底 + 细描边（对标参考图；与 FIX-019 选中描边退役无关，
+    /// 这是常显底色层，选中态覆盖层 drawSelectionOverlay 保留既有语义）
+    private func drawClipSurface(in rect: NSRect) {
+        let clipRect = waveformRect.insetBy(dx: 1, dy: 8)
+        let path = NSBezierPath(roundedRect: clipRect,
+                                xRadius: IndustrialSpacing.editorClipSelectionRadius,
+                                yRadius: IndustrialSpacing.editorClipSelectionRadius)
+        IndustrialColors.editorClipSurface.setFill()
+        path.fill()
+        IndustrialColors.editorClipStroke.setStroke()
+        path.lineWidth = 1
+        path.stroke()
+    }
+
     /// UI-021: 转写句区间高亮（B 稿 state=5 segLink：teal 10% 底 + 左右 2px teal 边）
     private func drawSegmentHighlight(in rect: NSRect) {
         guard let range = segmentHighlight, range.lowerBound < totalDuration else { return }
@@ -1117,9 +1133,10 @@ class EditorWaveformView: NSView {
     /// UI-036 R15e: 拖拽中显示剪映同款 dB 气泡（黑底白字，如「-2.8dB」「5.5dB」；gain=100% 即 0dB）
     /// UI-036 R15f: 拖拽中线点亮为剪映橙高亮（老板发图「这个也打开」）；常态仍浅白
     private func drawVolumeLine() {
+        // UI-044: 常态音量线（0dB 水位线）对齐设计稿浅青；拖拽中剪映橙高亮保留
         let lineColor = dragMode == .gainDrag
             ? IndustrialColors.volumeEnvelope
-            : NSColor.white.withAlphaComponent(0.35)
+            : IndustrialColors.editorVolumeLineIdle
         let y = volumeLineY
 
         let line = NSBezierPath()

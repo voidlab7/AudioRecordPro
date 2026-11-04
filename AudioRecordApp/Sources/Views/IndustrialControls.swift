@@ -249,13 +249,14 @@ final class IndustrialCompactIconButton: NSView {
             iconLabel.textColor = IndustrialColors.primary
             iconImageView.contentTintColor = IndustrialColors.primary
         } else if hasRestingBackground {
-            let tintColor = active ? NSColor(hex: "#E5E5E5") : NSColor(hex: "#D4D4D4")
+            // UI-044: 常态图标色对齐设计稿 #C8CCCE（hover 加亮语义保留）
+            let tintColor = active ? NSColor(hex: "#E5E5E5") : IndustrialColors.editorIcon
             iconLabel.textColor = tintColor
             iconImageView.contentTintColor = tintColor
         } else {
-            // UI-026 剪映风：图标主色 onSurface(#EDEFF2)，悬停不加亮（底色变化已足够反馈）
-            iconLabel.textColor = IndustrialColors.onSurface
-            iconImageView.contentTintColor = IndustrialColors.onSurface
+            // UI-026 剪映风：图标主色（UI-044 对齐设计稿 #C8CCCE），悬停不加亮（底色变化已足够反馈）
+            iconLabel.textColor = IndustrialColors.editorIcon
+            iconImageView.contentTintColor = IndustrialColors.editorIcon
         }
     }
 
