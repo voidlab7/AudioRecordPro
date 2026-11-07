@@ -251,7 +251,6 @@
 "裁剪选区至少需要 0.1 秒。当前选区仅 %@ 秒。" = "A trim selection needs at least 0.1s. Current selection is only %@s.";
 "覆盖" = "Overwrite";
 "解密失败: %@" = "Decryption failed: %@";
-"设备" = "Devices";
 "设置" = "Settings";
 "设置…" = "Settings…";
 "语言 \"%@\" 不被转写引擎支持" = "Language \"%@\" is not supported by the transcription engine";

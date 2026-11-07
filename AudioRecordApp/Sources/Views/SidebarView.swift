@@ -1251,17 +1251,16 @@ class IndustrialTableRowView: NSTableRowView {
 
 // MARK: - IndustrialMicDeviceSelectorView
 /// UI-015/UI-043: 自绘麦克风设备选择器（弃用 NSPopUpButton；UI-043 去掉「跟随系统默认」伪行）。
-/// UI-043 R2（2026-11-07 老板参考图反馈）：header 改「设备」分组标题（不再显示当前设备名），
-/// **默认展开**——「一个列表搞定」：探测到几个麦克风就平铺几行，每行 checkbox 直接勾选。
-/// - 再点已勾选行 → 取消钉选回跟随（`onSelect` 的 reselect=true，勾落系统默认投影）
-/// - isInvalid / emptyState 仍占用 header 文案位（功能性提示优先于分组标题）
+/// UI-043 R4（2026-11-07 老板实机反馈「下拉箭头都可以不要，直接就是选项」）：「设备」分组头与
+/// 折叠交互整个退役——MICROPHONE 段标题下**直接平铺设备选项**，无头无箭头。
+/// - 异常/空态提示（失效警告 / 「未检测到」）改为列表首行 statusLabel（正常态隐藏不占位）
 /// - 选项 displayName 由 MicDeviceManager.displayName(for:) 友好化处理（Aggregate 子设备解析）
 final class IndustrialMicDeviceSelectorView: NSView {
     /// 一个选项数据
     struct Option {
         /// 具体设备 UID（UI-043 后列表无 uid=nil 伪行；跟随语义由 Sidebar 写 preferredDeviceUID=nil）
         let uid: String?
-        /// 展开态行内主标
+        /// 行内主标
         let displayName: String
         /// 预留副标字段（R2 起行内不再渲染；当前唯一调用方恒传 nil）
         let subtitle: String?
@@ -1269,25 +1268,21 @@ final class IndustrialMicDeviceSelectorView: NSView {
         let isCurrent: Bool
     }
 
-    /// reselect=true：再点当前已勾选行（拍板 a：取消钉选回跟随）
+    /// reselect=true：再点当前已勾选行（R3：取消勾选 = 关闭混录）
     var onSelect: ((Option, Bool) -> Void)?
 
-    /// 所选设备失效时为 true（header 切换到警告文案）
+    /// 所选设备失效时为 true（列表首行警告提示）
     var isInvalid: Bool = false { didSet { updateAppearance() } }
 
-    /// UI-027: 无设备时的 header 文案（非 nil 且列表为空时优先显示）
+    /// UI-027: 无设备时的提示文案（非 nil 且列表为空时优先显示）
     var emptyStateText: String? { didSet { updateAppearance() } }
 
-    private let header = NSView()
-    private let headerLabel = NSTextField(labelWithString: "")
-    private let arrowIcon = NSImageView()
+    /// R4: 异常/空态提示行——常驻 listStack 首项，正常态 isHidden（NSStackView 不占位）
+    private let statusLabel = NSTextField(labelWithString: "")
     private let listStack = NSStackView()
 
     private var options: [Option] = []
     private var selectedIndex: Int = 0
-    /// R2: 默认展开——列表直接可见，不再「折叠显示当前设备、展开才见列表」
-    private var expanded: Bool = true { didSet { updateExpandedState() } }
-    private var isHovering = false
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -1306,54 +1301,24 @@ final class IndustrialMicDeviceSelectorView: NSView {
         layer?.borderColor = IndustrialColors.outlineVariant.cgColor
         translatesAutoresizingMaskIntoConstraints = false
 
-        header.wantsLayer = true
-        header.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(header)
-
-        headerLabel.stringValue = "设备".localized
-        headerLabel.font = IndustrialTypography.body
-        headerLabel.textColor = IndustrialColors.onSurface
-        headerLabel.lineBreakMode = .byTruncatingTail
-        headerLabel.translatesAutoresizingMaskIntoConstraints = false
-        header.addSubview(headerLabel)
-
-        arrowIcon.translatesAutoresizingMaskIntoConstraints = false
-        arrowIcon.contentTintColor = IndustrialColors.textSecondary
-        arrowIcon.image = Self.arrowImage(expanded: expanded)
-        header.addSubview(arrowIcon)
+        statusLabel.font = IndustrialTypography.body
+        statusLabel.lineBreakMode = .byTruncatingTail
+        statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
         listStack.orientation = .vertical
         listStack.spacing = 2
-        listStack.edgeInsets = NSEdgeInsets(top: 4, left: 0, bottom: 0, right: 0)
+        listStack.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
         listStack.alignment = .leading
         listStack.translatesAutoresizingMaskIntoConstraints = false
-        listStack.isHidden = !expanded
         addSubview(listStack)
 
-        let headerTap = NSClickGestureRecognizer(target: self, action: #selector(toggleExpanded))
-        header.addGestureRecognizer(headerTap)
-
         NSLayoutConstraint.activate([
-            header.topAnchor.constraint(equalTo: topAnchor),
-            header.leadingAnchor.constraint(equalTo: leadingAnchor),
-            header.trailingAnchor.constraint(equalTo: trailingAnchor),
-            header.heightAnchor.constraint(equalToConstant: 34),
-
-            headerLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 12),
-            headerLabel.centerYAnchor.constraint(equalTo: header.centerYAnchor),
-            headerLabel.trailingAnchor.constraint(lessThanOrEqualTo: arrowIcon.leadingAnchor, constant: -6),
-
-            arrowIcon.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -12),
-            arrowIcon.centerYAnchor.constraint(equalTo: header.centerYAnchor),
-            arrowIcon.widthAnchor.constraint(equalToConstant: 14),
-
-            listStack.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 2),
+            listStack.topAnchor.constraint(equalTo: topAnchor),
             listStack.leadingAnchor.constraint(equalTo: leadingAnchor),
             listStack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            listStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            listStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -2),
         ])
 
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
         updateAppearance()
     }
 
@@ -1370,6 +1335,10 @@ final class IndustrialMicDeviceSelectorView: NSView {
             listStack.removeArrangedSubview(v)
             v.removeFromSuperview()
         }
+        // R4: 提示行常驻首项（正常态隐藏不占位，NSStackView 自动收起）
+        listStack.addArrangedSubview(statusLabel)
+        statusLabel.leadingAnchor.constraint(equalTo: listStack.leadingAnchor, constant: 10).isActive = true
+        statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: listStack.trailingAnchor, constant: -12).isActive = true
         // UI-043: 伪行删除后不再在 idx==1 插分隔线（否则会插进第二台真设备前）
         for (idx, opt) in options.enumerated() {
             let row = IndustrialMicDeviceOptionRowView(option: opt, isSelected: idx == self.selectedIndex)
@@ -1386,7 +1355,7 @@ final class IndustrialMicDeviceSelectorView: NSView {
     private func selected(at idx: Int) {
         guard idx >= 0 && idx < options.count else { return }
         if idx == selectedIndex {
-            // UI-043 拍板 a：再点已勾选 → reselect=true，由 Sidebar 取消钉选（不写系统默认 UID）
+            // UI-043 R3：再点已勾选 → reselect=true，由 Sidebar 取消勾选关闭混录
             onSelect?(options[idx], true)
             return
         }
@@ -1396,58 +1365,19 @@ final class IndustrialMicDeviceSelectorView: NSView {
         onSelect?(options[idx], false)
     }
 
-    @objc private func toggleExpanded() {
-        expanded.toggle()
-    }
-
-    private func updateExpandedState() {
-        listStack.isHidden = !expanded
-        arrowIcon.image = Self.arrowImage(expanded: expanded)
-        updateArrowAppearance()
-    }
-
-    /// UI-017: 展开指示器矢量绘制——SF Symbol chevron（semibold ≥1.5pt 线宽），不依赖字体字形
-    private static func arrowImage(expanded: Bool) -> NSImage? {
-        let name = expanded ? "chevron.up" : "chevron.down"
-        guard let base = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
-        return base.withSymbolConfiguration(.init(pointSize: 10, weight: .semibold))
-    }
-
-    /// UI-017: 箭头颜色三态——常态 textSecondary（比原 textTertiary 提一档）；hover 再亮一档；展开态品牌绿
-    private func updateArrowAppearance() {
-        if expanded {
-            arrowIcon.contentTintColor = IndustrialColors.primary
-        } else if isHovering {
-            arrowIcon.contentTintColor = IndustrialColors.onSurface
-        } else {
-            arrowIcon.contentTintColor = IndustrialColors.textSecondary
-        }
-    }
-
     private func updateAppearance() {
         if isInvalid {
-            headerLabel.stringValue = "所选设备已失效，已回退系统默认".localized
-            headerLabel.textColor = IndustrialColors.statusWarning
+            statusLabel.stringValue = "所选设备已失效，已回退系统默认".localized
+            statusLabel.textColor = IndustrialColors.statusWarning
+            statusLabel.isHidden = false
         } else if options.isEmpty, let empty = emptyStateText {
-            headerLabel.stringValue = empty
-            headerLabel.textColor = IndustrialColors.textTertiary
+            statusLabel.stringValue = empty
+            statusLabel.textColor = IndustrialColors.textTertiary
+            statusLabel.isHidden = false
         } else {
-            // R2: 正常态固定「设备」分组标题；当前勾选由行内 checkbox 表达
-            headerLabel.stringValue = "设备".localized
-            headerLabel.textColor = IndustrialColors.onSurface
+            // R4: 正常态无任何头部——纯设备选项平铺；当前勾选由行内 checkbox 表达
+            statusLabel.isHidden = true
         }
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        isHovering = true
-        header.layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-        updateArrowAppearance()
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        isHovering = false
-        header.layer?.backgroundColor = NSColor.clear.cgColor
-        updateArrowAppearance()
     }
 }
 
