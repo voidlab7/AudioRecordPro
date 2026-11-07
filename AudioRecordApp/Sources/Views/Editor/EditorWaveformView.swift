@@ -769,7 +769,8 @@ class EditorWaveformView: NSView {
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
             // FIX-004 同款下限：静音段保留 3pt 基线带；UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
             // UI-045 R2: per-clip 归一化——桶峰值除以 clip 全局峰值再乘 headroom（最大段=90% 可用高）
-            let amplitude = max(1.5, CGFloat(maxVal / clipPeakNorm) * drawHeight * Self.normHeadroom)
+            // UI-045 R2b: 基准统一走 framePeakNorm（无 buffer 回退桶级）——粗/细切换基准恒一致不跳变
+            let amplitude = max(1.5, CGFloat(maxVal / framePeakNorm) * drawHeight * Self.normHeadroom)
             points.append((x: x, amp: amplitude))
         }
 
@@ -805,8 +806,8 @@ class EditorWaveformView: NSView {
         }
         let points = peaks.enumerated().map { (i, v) -> (x: CGFloat, amp: CGFloat) in
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
-            // UI-045 R2: 归一化同粗路径；帧级峰值可能因跳采略超桶级 clipPeak，钳 1 防伪过冲
-            let norm = min(v / clipPeakNorm, 1.0)
+            // UI-045 R2b: 细路径用帧级基准（桶级在 Phase1 跳采期会低估 → 大面积钳满，实机 11-07）
+            let norm = min(v / framePeakNorm, 1.0)
             return (x: x, amp: max(1.5, CGFloat(norm) * drawHeight * Self.normHeadroom))
         }
         drawGainAwareEnvelope(points: points)
@@ -1092,6 +1093,38 @@ class EditorWaveformView: NSView {
             }
         }
         return m > WaveformAmplitudeMapper.silenceFloorLinear ? m : 1.0
+    }
+
+    // MARK: UI-045 R2b（11-07 实机打回）：细路径专用帧级基准
+    /// 实机缺陷：刚打开文件时 allSamples=Phase1 快速桶（每桶只采 1 点，跳采漏真实响段）→
+    /// 桶级 clipPeakNorm 低估 → 细路径帧级真峰值大面积 ≥ 基准被钳满 → 波形左侧整段实心满高
+    /// （老板截图绿框）。修法：细路径基准改帧级 stride(1024) 全局扫描（per-buffer 缓存，
+    /// 10 分钟文件 ~2.8 万次采样 <1ms 一次性），与桶级取大者兜底（Phase2 全扫后两者恒一致）。
+    private var framePeakCache: (id: ObjectIdentifier, peak: Float)?
+    private var framePeakNorm: Float {
+        guard let buffer = fineBuffer, let chData = buffer.floatChannelData else {
+            return clipPeakNorm
+        }
+        let id = ObjectIdentifier(buffer)
+        if let c = framePeakCache, c.id == id { return c.peak }
+        var peak: Float = 0
+        let frames = Int(buffer.frameLength)
+        let channels = Int(buffer.format.channelCount)
+        for ch in 0..<channels {
+            let ptr = chData[ch]
+            var f = 0
+            while f < frames {
+                let s = ptr[f]
+                let a = s < 0 ? -s : s
+                if a > peak { peak = a }
+                f += 1024
+            }
+        }
+        // 桶级兜底（stride 漏单点峰时 Phase2 全扫桶峰值补上）；全静音兜底 1.0
+        peak = max(peak, clipPeakNorm)
+        peak = peak > WaveformAmplitudeMapper.silenceFloorLinear ? peak : 1.0
+        framePeakCache = (id, peak)
+        return peak
     }
 
     private var envelopeFullHeight: CGFloat {
