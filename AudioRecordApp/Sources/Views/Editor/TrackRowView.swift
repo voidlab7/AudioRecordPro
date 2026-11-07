@@ -15,11 +15,13 @@ class EditorTrackRowView: NSView {
 
     // MARK: - Constants
     /// UI-019: 88px（80→88，容纳颜色条与音量滑块，规格表 §1.3）
+    // UI-045: 轨道头列宽对齐设计稿 mockup 79（×1.111 窗口等比 → 88）
     static let headerWidth: CGFloat = 88
     /// 轨道行高度 = 140（容器），其中 clip 块占 ~90px（居中 64%），
     /// 上下各 25px 留白给 clip 标签和呼吸感。
     /// 体现"轨道是容器，clip 是被吸附内容"的设计意图。
-    static let rowHeight: CGFloat = 140
+    // UI-045: 轨道行高对齐设计稿 mockup 80（按 675→750 窗口等比 → 88）
+    static let rowHeight: CGFloat = 88
 
     // MARK: - Properties
     weak var delegate: EditorTrackRowViewDelegate?
@@ -67,13 +69,10 @@ class EditorTrackRowView: NSView {
         headerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(headerView)
 
-        // UI-019: 元信息（编号 9 mono）；UI-036: 轨道名移除后编号上移贴顶
-        trackMetaLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular)
-        trackMetaLabel.textColor = IndustrialColors.textTertiary
-        trackMetaLabel.translatesAutoresizingMaskIntoConstraints = false
-        headerView.addSubview(trackMetaLabel)
+        // UI-045: 轨道头对齐设计稿 mockup——仅喇叭居中（编号/回放电平条显示移除，
+        // mockup 3:188 仅含 3:304 静音按钮；接口保留，显示不再上屏）
 
-        // UI-031: 静音按钮 — 剪映线性喇叭图标（去「M」字母，去边框），16×16 热区
+        // UI-031: 静音按钮 — 剪映线性喇叭图标（去「M」字母，去边框）
         muteButton.isBordered = false
         muteButton.setButtonType(.momentaryChange)
         muteButton.image = NSImage(systemSymbolName: "speaker", accessibilityDescription: "静音".localized)
@@ -84,19 +83,6 @@ class EditorTrackRowView: NSView {
         muteButton.action = #selector(muteTapped)
         muteButton.translatesAutoresizingMaskIntoConstraints = false
         headerView.addSubview(muteButton)
-
-        // UI-019: 回放电平行（4px 圆角轨 + 填充条，R1 骨架落位）
-        levelTrack.wantsLayer = true
-        levelTrack.layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-        levelTrack.layer?.cornerRadius = 2
-        levelTrack.translatesAutoresizingMaskIntoConstraints = false
-        headerView.addSubview(levelTrack)
-
-        levelFill.wantsLayer = true
-        levelFill.layer?.backgroundColor = trackColor.cgColor
-        levelFill.layer?.cornerRadius = 2
-        levelFill.translatesAutoresizingMaskIntoConstraints = false
-        levelTrack.addSubview(levelFill)
 
         // 波形区域
         waveformView.wantsLayer = true
@@ -117,7 +103,7 @@ class EditorTrackRowView: NSView {
         setContentHuggingPriority(.defaultHigh, for: .vertical)
         setContentCompressionResistancePriority(.defaultHigh, for: .vertical)
 
-        levelWidthConstraint = levelFill.widthAnchor.constraint(equalToConstant: 0)
+        // UI-045: 电平条显示移除（mockup 轨道头仅喇叭），levelWidthConstraint 不再创建
 
         NSLayoutConstraint.activate([
             heightAnchor.constraint(greaterThanOrEqualToConstant: h),
@@ -127,26 +113,11 @@ class EditorTrackRowView: NSView {
             headerView.bottomAnchor.constraint(equalTo: bottomAnchor),
             headerView.widthAnchor.constraint(equalToConstant: hw),
 
-            // 竖排内容列：编号 / 静音 / 电平（UI-036: 图标与轨道名移除，编号贴顶）
-            trackMetaLabel.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
-            trackMetaLabel.topAnchor.constraint(equalTo: headerView.topAnchor, constant: 18),
-
-            // UI-034 R3: 音量滑条移除——静音按钮直接上移贴编号行
-            muteButton.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
-            muteButton.topAnchor.constraint(equalTo: trackMetaLabel.bottomAnchor, constant: 7),
-            muteButton.widthAnchor.constraint(equalToConstant: 16),
-            muteButton.heightAnchor.constraint(equalToConstant: 16),
-
-            levelTrack.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 12),
-            levelTrack.widthAnchor.constraint(equalToConstant: levelTrackWidth),
-            levelTrack.topAnchor.constraint(equalTo: muteButton.bottomAnchor, constant: 6),
-            levelTrack.heightAnchor.constraint(equalToConstant: 4),
-            levelTrack.bottomAnchor.constraint(lessThanOrEqualTo: headerView.bottomAnchor, constant: -10),
-
-            levelFill.leadingAnchor.constraint(equalTo: levelTrack.leadingAnchor),
-            levelFill.topAnchor.constraint(equalTo: levelTrack.topAnchor),
-            levelFill.bottomAnchor.constraint(equalTo: levelTrack.bottomAnchor),
-            levelWidthConstraint,
+            // UI-045: 喇叭在轨道头内水平垂直居中（mockup 3:304 静音按钮 26×26 居中语义）
+            muteButton.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
+            muteButton.centerYAnchor.constraint(equalTo: headerView.centerYAnchor),
+            muteButton.widthAnchor.constraint(equalToConstant: 18),
+            muteButton.heightAnchor.constraint(equalToConstant: 18),
 
             waveformView.leadingAnchor.constraint(equalTo: headerView.trailingAnchor),
             waveformView.topAnchor.constraint(equalTo: topAnchor),
@@ -162,11 +133,10 @@ class EditorTrackRowView: NSView {
 
     // MARK: - Public API
 
-    /// UI-019: 回放电平更新（0～1；R1 骨架落位，播放联动后续接）
+    /// UI-019: 回放电平更新（0～1）
+    /// UI-045: 电平条显示移除（mockup 轨道头仅喇叭）——接口保留供播放链路调用，视觉 no-op
     func updatePlayLevel(_ level: Float) {
-        let clamped = CGFloat(max(0, min(1, level)))
-        levelWidthConstraint.constant = levelTrackWidth * clamped
-        levelTrack.needsLayout = true
+        _ = level
     }
 
     /// 更新 Mute 状态视觉（UI-031：静音=speaker.slash + coral，未静音=speaker + 灰；波形同步变暗）

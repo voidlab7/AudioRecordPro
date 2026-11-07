@@ -28,7 +28,8 @@ class TrackContainerView: NSView {
     /// UI-037: ruler 固定贴轨道区顶部（navigationBar 正下方），不再随轨道带居中；
     ///       左侧 88px 轨道头不绘制刻度（喇叭按钮所在列保持纯净）
     private let rulerView = TimeRulerView()
-    private let rulerHeight: CGFloat = 22
+    // UI-045: 时间标尺高度对齐 mockup 22（×1.111 窗口等比 → 24）
+    private let rulerHeight: CGFloat = 24
 
     /// 播放头/游标线 overlay — 覆盖整个轨道区（ruler 顶 → 容器底），
     /// x 坐标与 ruler 共享同一公式（精准卡住时间刻度）
@@ -116,8 +117,10 @@ class TrackContainerView: NSView {
 
         // 关键约束：
         // - ruler 贴容器顶（铺满宽）
-        // - stack 在 trackBandArea 内垂直居中（500）；多轨超高时 top≥(required)
-        //   让 stack 贴 ruler 下沿、bottom≤(749) 放行溢出（回退贴顶，与 UI-032 语义同构）
+        // - UI-045 终版（老板 11-04 实机对照设计稿 mockup 定版）：轨道行**固定 88**（mockup 80
+        //   按 675→750 窗口等比），在 trackBandArea 内垂直居中（500）——mockup 里行上下
+        //   各留大片带级留白，clip 上下仅 2px 行内边距；多轨超高时 top≥(required) 贴 ruler
+        //   下沿、bottom≤(749) 放行溢出（与 UI-032 语义同构）
         let stackBottomFits = stackView.bottomAnchor.constraint(lessThanOrEqualTo: trackBandArea.bottomAnchor)
         stackBottomFits.priority = NSLayoutConstraint.Priority(749)
         let stackCentered = stackView.centerYAnchor.constraint(equalTo: trackBandArea.centerYAnchor)

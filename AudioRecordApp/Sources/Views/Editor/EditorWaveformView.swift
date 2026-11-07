@@ -430,7 +430,8 @@ class EditorWaveformView: NSView {
     }
     
     /// 上下留白（用于 clip 标签 + 视觉呼吸感）
-    private let clipInsetVertical: CGFloat = 25
+    // UI-045: clip 上下边距对齐设计稿 mockup（2px，clip 占行 95%）
+    private let clipInsetVertical: CGFloat = 2
 
     /// Clip 块矩形（"被吸附"的内容区）— 居中、占轨道行约 64% 高度
     /// 轨道是 140px 容器，clip 块 = 90px，clip 块上下各 25px 留白给标签和呼吸感
@@ -649,10 +650,13 @@ class EditorWaveformView: NSView {
     /// UI-044: 电平背景——clip 常显青绿底 + 细描边（对标参考图；与 FIX-019 选中描边退役无关，
     /// 这是常显底色层，选中态覆盖层 drawSelectionOverlay 保留既有语义）
     private func drawClipSurface(in rect: NSRect) {
-        let clipRect = waveformRect.insetBy(dx: 1, dy: 8)
+        // UI-045: clip 边距=waveformRect 自身的 clipInsetVertical(2)，不再二次 inset dy:8
+        // （此前沿选中框几何多收 8px，老板实机对照 mockup：clip 距行边界应恰为 2px）
+        let clipRect = waveformRect.insetBy(dx: 1, dy: 0)
+        // UI-045: 圆角对齐 mockup 6（3:199 cornerRadius 6）
         let path = NSBezierPath(roundedRect: clipRect,
-                                xRadius: IndustrialSpacing.editorClipSelectionRadius,
-                                yRadius: IndustrialSpacing.editorClipSelectionRadius)
+                                xRadius: 6,
+                                yRadius: 6)
         IndustrialColors.editorClipSurface.setFill()
         path.fill()
         IndustrialColors.editorClipStroke.setStroke()
@@ -764,7 +768,9 @@ class EditorWaveformView: NSView {
 
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
             // FIX-004 同款下限：静音段保留 3pt 基线带；UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
-            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight)
+            // UI-045 R2: per-clip 归一化——桶峰值除以 clip 全局峰值再乘 headroom（最大段=90% 可用高）
+            // UI-045 R2b: 基准统一走 framePeakNorm（无 buffer 回退桶级）——粗/细切换基准恒一致不跳变
+            let amplitude = max(1.5, CGFloat(maxVal / framePeakNorm) * drawHeight * Self.normHeadroom)
             points.append((x: x, amp: amplitude))
         }
 
@@ -800,7 +806,9 @@ class EditorWaveformView: NSView {
         }
         let points = peaks.enumerated().map { (i, v) -> (x: CGFloat, amp: CGFloat) in
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
-            return (x: x, amp: max(1.5, CGFloat(v) * drawHeight))
+            // UI-045 R2b: 细路径用帧级基准（桶级在 Phase1 跳采期会低估 → 大面积钳满，实机 11-07）
+            let norm = min(v / framePeakNorm, 1.0)
+            return (x: x, amp: max(1.5, CGFloat(norm) * drawHeight * Self.normHeadroom))
         }
         drawGainAwareEnvelope(points: points)
     }
@@ -1032,7 +1040,8 @@ class EditorWaveformView: NSView {
 
                 let mapped = WaveformAmplitudeMapper.normalized(peak.amplitude, referenceMax: 1.0)
                 // UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
-                let amplitude = max(1.5, CGFloat(mapped) * drawHeight)
+                // UI-045 R2: per-clip 归一化同粗/细路径
+                let amplitude = max(1.5, CGFloat(min(mapped / clipPeakNorm, 1.0)) * drawHeight * Self.normHeadroom)
                 points.append((x: x, amp: amplitude))
             }
         }
@@ -1063,13 +1072,74 @@ class EditorWaveformView: NSView {
     // MARK: - UI-034 R1: 剪映式单边波形 + 音量暗轮廓分层
 
     /// UI-034: 100% 增益满幅高度（渲染与拖拽换算共用标尺）
+    // MARK: - UI-045 R2（并入 FIX-022）: 编辑器波形 per-clip 显示归一化（2026-11-07 老板定，对照剪映）
+    /// 「剪映可以把波纹打满，但不会顶到最顶部。我们往上抬的时候最底部不会往上走很多，
+    /// 有很多很平的音频顶不上去。」——FIX-010 拍板 B 的固定满刻度（峰值 1.0=满高）在编辑器
+    /// 显示层被本归一化取代（录制态 FIX-018 方案 A 不动；播放/导出零影响，纯显示层）。
+    /// 机制：amp_norm = sample / clipPeak × normHeadroom——最大段恒到可用高的 90%；
+    /// 音量线增益在归一化之上线性叠加（drawGainAwareEnvelope 不变），越满幅段照常溢出红。
+    /// 基准取整条 clip（allSamples/tiles 全局桶峰值最大值，非视口内重算）——缩放滚动不跳变；
+    /// 切分/删除/undo 后 allSamples 重建，基准随新 buffer 自动重算。
+    /// 全静音兜底：clipPeak 跌破门限按 1.0（= 旧满刻度行为，全基线）。
+    static let normHeadroom: CGFloat = 0.90
+
+    /// 归一基准：clip 全局峰值（0~1 域，来自 allSamples 桶峰值 / tile 峰值的最大值）
+    private var clipPeakNorm: Float {
+        var m: Float = 0
+        for v in allSamples where v > m { m = v }
+        if useTileMode {
+            for t in currentTiles {
+                for p in t.peaks where p.amplitude > m { m = p.amplitude }
+            }
+        }
+        return m > WaveformAmplitudeMapper.silenceFloorLinear ? m : 1.0
+    }
+
+    // MARK: UI-045 R2b（11-07 实机打回）：细路径专用帧级基准
+    /// 实机缺陷：刚打开文件时 allSamples=Phase1 快速桶（每桶只采 1 点，跳采漏真实响段）→
+    /// 桶级 clipPeakNorm 低估 → 细路径帧级真峰值大面积 ≥ 基准被钳满 → 波形左侧整段实心满高
+    /// （老板截图绿框）。修法：细路径基准改帧级 stride(1024) 全局扫描（per-buffer 缓存，
+    /// 10 分钟文件 ~2.8 万次采样 <1ms 一次性），与桶级取大者兜底（Phase2 全扫后两者恒一致）。
+    /// R2c（11-07 实机二次打回）：缓存键补 allSamples.count——Phase1→Phase2 同 buffer 换桶数据，
+    /// 旧键不失效则 Phase1 低估基准被 Phase2 沿用 → 峰值列被钳 1.0 平顶截断（老板截图「顶部截断」）。
+    /// Phase2 后桶级=全帧真 max 兜底，列峰值 v ≤ 基准恒成立，无平顶。
+    private var framePeakCache: (id: ObjectIdentifier, samples: Int, peak: Float)?
+    private var framePeakNorm: Float {
+        guard let buffer = fineBuffer, let chData = buffer.floatChannelData else {
+            return clipPeakNorm
+        }
+        let id = ObjectIdentifier(buffer)
+        let gen = allSamples.count
+        if let c = framePeakCache, c.id == id, c.samples == gen { return c.peak }
+        var peak: Float = 0
+        let frames = Int(buffer.frameLength)
+        let channels = Int(buffer.format.channelCount)
+        for ch in 0..<channels {
+            let ptr = chData[ch]
+            var f = 0
+            while f < frames {
+                let s = ptr[f]
+                let a = s < 0 ? -s : s
+                if a > peak { peak = a }
+                f += 1024
+            }
+        }
+        // 桶级兜底（stride 漏单点峰时 Phase2 全扫桶峰值补上）；全静音兜底 1.0
+        peak = max(peak, clipPeakNorm)
+        peak = peak > WaveformAmplitudeMapper.silenceFloorLinear ? peak : 1.0
+        framePeakCache = (id, gen, peak)
+        return peak
+    }
+
     private var envelopeFullHeight: CGFloat {
         (waveformRect.height - Self.volumeLaneHeight) * 0.82
     }
     /// UI-034: 波形基线 y（clip 下缘对齐）
     /// UI-036 R15i（老板 10-30 实机）：对齐 clip 选中边框底线（inset dy:8）——旧值 minY+2 使波形底缘
     /// 突出边框底 6pt（「波纹比轨道低」）；对齐后波形贴边框底线，无缝无突出。
-    private var envelopeBaselineY: CGFloat { waveformRect.minY + 8 }
+    // UI-045: 波形基线贴 clip 底边（mockup 3:308 波形 Vector 贴 clip 底 y=76）；
+    // 原 +8 沿用选中框 inset dy:8 语义，clip 底改由 drawClipSurface 直接对齐 waveformRect 后移除
+    private var envelopeBaselineY: CGFloat { waveformRect.minY }
     /// UI-034: 波形最大渲染高度（触顶前上限）
     private var envelopeMaxAmp: CGFloat { waveformRect.height - 4 - Self.volumeLaneHeight }
     /// UI-034: 音量线 y
@@ -1104,23 +1174,31 @@ class EditorWaveformView: NSView {
     /// UI-036 R15c（老板实机 10-29）：③删除暗轮廓层（调音量后波纹「重影」，原始形状不再叠加显示）；
     /// ④删除播放头×音量线交叉处的拖拽圆点（拖拽热区保留，只去视觉）。
     /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
+    /// UI-045 R2d（2026-11-07 实机打回）：**静音列不随增益放大**——静音列（amp=下限 1.5，即
+    /// −60dBFS 门限下无信号）乘 clipGain 后基线带膨胀成可见横线（+12dB≈5 倍高，老板截图
+    /// 「静音的地方会出现这样，不合理」；剪映语言静音段=空）。信号列照常乘增益。
     private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
         guard !points.isEmpty else { return }
         let baselineY = envelopeBaselineY
         let maxAmp = envelopeMaxAmp
         let fullHeight = envelopeFullHeight
+        let gain = CGFloat(clipGain)
+        // R2d: 下限列（无信号）恒 1.5pt；信号列 amp×gain
+        let amplify: (CGFloat) -> CGFloat = { amp in
+            amp <= 1.5001 ? 1.5 : max(1.5, min(amp * gain, .infinity))
+        }
 
         // UI-036 R15b: 过载溢出层——先画增益高度整段警示色，再用基色盖住 0…100% 段，
         // 只露出超过满幅标尺的「顶部」段（老板：变红说的是波纹，且只有顶部）
         if isOverdriven {
-            let driven = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
+            let driven = points.map { (x: $0.x, amp: min(amplify($0.amp), maxAmp)) }
             WaveformEnvelopeRenderer.fillUpward(points: driven, baselineY: baselineY,
                                                 color: IndustrialColors.waveformOverdrive)
         }
 
         // 波形主体（基色）：gain≤100% 时=amp×gain；过载时钳到 100% 满幅（溢出段已由红色层画出）
         let cap = isOverdriven ? fullHeight : maxAmp
-        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), cap))) }
+        let scaled = points.map { (x: $0.x, amp: min(amplify($0.amp), cap)) }
         WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY,
                                             color: IndustrialColors.waveformBase)
 
@@ -1242,36 +1320,36 @@ extension EditorWaveformView {
         guard let name = clipName, !name.isEmpty else { return }
         guard waveformRect.width > 16, waveformRect.height > 16 else { return }
 
-        // 1) 文字属性（剪映风格：白字 + 10pt medium）
-        let font = NSFont.systemFont(ofSize: 10, weight: .medium)
+        // 1) 文字属性（UI-045: mockup 3:204 字号 9 ×1.111 → 10，SemiBold）
+        let font = NSFont.systemFont(ofSize: 10, weight: .semibold)
         let textAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: NSColor.white
         ]
 
         // 2) 截断（避免超出波形块宽度）
-        let maxWidth = waveformRect.width - 24  // 两侧各留 8px inset
+        let maxWidth = waveformRect.width - 8  // UI-045: mockup 标签距 clip 边 ~2px
         let truncated = truncate(name: name, font: font, maxWidth: maxWidth)
         let textSize = truncated.size(withAttributes: textAttrs)
 
-        // 3) chip 几何：clip 块左上角内 8px，圆角 4px，padding 6x3
+        // 3) chip 几何：mockup 3:203——clip 内 inset (2,3)、padding 左右 6(→7)、高 15(→17)、圆角 3
         let chipRect = NSRect(
-            x: waveformRect.minX + 8,
-            y: waveformRect.maxY - textSize.height - 12,  // macOS Y 向上，maxY 是顶部
-            width: textSize.width + 12,
-            height: textSize.height + 6
+            x: waveformRect.minX + 2,
+            y: waveformRect.maxY - textSize.height - 3 - 2,  // macOS Y 向上：顶距 3 + chip 内上 padding 2
+            width: textSize.width + 14,
+            height: textSize.height + 4
         )
-        guard chipRect.maxX <= waveformRect.maxX - 4 else { return }  // 超出波形右边界不画
+        guard chipRect.maxX <= waveformRect.maxX - 2 else { return }  // 超出波形右边界不画
 
-        // 4) chip 背景：黑色半透明 55% 圆角
-        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 4, yRadius: 4)
-        NSColor.black.withAlphaComponent(0.55).setFill()
+        // 4) chip 背景：mockup #0F2120@70% 圆角 3
+        let chipPath = NSBezierPath(roundedRect: chipRect, xRadius: 3, yRadius: 3)
+        NSColor(hex: "#0F2120").withAlphaComponent(0.7).setFill()
         chipPath.fill()
 
         // 5) 文字绘制（chip 内居中）
         let textPoint = NSPoint(
-            x: chipRect.minX + 6,
-            y: chipRect.minY + 3
+            x: chipRect.minX + 7,
+            y: chipRect.minY + 2
         )
         truncated.draw(at: textPoint, withAttributes: textAttrs)
     }

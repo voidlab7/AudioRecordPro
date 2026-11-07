@@ -19,8 +19,8 @@ class PlayheadOverlayView: NSView {
     /// 左侧轨道头宽度 — 跳过此区域（与 TimeRulerView 保持一致）
     var headerWidth: CGFloat = 80
 
-    /// ruler 高度（U 形手柄骑在 ruler 行内）
-    var rulerHeight: CGFloat = 22
+    /// ruler 高度（手柄骑在 ruler 行内；UI-045 默认值随 mockup 标尺 22→24）
+    var rulerHeight: CGFloat = 24
 
     /// 当前可见时间起点（秒）
     var visibleStartTime: TimeInterval = 0 {
@@ -82,16 +82,16 @@ class PlayheadOverlayView: NSView {
         return headerWidth + ratio * timeWidth
     }
 
-    // MARK: - Drawing (UI-030 剪映风格 · UI-033 圆角矩形手柄)
+    // MARK: - Drawing (UI-030 剪映风格 · UI-045 手柄对齐 mockup 3:303)
 
-    /// 手柄描边宽
-    private static let handleStroke: CGFloat = 3
-    /// 圆角矩形半宽（描边中心线）
-    private static let handleHalfW: CGFloat = 5.5
-    /// 圆角矩形描边中心线高度（顶边→底边）
-    private static let handleSqH: CGFloat = 12
+    /// 手柄宽（mockup 8 ×1.111 → 9）
+    private static let handleW: CGFloat = 9
+    /// 手柄高（mockup 12.5 ×1.111 → 14）
+    private static let handleH: CGFloat = 14
+    /// 手柄顶部距容器顶（mockup y=1）
+    private static let handleTopGap: CGFloat = 1
     /// 圆角半径
-    private static let handleRadius: CGFloat = 4
+    private static let handleRadius: CGFloat = 3
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
@@ -104,13 +104,13 @@ class PlayheadOverlayView: NSView {
         let topY = bounds.height
 
         // 0:00 / 末端不越界：手柄半宽内收 clamp，竖线与手柄一起移动不分离
-        let halfHandle = Self.handleHalfW + Self.handleStroke / 2
+        let halfHandle = Self.handleW / 2
         let drawX = min(max(x, headerWidth + halfHandle), bounds.width - halfHandle)
 
-        let top = topY - Self.handleStroke / 2 - 1            // 顶边描边中心线（贴容器顶内侧）
-        let rectBottom = top - Self.handleSqH                 // 矩形底边（描边中心线）
+        let rectTop = topY - Self.handleTopGap                 // 手柄顶（贴容器顶内侧 1px）
+        let rectBottom = rectTop - Self.handleH                // 手柄底
 
-        // 1) 白色细竖线 — 从矩形底边中点贯穿到容器底部（顶端藏在底边描边内）
+        // 1) 白色细竖线 — 从手柄底边中点贯穿到容器底部
         let line = NSBezierPath()
         line.lineWidth = 1.25
         line.move(to: NSPoint(x: drawX, y: 0))
@@ -118,14 +118,13 @@ class PlayheadOverlayView: NSView {
         IndustrialColors.textPrimary.withAlphaComponent(0.92).setStroke()
         line.stroke()
 
-        // 2) 手柄 — 骑在 ruler 行：圆角矩形描边轮廓（UI-033 定稿：老板发参考图，去三角）
-        let rect = NSRect(x: drawX - Self.handleHalfW,
+        // 2) 手柄 — 骑在 ruler 行：实心圆角矩形（mockup 3:303 fills 白 0.95，无描边）
+        let rect = NSRect(x: drawX - halfHandle,
                           y: rectBottom,
-                          width: Self.handleHalfW * 2,
-                          height: Self.handleSqH)
+                          width: Self.handleW,
+                          height: Self.handleH)
         let handle = NSBezierPath(roundedRect: rect, xRadius: Self.handleRadius, yRadius: Self.handleRadius)
-        handle.lineWidth = Self.handleStroke
-        IndustrialColors.textPrimary.withAlphaComponent(0.95).setStroke()
-        handle.stroke()
+        IndustrialColors.textPrimary.withAlphaComponent(0.95).setFill()
+        handle.fill()
     }
 }
