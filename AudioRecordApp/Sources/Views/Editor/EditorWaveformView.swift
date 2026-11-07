@@ -1100,13 +1100,17 @@ class EditorWaveformView: NSView {
     /// 桶级 clipPeakNorm 低估 → 细路径帧级真峰值大面积 ≥ 基准被钳满 → 波形左侧整段实心满高
     /// （老板截图绿框）。修法：细路径基准改帧级 stride(1024) 全局扫描（per-buffer 缓存，
     /// 10 分钟文件 ~2.8 万次采样 <1ms 一次性），与桶级取大者兜底（Phase2 全扫后两者恒一致）。
-    private var framePeakCache: (id: ObjectIdentifier, peak: Float)?
+    /// R2c（11-07 实机二次打回）：缓存键补 allSamples.count——Phase1→Phase2 同 buffer 换桶数据，
+    /// 旧键不失效则 Phase1 低估基准被 Phase2 沿用 → 峰值列被钳 1.0 平顶截断（老板截图「顶部截断」）。
+    /// Phase2 后桶级=全帧真 max 兜底，列峰值 v ≤ 基准恒成立，无平顶。
+    private var framePeakCache: (id: ObjectIdentifier, samples: Int, peak: Float)?
     private var framePeakNorm: Float {
         guard let buffer = fineBuffer, let chData = buffer.floatChannelData else {
             return clipPeakNorm
         }
         let id = ObjectIdentifier(buffer)
-        if let c = framePeakCache, c.id == id { return c.peak }
+        let gen = allSamples.count
+        if let c = framePeakCache, c.id == id, c.samples == gen { return c.peak }
         var peak: Float = 0
         let frames = Int(buffer.frameLength)
         let channels = Int(buffer.format.channelCount)
@@ -1123,7 +1127,7 @@ class EditorWaveformView: NSView {
         // 桶级兜底（stride 漏单点峰时 Phase2 全扫桶峰值补上）；全静音兜底 1.0
         peak = max(peak, clipPeakNorm)
         peak = peak > WaveformAmplitudeMapper.silenceFloorLinear ? peak : 1.0
-        framePeakCache = (id, peak)
+        framePeakCache = (id, gen, peak)
         return peak
     }
 
