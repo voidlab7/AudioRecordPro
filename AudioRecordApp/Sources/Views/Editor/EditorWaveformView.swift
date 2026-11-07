@@ -1174,23 +1174,31 @@ class EditorWaveformView: NSView {
     /// UI-036 R15c（老板实机 10-29）：③删除暗轮廓层（调音量后波纹「重影」，原始形状不再叠加显示）；
     /// ④删除播放头×音量线交叉处的拖拽圆点（拖拽热区保留，只去视觉）。
     /// points 的 amp 已含 FIX-004 静音基线下限（1.5pt 半带）与包络平滑，按 100% 音量标定。
+    /// UI-045 R2d（2026-11-07 实机打回）：**静音列不随增益放大**——静音列（amp=下限 1.5，即
+    /// −60dBFS 门限下无信号）乘 clipGain 后基线带膨胀成可见横线（+12dB≈5 倍高，老板截图
+    /// 「静音的地方会出现这样，不合理」；剪映语言静音段=空）。信号列照常乘增益。
     private func drawGainAwareEnvelope(points: [(x: CGFloat, amp: CGFloat)]) {
         guard !points.isEmpty else { return }
         let baselineY = envelopeBaselineY
         let maxAmp = envelopeMaxAmp
         let fullHeight = envelopeFullHeight
+        let gain = CGFloat(clipGain)
+        // R2d: 下限列（无信号）恒 1.5pt；信号列 amp×gain
+        let amplify: (CGFloat) -> CGFloat = { amp in
+            amp <= 1.5001 ? 1.5 : max(1.5, min(amp * gain, .infinity))
+        }
 
         // UI-036 R15b: 过载溢出层——先画增益高度整段警示色，再用基色盖住 0…100% 段，
         // 只露出超过满幅标尺的「顶部」段（老板：变红说的是波纹，且只有顶部）
         if isOverdriven {
-            let driven = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), maxAmp))) }
+            let driven = points.map { (x: $0.x, amp: min(amplify($0.amp), maxAmp)) }
             WaveformEnvelopeRenderer.fillUpward(points: driven, baselineY: baselineY,
                                                 color: IndustrialColors.waveformOverdrive)
         }
 
         // 波形主体（基色）：gain≤100% 时=amp×gain；过载时钳到 100% 满幅（溢出段已由红色层画出）
         let cap = isOverdriven ? fullHeight : maxAmp
-        let scaled = points.map { (x: $0.x, amp: max(1.5, min($0.amp * CGFloat(clipGain), cap))) }
+        let scaled = points.map { (x: $0.x, amp: min(amplify($0.amp), cap)) }
         WaveformEnvelopeRenderer.fillUpward(points: scaled, baselineY: baselineY,
                                             color: IndustrialColors.waveformBase)
 
