@@ -61,7 +61,6 @@
 "取消" = "Cancel";
 "取消静音" = "Unmute";
 "受限制" = "Restricted";
-"同时录入麦克风" = "Also record microphone";
 "启动 IO 回调失败" = "Failed to start IO callback";
 "回看态" = "Review";
 "在波形上拖拽以选择要保留的区域，然后点击裁剪。" = "Drag on the waveform to select the region to keep, then click Trim.";
@@ -119,7 +118,7 @@
 "录制已停止" = "Recording stopped";
 "录制已在进行中" = "Already recording";
 "录制时间过短或内容为空，已取消保存" = "Recording too short or empty; save canceled";
-"所选应用在录制期间没有播放任何声音，已取消保存。提示：录自己的声音请开启「同时录入麦克风」" = "The selected app played no audio during recording; save canceled. Tip: turn on \"Also record microphone\" to capture your own voice";
+"所选应用在录制期间没有播放任何声音，已取消保存。提示：录自己的声音请在侧边栏勾选一个麦克风设备" = "The selected app played no audio during recording; save canceled. Tip: tick a microphone device in the sidebar to capture your own voice";
 "录制期间没有检测到任何声音，已取消保存" = "No audio detected during recording; save canceled";
 "录制格式:" = "Format:";
 "录制波形" = "Recording Waveform";
@@ -252,6 +251,7 @@
 "裁剪选区至少需要 0.1 秒。当前选区仅 %@ 秒。" = "A trim selection needs at least 0.1s. Current selection is only %@s.";
 "覆盖" = "Overwrite";
 "解密失败: %@" = "Decryption failed: %@";
+"设备" = "Devices";
 "设置" = "Settings";
 "设置…" = "Settings…";
 "语言 \"%@\" 不被转写引擎支持" = "Language \"%@\" is not supported by the transcription engine";

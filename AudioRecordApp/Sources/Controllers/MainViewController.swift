@@ -532,10 +532,10 @@ class MainViewController: NSViewController {
             SecureDelete.deleteFile(at: recording.fileURL)
             mainWindowView.updateRecordingState(.idle)
             // 诊断提示：时长不足与「全程无声音」分开说清——后者高频原因是
-            // 进程源录会议时只开进程没开麦克风（自己说话不经本端播放，
-            // tap 抓不到），用户无从推断该开哪个开关
+            // 进程源录会议时只勾进程没勾麦克风（自己说话不经本端播放，
+            // tap 抓不到），用户无从推断该勾哪一行（UI-043 R3: 勾选即开关）
             if recording.duration >= 1.0 && recording.fileName.contains("specificProcess") {
-                mainWindowView.updateStatus("所选应用在录制期间没有播放任何声音，已取消保存。提示：录自己的声音请开启「同时录入麦克风」".localized)
+                mainWindowView.updateStatus("所选应用在录制期间没有播放任何声音，已取消保存。提示：录自己的声音请在侧边栏勾选一个麦克风设备".localized)
             } else if recording.duration >= 1.0 {
                 mainWindowView.updateStatus("录制期间没有检测到任何声音，已取消保存".localized)
             } else {

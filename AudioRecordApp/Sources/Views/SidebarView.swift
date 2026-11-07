@@ -43,14 +43,14 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     private let refreshButton = IndustrialButtonView(title: "刷新".localized, icon: "arrow.clockwise")
     private let appsScroll = NSScrollView()
     private let appsStack = NSStackView()
-    private let microphonePanel = IndustrialMicrophoneRowView()
 
     // FEAT-004: 麦克风输入设备选择行（UI-015: 自绘行内选择器，弃 NSPopUpButton）
+    // UI-043 R3（2026-11-07 老板定）：「同时录入麦克风」开关行整个退役——勾选即开关，
+    // 设备列表常显。micMixEnabled = 有勾选行（等价旧 microphonePanel.isSelected 语义）。
     private let micDeviceRow = NSView()
     private let micDeviceSelector = IndustrialMicDeviceSelectorView()
-    // UI-027: 设备区显隐联动（开关 OFF 隐藏设备区；panel 底边两条约束互斥激活）
-    private var panelBottomToDeviceRow: NSLayoutConstraint!
-    private var panelBottomToTab: NSLayoutConstraint!
+    /// 麦克风混录开关（R3: 勾选行驱动；默认关 = 全不勾）
+    private var micMixEnabled: Bool = false
     
     // 已录制文件Tab的组件
     private let recordedFilesView = RecordedFilesView()
@@ -121,7 +121,6 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         audioRecorderTabView.addSubview(refreshButton)
         audioRecorderTabView.addSubview(appsScroll)
         audioRecorderTabView.addSubview(micHeader)
-        audioRecorderTabView.addSubview(microphonePanel)
         audioRecorderTabView.addSubview(micDeviceRow)
         
         // 创建Tab
@@ -183,11 +182,6 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         systemTargetRow.onClick = { [weak self] in
             self?.selectSystemAudioTarget()
         }
-        
-        microphonePanel.translatesAutoresizingMaskIntoConstraints = false
-        microphonePanel.onChange = { [weak self] enabled in
-            self?.microphoneInputChanged(enabled: enabled)
-        }
 
         // FEAT-004: 麦克风输入设备选择行
         setupMicDeviceRow()
@@ -217,9 +211,10 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
     }
 
-    /// UI-043: 展开态只列实际麦克风；无钉选时勾选/折叠名投影到当前 `isSystemDefault` 设备，
-    /// **不**把系统默认 UID 写入 UserDefaults（保持 `preferredDeviceUID=nil` 动态跟随）。
-    /// 所选设备失效时清除钉选并提示。
+    /// UI-043 R2/R3: 列表 = 实际探测到的麦克风，常显；勾选索引由 micMixEnabled + preferred 推导。
+    /// - micMixEnabled=false → selectedIndex=-1（全不勾 = 不录麦克风）
+    /// - micMixEnabled=true：preferred 有效 → 勾该行；preferred=nil（跟随）→ 勾系统默认设备行（投影，不写 UD）
+    /// 所选设备失效时清除钉选并提示（混录保持开，勾落系统默认投影）。
     private func refreshMicDeviceList() {
         let devices = MicDeviceManager.shared.listMicrophones()
         let preferred = MicDeviceManager.shared.preferredDeviceUID
@@ -236,42 +231,53 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         }
 
         let systemDefaultIndex = devices.firstIndex(where: { $0.isSystemDefault }) ?? 0
-        var selectedIndex = systemDefaultIndex
-        if let uid = preferred, let idx = devices.firstIndex(where: { $0.uid == uid }) {
-            selectedIndex = idx
+        var selectedIndex = -1
+        if micMixEnabled {
+            selectedIndex = systemDefaultIndex
+            if let uid = preferred, let idx = devices.firstIndex(where: { $0.uid == uid }) {
+                selectedIndex = idx
+            }
         }
         micDeviceSelector.configure(options: options, selectedIndex: selectedIndex)
 
-        // 失效处理：清除持久化 + selector 提示（回跟随，勾选落系统默认投影）
+        // 失效处理：清除持久化 + selector 提示（勾落系统默认投影，混录保持开）
         if let uid = preferred, !preferredValid {
             MicDeviceManager.shared.preferredDeviceUID = nil
             micDeviceSelector.isInvalid = true
             logger.warning("🎤 [FEAT004] 所选设备失效已回退: uid=\(uid)")
             // preferred 已清，按跟随语义重配勾选索引
-            micDeviceSelector.configure(options: options, selectedIndex: systemDefaultIndex)
+            var fallback = -1
+            if micMixEnabled { fallback = systemDefaultIndex }
+            micDeviceSelector.configure(options: options, selectedIndex: fallback)
         } else {
             micDeviceSelector.isInvalid = false
         }
 
-        // UI-027: 无设备空态（折叠行显示「未检测到」）
+        // UI-027: 无设备空态（header 显示「未检测到」）
         micDeviceSelector.emptyStateText = devices.isEmpty ? "未检测到".localized : nil
     }
 
+    /// UI-043 R3: 勾选即开关（2026-11-07 老板定，原「拍板 a 回跟随」随开关行退役）——
+    /// - 点未勾行：开启混录 + 钉选该设备（写 preferredDeviceUID）
+    /// - 点已勾行：取消勾选 = 关闭混录（全不勾，preferred 保留不清理，下次勾行即钉新设备）
     private func micDeviceSelected(_ option: IndustrialMicDeviceSelectorView.Option, reselect: Bool) {
         guard let uid = option.uid, !uid.isEmpty else { return }
         if reselect {
-            // UI-043 拍板 a：再点已勾选 → 有钉选则取消回跟随；已跟随则不写 UD
-            if MicDeviceManager.shared.preferredDeviceUID != nil {
-                MicDeviceManager.shared.preferredDeviceUID = nil
-                logger.info("🎤 [UI-043] 取消钉选 → 跟随系统默认")
-                refreshMicDeviceList()
-            } else {
-                logger.info("🎤 [UI-043] 已跟随系统默认，再点已勾选不写 UD")
-            }
+            guard micMixEnabled else { return }
+            micMixEnabled = false
+            logger.info("🎤 [UI-043 R3] 取消勾选 → 麦克风混录关闭")
+            refreshMicDeviceList()
+            microphoneMixChanged(enabled: false)
             return
         }
+        let wasEnabled = micMixEnabled
+        micMixEnabled = true
         MicDeviceManager.shared.preferredDeviceUID = uid
         logger.info("🎤 [FEAT004] 麦克风设备 → \(option.displayName) (uid=\(uid))")
+        refreshMicDeviceList()
+        if !wasEnabled {
+            microphoneMixChanged(enabled: true)
+        }
     }
     
     private func setupRefreshButton() {
@@ -351,11 +357,7 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             // 第三段：麦克风设备（固定在底部）
             micHeader.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 16),
             micHeader.trailingAnchor.constraint(lessThanOrEqualTo: audioRecorderTabView.trailingAnchor, constant: -16),
-            micHeader.bottomAnchor.constraint(equalTo: microphonePanel.topAnchor, constant: -8),
-            
-            microphonePanel.leadingAnchor.constraint(equalTo: audioRecorderTabView.leadingAnchor, constant: 12),
-            microphonePanel.trailingAnchor.constraint(equalTo: audioRecorderTabView.trailingAnchor, constant: -12),
-            microphonePanel.heightAnchor.constraint(equalToConstant: 36),
+            micHeader.bottomAnchor.constraint(equalTo: micDeviceRow.topAnchor, constant: -8),
 
             // FEAT-004: 麦克风输入设备选择行（固定最底）
             // UI-015: 高度由 selector 内容驱动（展开时撑开）
@@ -364,23 +366,6 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
             micDeviceRow.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12),
             micDeviceRow.heightAnchor.constraint(greaterThanOrEqualToConstant: 30)
         ])
-        // UI-027: 设备区显隐联动约束（与上面 activate 块分开管理；panel 底边二选一）
-        // 此刻组件已在 setupAudioRecorderTab 入树（共同祖先就绪），创建后立即按开关当前态初始化
-        panelBottomToDeviceRow = microphonePanel.bottomAnchor.constraint(equalTo: micDeviceRow.topAnchor, constant: -6)
-        panelBottomToTab = microphonePanel.bottomAnchor.constraint(equalTo: audioRecorderTabView.bottomAnchor, constant: -12)
-        updateMicDeviceRowVisibility(enabled: microphonePanel.isSelected)
-    }
-
-    /// UI-027: 开关 OFF 隐藏设备区（panel 直接封底）、ON 显示（panel→selector 行间距 6）；无动画直接切换
-    private func updateMicDeviceRowVisibility(enabled: Bool) {
-        micDeviceRow.isHidden = !enabled
-        panelBottomToDeviceRow.isActive = false
-        panelBottomToTab.isActive = false
-        if enabled {
-            panelBottomToDeviceRow.isActive = true
-        } else {
-            panelBottomToTab.isActive = true
-        }
     }
     
     // MARK: - Actions
@@ -396,9 +381,9 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
         delegate?.sidebarViewDidChangeSourceSelection(self)
     }
     
-    private func microphoneInputChanged(enabled: Bool) {
+    /// UI-043 R3: 麦克风混录状态变化统一出口（勾选/取消勾选驱动，selftest 钩子同走此路）
+    private func microphoneMixChanged(enabled: Bool) {
         logger.info("麦克风附加输入: \(enabled ? "开启" : "关闭")")
-        updateMicDeviceRowVisibility(enabled: enabled)
         delegate?.sidebarViewDidChangeMixAudio(self, enabled: enabled)
         delegate?.sidebarViewDidChangeSourceSelection(self)
     }
@@ -457,13 +442,18 @@ class SidebarView: NSView, TabContainerViewDelegate, RecordedFilesViewDelegate {
     }
     
     func isMicrophoneSourceSelected() -> Bool {
-        return microphonePanel.isSelected
+        // UI-043 R3: 有勾选行 = 混录麦克风（原开关行 isSelected 语义）
+        return micMixEnabled
     }
 
-    /// FIX-006 自测钩子：编程开关「同时录入麦克风」（selftest 触发器用，等价于手点该行）
+    /// FIX-006/007 自测钩子：编程开/关麦克风混录（selftest 触发器用）。
+    /// R3: enabled=true 勾到跟随投影（系统默认设备行，preferred 保持 nil 动态跟随）；
+    /// enabled=false 全不勾。等价旧「点开关行」语义，lite 触发器 `mix` 位无需改动。
     func setMicrophoneMixEnabled(_ enabled: Bool) {
-        microphonePanel.isSelected = enabled
-        microphoneInputChanged(enabled: enabled)
+        guard micMixEnabled != enabled else { return }
+        micMixEnabled = enabled
+        refreshMicDeviceList()
+        microphoneMixChanged(enabled: enabled)
     }
     
     func getSelectedProcesses() -> [AudioProcessInfo] {
@@ -922,93 +912,6 @@ final class IndustrialAudioTargetRowView: NSView {
     }
 }
 
-// MARK: - IndustrialMicrophoneRowView
-/// UI-027 方案 A: 标准开关行 — 左 🎙+标题、右 pill switch；中性底不再随选中变绿（大面积绿底退出）。
-/// 设备名不在此显示（全局唯一答案在 selector 折叠行）；整行点击与 switch 点击等价（事件不冒泡，无双触发）。
-final class IndustrialMicrophoneRowView: NSView {
-    var onChange: ((Bool) -> Void)?
-    var isSelected: Bool = false { didSet { switchControl.isOn = isSelected } }
-
-    private let iconView = NSImageView()
-    private let titleLabel = NSTextField(labelWithString: "同时录入麦克风".localized)
-    private let switchControl = IndustrialSwitchView()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: .zero)
-        setupView()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupView()
-    }
-
-    private func setupView() {
-        wantsLayer = true
-        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
-        layer?.cornerRadius = IndustrialCornerRadius.xs
-        layer?.borderWidth = 0
-        translatesAutoresizingMaskIntoConstraints = false
-
-        if let image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "麦克风".localized) {
-            iconView.image = image
-        }
-        iconView.contentTintColor = IndustrialColors.onSurfaceVariant
-        iconView.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(iconView)
-
-        titleLabel.font = IndustrialTypography.body
-        titleLabel.textColor = IndustrialColors.onSurface
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(titleLabel)
-
-        switchControl.onChange = { [weak self] on in
-            guard let self = self else { return }
-            self.isSelected = on
-            self.onChange?(on)
-        }
-        addSubview(switchControl)
-
-        NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 18),
-            iconView.heightAnchor.constraint(equalToConstant: 18),
-
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 10),
-            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: switchControl.leadingAnchor, constant: -8),
-
-            switchControl.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            switchControl.centerYAnchor.constraint(equalTo: centerYAnchor),
-        ])
-
-        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
-    }
-
-    private func updateAppearance() {
-        // UI-027: 开关行恒中性底，仅 hover 抬升；开/关视觉全权由右侧 switch 表达
-        layer?.backgroundColor = IndustrialColors.surfaceContainerLow.cgColor
-        iconView.contentTintColor = IndustrialColors.onSurfaceVariant
-        titleLabel.textColor = IndustrialColors.onSurface
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        NSCursor.pointingHand.set()
-        layer?.backgroundColor = IndustrialColors.surfaceContainerHigh.cgColor
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        NSCursor.arrow.set()
-        updateAppearance()
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        isSelected.toggle()
-        onChange?(isSelected)
-    }
-}
-
 // MARK: - IndustrialCheckboxView
 /// 工业风格方形 Checkbox — 遵循 IndustrialColors 设计令牌
 final class IndustrialCheckboxView: NSView {
@@ -1348,17 +1251,19 @@ class IndustrialTableRowView: NSTableRowView {
 
 // MARK: - IndustrialMicDeviceSelectorView
 /// UI-015/UI-043: 自绘麦克风设备选择器（弃用 NSPopUpButton；UI-043 去掉「跟随系统默认」伪行）。
-/// - 折叠态（行内可见）：当前勾选设备的友好名 + ▼（无钉选时 = 系统默认投影）
-/// - 展开态：只列实际麦克风设备；再点已勾选行 → 取消钉选回跟随（`onSelect` 的 reselect=true）
+/// UI-043 R2（2026-11-07 老板参考图反馈）：header 改「设备」分组标题（不再显示当前设备名），
+/// **默认展开**——「一个列表搞定」：探测到几个麦克风就平铺几行，每行 checkbox 直接勾选。
+/// - 再点已勾选行 → 取消钉选回跟随（`onSelect` 的 reselect=true，勾落系统默认投影）
+/// - isInvalid / emptyState 仍占用 header 文案位（功能性提示优先于分组标题）
 /// - 选项 displayName 由 MicDeviceManager.displayName(for:) 友好化处理（Aggregate 子设备解析）
 final class IndustrialMicDeviceSelectorView: NSView {
     /// 一个选项数据
     struct Option {
         /// 具体设备 UID（UI-043 后列表无 uid=nil 伪行；跟随语义由 Sidebar 写 preferredDeviceUID=nil）
         let uid: String?
-        /// 折叠态显示 + 展开态行内主标
+        /// 展开态行内主标
         let displayName: String
-        /// 展开态行内副标（可选；设备行通常为 nil）
+        /// 预留副标字段（R2 起行内不再渲染；当前唯一调用方恒传 nil）
         let subtitle: String?
         /// 该设备是否对应当前系统默认设备（行内 hint）
         let isCurrent: Bool
@@ -1367,21 +1272,21 @@ final class IndustrialMicDeviceSelectorView: NSView {
     /// reselect=true：再点当前已勾选行（拍板 a：取消钉选回跟随）
     var onSelect: ((Option, Bool) -> Void)?
 
-    /// 所选设备失效时为 true（折叠态切换到警告文案）
+    /// 所选设备失效时为 true（header 切换到警告文案）
     var isInvalid: Bool = false { didSet { updateAppearance() } }
 
-    /// UI-027: 无设备时的折叠行文案（非 nil 且列表为空时优先显示）
+    /// UI-027: 无设备时的 header 文案（非 nil 且列表为空时优先显示）
     var emptyStateText: String? { didSet { updateAppearance() } }
 
     private let header = NSView()
-    private let headerIcon = NSImageView()
     private let headerLabel = NSTextField(labelWithString: "")
     private let arrowIcon = NSImageView()
     private let listStack = NSStackView()
 
     private var options: [Option] = []
     private var selectedIndex: Int = 0
-    private var expanded: Bool = false { didSet { updateExpandedState() } }
+    /// R2: 默认展开——列表直接可见，不再「折叠显示当前设备、展开才见列表」
+    private var expanded: Bool = true { didSet { updateExpandedState() } }
     private var isHovering = false
 
     override init(frame frameRect: NSRect) {
@@ -1405,13 +1310,7 @@ final class IndustrialMicDeviceSelectorView: NSView {
         header.translatesAutoresizingMaskIntoConstraints = false
         addSubview(header)
 
-        if let img = NSImage(systemSymbolName: "mic.and.signal.level.fill", accessibilityDescription: "输入设备".localized) {
-            headerIcon.image = img
-        }
-        headerIcon.contentTintColor = IndustrialColors.onSurfaceVariant
-        headerIcon.translatesAutoresizingMaskIntoConstraints = false
-        header.addSubview(headerIcon)
-
+        headerLabel.stringValue = "设备".localized
         headerLabel.font = IndustrialTypography.body
         headerLabel.textColor = IndustrialColors.onSurface
         headerLabel.lineBreakMode = .byTruncatingTail
@@ -1420,7 +1319,7 @@ final class IndustrialMicDeviceSelectorView: NSView {
 
         arrowIcon.translatesAutoresizingMaskIntoConstraints = false
         arrowIcon.contentTintColor = IndustrialColors.textSecondary
-        arrowIcon.image = Self.arrowImage(expanded: false)
+        arrowIcon.image = Self.arrowImage(expanded: expanded)
         header.addSubview(arrowIcon)
 
         listStack.orientation = .vertical
@@ -1428,7 +1327,7 @@ final class IndustrialMicDeviceSelectorView: NSView {
         listStack.edgeInsets = NSEdgeInsets(top: 4, left: 0, bottom: 0, right: 0)
         listStack.alignment = .leading
         listStack.translatesAutoresizingMaskIntoConstraints = false
-        listStack.isHidden = true
+        listStack.isHidden = !expanded
         addSubview(listStack)
 
         let headerTap = NSClickGestureRecognizer(target: self, action: #selector(toggleExpanded))
@@ -1440,12 +1339,7 @@ final class IndustrialMicDeviceSelectorView: NSView {
             header.trailingAnchor.constraint(equalTo: trailingAnchor),
             header.heightAnchor.constraint(equalToConstant: 34),
 
-            headerIcon.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 12),
-            headerIcon.centerYAnchor.constraint(equalTo: header.centerYAnchor),
-            headerIcon.widthAnchor.constraint(equalToConstant: 16),
-            headerIcon.heightAnchor.constraint(equalToConstant: 16),
-
-            headerLabel.leadingAnchor.constraint(equalTo: headerIcon.trailingAnchor, constant: 8),
+            headerLabel.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 12),
             headerLabel.centerYAnchor.constraint(equalTo: header.centerYAnchor),
             headerLabel.trailingAnchor.constraint(lessThanOrEqualTo: arrowIcon.leadingAnchor, constant: -6),
 
@@ -1463,9 +1357,10 @@ final class IndustrialMicDeviceSelectorView: NSView {
         updateAppearance()
     }
 
+    /// UI-043 R3: selectedIndex=-1 合法（全不勾 = 混录关）
     func configure(options: [Option], selectedIndex: Int) {
         self.options = options
-        self.selectedIndex = max(0, min(selectedIndex, max(options.count - 1, 0)))
+        self.selectedIndex = max(-1, min(selectedIndex, options.count - 1))
         rebuildList()
         updateAppearance()
     }
@@ -1536,8 +1431,9 @@ final class IndustrialMicDeviceSelectorView: NSView {
         } else if options.isEmpty, let empty = emptyStateText {
             headerLabel.stringValue = empty
             headerLabel.textColor = IndustrialColors.textTertiary
-        } else if selectedIndex >= 0 && selectedIndex < options.count {
-            headerLabel.stringValue = options[selectedIndex].displayName
+        } else {
+            // R2: 正常态固定「设备」分组标题；当前勾选由行内 checkbox 表达
+            headerLabel.stringValue = "设备".localized
             headerLabel.textColor = IndustrialColors.onSurface
         }
     }
@@ -1556,12 +1452,14 @@ final class IndustrialMicDeviceSelectorView: NSView {
 }
 
 // MARK: - IndustrialMicDeviceOptionRowView
-/// UI-027: 设备选择器展开态行——左侧 ✓ 列（当前项勾选、非当前项空位对齐）、主标、可选副标。点击触发 onClick。
+/// UI-027: 设备行。UI-043 R2（2026-11-07 老板参考图）：左侧自绘 checkbox（勾选态 primary 填充+白勾、
+/// 未选态描边空块）+ 圆底麦克风图标 + 设备名——「直接勾选的形式」，选中态由 checkbox 表达，标题不再 semibold。
 final class IndustrialMicDeviceOptionRowView: NSView {
     var onClick: (() -> Void)?
-    private let checkLabel = NSTextField(labelWithString: "✓")
+    private let checkBox = MicCheckIndicator()
+    private let micBadge = NSView()
+    private let micIcon = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
-    private let subtitleLabel = NSTextField(labelWithString: "")
     private var isHovering = false
 
     init(option: IndustrialMicDeviceSelectorView.Option, isSelected: Bool) {
@@ -1580,11 +1478,21 @@ final class IndustrialMicDeviceOptionRowView: NSView {
         layer?.cornerRadius = IndustrialCornerRadius.xs
         translatesAutoresizingMaskIntoConstraints = false
 
-        checkLabel.font = NSFont.systemFont(ofSize: 12, weight: .semibold)
-        checkLabel.alignment = .center
-        checkLabel.textColor = IndustrialColors.primary
-        checkLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(checkLabel)
+        checkBox.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(checkBox)
+
+        micBadge.wantsLayer = true
+        micBadge.layer?.backgroundColor = IndustrialColors.primary.cgColor
+        micBadge.layer?.cornerRadius = 11
+        micBadge.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(micBadge)
+
+        if let img = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: nil) {
+            micIcon.image = img
+        }
+        micIcon.contentTintColor = .white
+        micIcon.translatesAutoresizingMaskIntoConstraints = false
+        micBadge.addSubview(micIcon)
 
         titleLabel.font = IndustrialTypography.body
         titleLabel.textColor = IndustrialColors.onSurface
@@ -1592,25 +1500,27 @@ final class IndustrialMicDeviceOptionRowView: NSView {
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(titleLabel)
 
-        subtitleLabel.font = IndustrialTypography.monoDB
-        subtitleLabel.textColor = IndustrialColors.textTertiary
-        subtitleLabel.lineBreakMode = .byTruncatingTail
-        subtitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(subtitleLabel)
-
         NSLayoutConstraint.activate([
-            checkLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-            checkLabel.widthAnchor.constraint(equalToConstant: 14),
-            checkLabel.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            heightAnchor.constraint(equalToConstant: 36),
 
-            titleLabel.leadingAnchor.constraint(equalTo: checkLabel.trailingAnchor, constant: 4),
-            titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 5),
+            checkBox.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            checkBox.centerYAnchor.constraint(equalTo: centerYAnchor),
+            checkBox.widthAnchor.constraint(equalToConstant: 16),
+            checkBox.heightAnchor.constraint(equalToConstant: 16),
+
+            micBadge.leadingAnchor.constraint(equalTo: checkBox.trailingAnchor, constant: 8),
+            micBadge.centerYAnchor.constraint(equalTo: centerYAnchor),
+            micBadge.widthAnchor.constraint(equalToConstant: 22),
+            micBadge.heightAnchor.constraint(equalToConstant: 22),
+
+            micIcon.centerXAnchor.constraint(equalTo: micBadge.centerXAnchor),
+            micIcon.centerYAnchor.constraint(equalTo: micBadge.centerYAnchor),
+            micIcon.widthAnchor.constraint(equalToConstant: 12),
+            micIcon.heightAnchor.constraint(equalToConstant: 12),
+
+            titleLabel.leadingAnchor.constraint(equalTo: micBadge.trailingAnchor, constant: 8),
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
-
-            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
-            subtitleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -12),
-            subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -4),
         ])
 
         addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil))
@@ -1618,20 +1528,8 @@ final class IndustrialMicDeviceOptionRowView: NSView {
 
     private func configure(option: IndustrialMicDeviceSelectorView.Option, isSelected: Bool) {
         titleLabel.stringValue = option.displayName
-        if let sub = option.subtitle, !sub.isEmpty {
-            subtitleLabel.stringValue = "· " + sub
-            subtitleLabel.isHidden = false
-        } else {
-            subtitleLabel.isHidden = true
-        }
-        // UI-027: 当前项 ✓（accent 唯一出现位，switch 开态除外）；非当前项空位对齐
-        checkLabel.alphaValue = isSelected ? 1.0 : 0.0
-        if isSelected {
-            titleLabel.font = NSFont.systemFont(ofSize: IndustrialTypography.body.pointSize, weight: .semibold)
-        } else {
-            titleLabel.font = IndustrialTypography.body
-        }
-        titleLabel.textColor = IndustrialColors.onSurface
+        // R2: subtitle 字段保留但不再渲染（当前唯一调用方恒传 nil）；选中态全由 checkbox 表达
+        checkBox.isChecked = isSelected
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -1654,5 +1552,44 @@ final class IndustrialMicDeviceOptionRowView: NSView {
 
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .pointingHand)
+    }
+}
+
+// MARK: - MicCheckIndicator
+/// UI-043 R2: 勾选框自绘——选中=primary 填充圆角块+白色对勾路径；未选=outlineVariant 描边空块。
+final class MicCheckIndicator: NSView {
+    var isChecked: Bool = false { didSet { needsDisplay = true } }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        wantsLayer = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard NSGraphicsContext.current != nil else { return }
+        let rect = bounds.insetBy(dx: 1, dy: 1)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 4.5, yRadius: 4.5)
+        if isChecked {
+            IndustrialColors.primary.setFill()
+            path.fill()
+            let check = NSBezierPath()
+            check.move(to: NSPoint(x: rect.midX - 3.2, y: rect.midY + 0.4))
+            check.line(to: NSPoint(x: rect.midX - 1.0, y: rect.midY - 2.4))
+            check.line(to: NSPoint(x: rect.midX + 3.4, y: rect.midY + 2.8))
+            check.lineWidth = 1.8
+            check.lineCapStyle = .round
+            check.lineJoinStyle = .round
+            NSColor.white.setStroke()
+            check.stroke()
+        } else {
+            path.lineWidth = 1.2
+            IndustrialColors.outlineVariant.setStroke()
+            path.stroke()
+        }
     }
 }
