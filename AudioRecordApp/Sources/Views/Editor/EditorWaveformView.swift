@@ -768,7 +768,8 @@ class EditorWaveformView: NSView {
 
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
             // FIX-004 同款下限：静音段保留 3pt 基线带；UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
-            let amplitude = max(1.5, CGFloat(maxVal) * drawHeight)
+            // UI-045 R2: per-clip 归一化——桶峰值除以 clip 全局峰值再乘 headroom（最大段=90% 可用高）
+            let amplitude = max(1.5, CGFloat(maxVal / clipPeakNorm) * drawHeight * Self.normHeadroom)
             points.append((x: x, amp: amplitude))
         }
 
@@ -804,7 +805,9 @@ class EditorWaveformView: NSView {
         }
         let points = peaks.enumerated().map { (i, v) -> (x: CGFloat, amp: CGFloat) in
             let x = waveformRect.minX + CGFloat(i) / CGFloat(pixelCount - 1) * waveformRect.width
-            return (x: x, amp: max(1.5, CGFloat(v) * drawHeight))
+            // UI-045 R2: 归一化同粗路径；帧级峰值可能因跳采略超桶级 clipPeak，钳 1 防伪过冲
+            let norm = min(v / clipPeakNorm, 1.0)
+            return (x: x, amp: max(1.5, CGFloat(norm) * drawHeight * Self.normHeadroom))
         }
         drawGainAwareEnvelope(points: points)
     }
@@ -1036,7 +1039,8 @@ class EditorWaveformView: NSView {
 
                 let mapped = WaveformAmplitudeMapper.normalized(peak.amplitude, referenceMax: 1.0)
                 // UI-034 R1: amp=自基线向上全高（镜像 *0.5 退役）
-                let amplitude = max(1.5, CGFloat(mapped) * drawHeight)
+                // UI-045 R2: per-clip 归一化同粗/细路径
+                let amplitude = max(1.5, CGFloat(min(mapped / clipPeakNorm, 1.0)) * drawHeight * Self.normHeadroom)
                 points.append((x: x, amp: amplitude))
             }
         }
@@ -1067,6 +1071,29 @@ class EditorWaveformView: NSView {
     // MARK: - UI-034 R1: 剪映式单边波形 + 音量暗轮廓分层
 
     /// UI-034: 100% 增益满幅高度（渲染与拖拽换算共用标尺）
+    // MARK: - UI-045 R2（并入 FIX-022）: 编辑器波形 per-clip 显示归一化（2026-11-07 老板定，对照剪映）
+    /// 「剪映可以把波纹打满，但不会顶到最顶部。我们往上抬的时候最底部不会往上走很多，
+    /// 有很多很平的音频顶不上去。」——FIX-010 拍板 B 的固定满刻度（峰值 1.0=满高）在编辑器
+    /// 显示层被本归一化取代（录制态 FIX-018 方案 A 不动；播放/导出零影响，纯显示层）。
+    /// 机制：amp_norm = sample / clipPeak × normHeadroom——最大段恒到可用高的 90%；
+    /// 音量线增益在归一化之上线性叠加（drawGainAwareEnvelope 不变），越满幅段照常溢出红。
+    /// 基准取整条 clip（allSamples/tiles 全局桶峰值最大值，非视口内重算）——缩放滚动不跳变；
+    /// 切分/删除/undo 后 allSamples 重建，基准随新 buffer 自动重算。
+    /// 全静音兜底：clipPeak 跌破门限按 1.0（= 旧满刻度行为，全基线）。
+    static let normHeadroom: CGFloat = 0.90
+
+    /// 归一基准：clip 全局峰值（0~1 域，来自 allSamples 桶峰值 / tile 峰值的最大值）
+    private var clipPeakNorm: Float {
+        var m: Float = 0
+        for v in allSamples where v > m { m = v }
+        if useTileMode {
+            for t in currentTiles {
+                for p in t.peaks where p.amplitude > m { m = p.amplitude }
+            }
+        }
+        return m > WaveformAmplitudeMapper.silenceFloorLinear ? m : 1.0
+    }
+
     private var envelopeFullHeight: CGFloat {
         (waveformRect.height - Self.volumeLaneHeight) * 0.82
     }
