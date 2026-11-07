@@ -128,3 +128,30 @@
 - 附带修正：菜单「导出 MP3」→「导出」（行为一直是开导出卡片）；主仓残留 80MB 二进制 + 17MB 源码 7z 已 mv 废纸篓
 - 验收：老板实机导出四格式 afinfo 校验通过，「验收通过」；master 51ca9c9 = merge loop/REL-006；worktree 清树
 - 证据：`docs/证据/2026-11-04-REL006-砍外部转码器导出链-交付证据.md`
+
+---
+
+### UI-043 麦克风选择器改设备勾选列表：开关/分组头全退役，勾选即开关（R1 去伪行 → R2 checkbox 列表 → R3 去开关 → R4 去分组头） | P2 | S | [done · 2026-11-07 验收]
+
+> 来源：老板 2026-10-31 发侧边栏截图（「同时录入麦克风」展开态：✓跟随系统默认·MacBook Pro 麦克风 / MacBook Pro 麦克风 / 聚合设备 #1405）：「打开的时候直接看到几个麦克风输入设备，默认勾选，不用单独起一行系统默认」。
+> 现状（10-31 核实）：`SidebarView.refreshMicDeviceList()` 展开态恒注入第 0 项伪行「跟随系统默认」+ 分隔线；列表含失效聚合设备（FIX-021 另单处理）。
+> 语义边界（防误伤，保留有效）：`preferredDeviceUID=nil` 在录音链是动态跟随（`MicDeviceManager.resolvedPreferredDevice()` nil→系统默认，FEAT-004R2 链路），不把系统默认 UID 悄悄写死。
+
+**演进链（11-05 R1 → 11-07 验收期三轮迭代）**：
+- **R1（11-05，30e748d）**：去伪行/分隔；勾选/折叠名投影系统默认（nil 不写 UD）；拍板 a（再点已勾选回跟随）；lite 让路。
+- **R2（11-07 参考图）**：老板「改成直接探测有多少个麦克风，直接勾选的形式。一个列表搞定」——header 改「设备」分组标题（en Devices）、默认展开、设备行改自绘 checkbox（`MicCheckIndicator`：primary 填充+路径白勾）+ 圆底麦克风图标。
+- **R3（11-07 实机）**：老板「只要下面这一个，连上面那个开关都可以不要……省了一个交互逻辑」——「同时录入麦克风」开关行整个退役（`IndustrialMicrophoneRowView` 类删除），设备列表常显，**勾选即开关**：点未勾行=开启混录+钉选该设备（写 preferredDeviceUID）；点已勾行=取消勾选=关闭混录（`selectedIndex=-1` 合法态）。R1 拍板 a 随开关行模型退役；「跟随」收窄为内部投影（micMixEnabled=true 且 preferred=nil 勾落系统默认行，不写 UD）。selftest 钩子 `setMicrophoneMixEnabled` 签名语义保持（lite `mix` 位零改动，FIX-007 录音中切麦链路不受影响）。
+- **R4（11-07 实机）**：老板「下拉箭头都可以，不要直接就是选项」——「设备 Devices + ▼」分组头与折叠交互整个退役，MICROPHONE 段标题下**直接平铺设备选项**；异常/空态提示（失效警告/「未检测到」）改列表首行 statusLabel（正常态隐藏不占位）；孤儿 L10n key「设备」清理。
+
+**验收标准**（全部达成）：
+- [x] 「MICROPHONE」标题下直接平铺设备行（勾选框+圆底图标+设备名），无开关行/分组头/箭头，列表=实际探测数
+- [x] 点未勾行勾上并混录（轨道板出「麦克风」轨道）；再点已勾行取消勾混录关
+- [x] 勾选持久化；失效警告/空态提示保持
+- [x] `build-app.sh` exit 0；SDK 基线不回退；lite PASS
+
+**交付与验收记录（2026-11-07）**：
+- 交付：loop/UI-043 终版 `dfd350e`（R2+R3 7468496 + R4 dfd350e，SidebarView/MainViewController/en/zh-Hans L10n + 证据 5 文件 +387/−435）
+- 三关卡（R4）：build 0 / SDK 148/148 / lite 15/15 + UITest2 PASS（mix 勾选→混录落盘全链真实生效）
+- 验收：老板实机看 R4 形态「好的，审核通过」；master `ad4e9c3` = merge loop/UI-043；合并态回归 build 12（@ad4e9c3）/ SDK 148/148 / lite PASS
+- 证据：`docs/证据/2026-11-07-UI043-R2R3-勾选即开关-交付证据.md`、`docs/证据/2026-11-05-UI043-麦选择器去跟随伪行-交付证据.md`
+- 关联：`IndustrialSwitchView` 通用控件保留（IndustrialControls.swift，本期零使用方）；诊断文案同步「请在侧边栏勾选一个麦克风设备」
