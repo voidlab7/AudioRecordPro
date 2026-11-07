@@ -59,11 +59,11 @@ class EditorTrackRowView: NSView {
         wantsLayer = true
         translatesAutoresizingMaskIntoConstraints = false
 
-        // 轨道头背景
+        // 轨道头背景（UI-044: 对齐设计稿）
         headerView.wantsLayer = true
-        headerView.layer?.backgroundColor = IndustrialColors.surfaceContainer.cgColor
+        headerView.layer?.backgroundColor = IndustrialColors.editorHeaderSurface.cgColor
         headerView.layer?.borderWidth = 0.5
-        headerView.layer?.borderColor = IndustrialColors.outlineVariant.cgColor
+        headerView.layer?.borderColor = IndustrialColors.editorDivider.cgColor
         headerView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(headerView)
 
@@ -78,7 +78,8 @@ class EditorTrackRowView: NSView {
         muteButton.setButtonType(.momentaryChange)
         muteButton.image = NSImage(systemSymbolName: "speaker", accessibilityDescription: "静音".localized)
         muteButton.imageScaling = .scaleProportionallyDown
-        muteButton.contentTintColor = IndustrialColors.textTertiary
+        // UI-044: 喇叭常态色对齐设计稿浅灰（静音态 coral 保留，见 updateMuteState）
+        muteButton.contentTintColor = IndustrialColors.editorIcon
         muteButton.target = self
         muteButton.action = #selector(muteTapped)
         muteButton.translatesAutoresizingMaskIntoConstraints = false
@@ -102,10 +103,10 @@ class EditorTrackRowView: NSView {
         waveformView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(waveformView)
 
-        // 底部分割线
+        // 底部分割线（UI-044: 对齐设计稿）
         let bottomDivider = NSView()
         bottomDivider.wantsLayer = true
-        bottomDivider.layer?.backgroundColor = IndustrialColors.outlineVariant.cgColor
+        bottomDivider.layer?.backgroundColor = IndustrialColors.editorDivider.cgColor
         bottomDivider.translatesAutoresizingMaskIntoConstraints = false
         addSubview(bottomDivider)
 

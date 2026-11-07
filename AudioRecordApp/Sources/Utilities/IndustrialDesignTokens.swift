@@ -143,10 +143,12 @@ struct IndustrialColors {
     static let waveformCoral = NSColor(hex: "#E87850")
 
     /// UI-025: 波形主体色（对标参考图采样 #75BFB8；老板拍板 a 明度分层——波纹浅青、强调 #13BBA3 不动）
-    static let waveformBase = NSColor(hex: "#75BFB8")
+    /// UI-044: 设计稿对齐剪映参考图，波形主体改 #50AEA5（形态不动只换色）
+    static let waveformBase = NSColor(hex: "#50AEA5")
 
     /// UI-025: 波形亮部（已播放/选中经过段，参考图波峰亮部采样）
-    static let waveformBright = NSColor(hex: "#84CFC7")
+    /// UI-044: 随主体同族提亮（保持明度分层语义）
+    static let waveformBright = NSColor(hex: "#65C4BA")
 
     /// UI-034: 音量包络线常态色（老板参考图拍板剪映橙族）
     static let volumeEnvelope = NSColor(hex: "#FFA94D")
@@ -212,6 +214,31 @@ struct IndustrialColors {
 
     /// UI-020: 上下文工具条底色（B 稿 #1D232C）
     static let editorCtxToolbarBg = NSColor(hex: "#1D232C")
+
+    // MARK: - UI-044 编辑页配色（对齐设计稿/剪映参考图）
+
+    /// 菜单/编辑工具栏底色
+    static let editorToolbarSurface = NSColor(hex: "#222628")
+    /// 轨道头（含轨道头列背景）
+    static let editorHeaderSurface = NSColor(hex: "#191C1E")
+    /// 轨道颜色（轨道带/时间轴底）
+    static let editorTrackSurface = NSColor(hex: "#1A1D1F")
+    /// 轨道区描边/分隔线（底边、轨道头边框、行列分隔）
+    static let editorDivider = NSColor(hex: "#2A2E30")
+    /// 工具栏组间分隔线（较亮）
+    static let editorDividerStrong = NSColor(hex: "#4A4F52")
+    /// 工具栏图标/轨道头喇叭常态色
+    static let editorIcon = NSColor(hex: "#C8CCCE")
+    /// 电平背景（clip 底色，半透明叠加对齐参考图；实机反馈 11-04 老板「再淡一点」）
+    static let editorClipSurface = NSColor(hex: "#2E5E59", alpha: 0.6)
+    /// clip 细描边
+    static let editorClipStroke = NSColor(hex: "#3D6B66")
+    /// 音量线常态（0dB 水位线，浅青低存在感）
+    static let editorVolumeLineIdle = NSColor(hex: "#BFDAD6", alpha: 0.55)
+    /// 时间刻度文字
+    static let editorRulerText = NSColor(hex: "#82888B")
+    /// 时间刻度线
+    static let editorRulerTick = NSColor(hex: "#3A4043")
 
     /// UI-020: 读数非法值红框
     static let editorReadoutInvalid = IndustrialColors.error

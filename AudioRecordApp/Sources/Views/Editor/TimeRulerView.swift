@@ -79,9 +79,9 @@ class TimeRulerView: NSView {
         // 跳过 headerWidth 区域，背景透明
         guard rulerRect.width > 0, rulerRect.height > 0 else { return }
 
-        // 1) 顶部细线（与设计稿一致：刻度尺底部分割）
+        // 1) 顶部细线（UI-044: 分隔线对齐设计稿）
         let bottomY: CGFloat = 0
-        IndustrialColors.outlineVariant.withAlphaComponent(0.45).setStroke()
+        IndustrialColors.editorDivider.setStroke()
         let bottomLine = NSBezierPath()
         bottomLine.lineWidth = 0.5
         bottomLine.move(to: NSPoint(x: rulerRect.minX, y: bottomY))
@@ -94,12 +94,12 @@ class TimeRulerView: NSView {
         let step: TimeInterval = overrideStep ?? Self.chooseNiceStep(rawStep)
         let subSteps = Self.chooseSubSteps(step: step)
 
-        // 3) 字体与颜色（与设计稿一致：单色 textTertiary 透明）
+        // 3) 字体与颜色（UI-044: 文字/刻度线对齐设计稿）
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 9, weight: .regular),
-            .foregroundColor: IndustrialColors.textTertiary.withAlphaComponent(0.68)
+            .foregroundColor: IndustrialColors.editorRulerText
         ]
-        let tickColor = IndustrialColors.onSurfaceVariant.withAlphaComponent(0.24)
+        let tickColor = IndustrialColors.editorRulerTick
         tickColor.setStroke()
 
         // 4) 绘制主刻度 + 时间标签 + 子刻度

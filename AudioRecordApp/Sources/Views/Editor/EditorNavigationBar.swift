@@ -48,9 +48,10 @@ class EditorNavigationBar: NSView {
     
     private func setupView() {
         wantsLayer = true
-        layer?.backgroundColor = IndustrialColors.surfaceContainerLowest.cgColor
+        // UI-044: 菜单/工具栏底色对齐设计稿
+        layer?.backgroundColor = IndustrialColors.editorToolbarSurface.cgColor
         
-        bottomSeparator.backgroundColor = IndustrialColors.outlineVariant.cgColor
+        bottomSeparator.backgroundColor = IndustrialColors.editorDivider.cgColor
         layer?.addSublayer(bottomSeparator)
         
         setupButtons()
@@ -114,7 +115,8 @@ class EditorNavigationBar: NSView {
     
     private func setupSeparator(_ sep: NSView) {
         sep.wantsLayer = true
-        sep.layer?.backgroundColor = IndustrialColors.outlineVariant.cgColor
+        // UI-044: 组间分隔线对齐设计稿（较亮灰）
+        sep.layer?.backgroundColor = IndustrialColors.editorDividerStrong.cgColor
         sep.translatesAutoresizingMaskIntoConstraints = false
         addSubview(sep)
     }

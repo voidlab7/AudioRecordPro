@@ -69,7 +69,8 @@ class TrackContainerView: NSView {
 
     private func setupView() {
         wantsLayer = true
-        layer?.backgroundColor = IndustrialColors.surfaceContainerLowest.cgColor
+        // UI-044: 轨道颜色（轨道带/时间轴底）对齐设计稿
+        layer?.backgroundColor = IndustrialColors.editorTrackSurface.cgColor
 
         // UI-037: 容器高度不再由内容 intrinsic 决定（父视图钉满轨道区）；
         // 内部分两层——ruler+playhead overlay（顶锚、铺满全高）与轨道行 stack（居中）。
@@ -80,12 +81,13 @@ class TrackContainerView: NSView {
         // 覆盖范围 = 标尺左段 + 轨道行 header + 行间空隙 + 轨道带上下留白的 x<88 区域。
         // z 序最底（最先 addSubview），行内 headerView 同色叠加形成行间横线（剪映同款）。
         headerColumnView.wantsLayer = true
-        headerColumnView.layer?.backgroundColor = IndustrialColors.surfaceContainer.cgColor
+        // UI-044: 轨道头列背景对齐设计稿
+        headerColumnView.layer?.backgroundColor = IndustrialColors.editorHeaderSurface.cgColor
         headerColumnView.translatesAutoresizingMaskIntoConstraints = false
         addSubview(headerColumnView)
 
         headerColumnSeparator.wantsLayer = true
-        headerColumnSeparator.layer?.backgroundColor = IndustrialColors.outlineVariant.cgColor
+        headerColumnSeparator.layer?.backgroundColor = IndustrialColors.editorDivider.cgColor
         headerColumnSeparator.translatesAutoresizingMaskIntoConstraints = false
         headerColumnView.addSubview(headerColumnSeparator)
 
