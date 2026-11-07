@@ -170,7 +170,9 @@ R2 细项：
 
 **R2b 修复（2026-11-07 实机打回）**：老板截图——波形左侧整段实心满高（绿框）。根因：Phase1 快速桶每桶只采 1 点跳采漏响段 → 桶级 clipPeakNorm 低估 → 细路径帧级真峰值大面积 ≥ 基准被钳满。修复 `b111c0a`：`framePeakNorm`=per-buffer stride(1024) 帧级全局扫描缓存（10min 文件 <1ms 一次性），与桶级取大者兜底；**粗/细两路基准统一**（切换不跳变）；tile 保持桶级自洽。三关卡 build 0 / SDK 148/148 / lite 全 PASS。
 
-**R2c 修复（2026-11-07 实机二次打回）**：老板截图——波峰顶部多列被削平（「顶部有一些截断」）。根因：framePeakCache 只按 buffer 键控，Phase1→Phase2 同 buffer 换桶数据不失效 → Phase1 跳采低估基准被沿用 → 峰值列被钳 1.0 同高平顶。修复 `ac2e6e0`：缓存键补 `allSamples.count`（Phase2 后桶级=全帧真 max 兜底，v ≤ 基准恒成立）；并核对 fullHeight×0.90 < maxAmp 排除 cap 钳制来源。三关卡 build 0 / SDK 148/148 / lite 全 PASS。**待老板实机复验（布局 R1 + 波形 R2/R2b/R2c 一起看）**。
+**R2c 修复（2026-11-07 实机二次打回）**：老板截图——波峰顶部多列被削平（「顶部有一些截断」）。根因：framePeakCache 只按 buffer 键控，Phase1→Phase2 同 buffer 换桶数据不失效 → Phase1 跳采低估基准被沿用 → 峰值列被钳 1.0 同高平顶。修复 `ac2e6e0`：缓存键补 `allSamples.count`（Phase2 后桶级=全帧真 max 兜底，v ≤ 基准恒成立）；并核对 fullHeight×0.90 < maxAmp 排除 cap 钳制来源。三关卡 build 0 / SDK 148/148 / lite 全 PASS。
+
+**R2d 修复（2026-11-07 实机三次打回）**：老板截图——静音段出现中等高度水平线（「静音的地方会出现这样，不合理」）。根因：isOverdriven（拖增益 >0dB）时静音列的 1.5pt 基线下限也乘 clipGain，+12dB 下膨胀约 5 倍成可见横线（剪映语言静音段=空）。修复 `7f86742`：`amplify` 闭包对下限列（amp≤1.5，即 −60dBFS 门限下无信号）恒保持 1.5pt，信号列照常乘增益；过载溢出层同口径。三关卡 build 0 / SDK 148/148 / lite 全 PASS。**待老板实机复验（布局 R1 + 波形 R2/R2b/R2c/R2d 一起看）**。
 
 **预估**：M ｜ **关联**：UI-042（轨道头列背景/标尺贴顶）、UI-044（本单配色已对齐，几何在其上）｜ **证据**：docs/证据/2026-11-04-UI045-编辑页布局对齐-交付证据.md（随 merge 进 master）
 
